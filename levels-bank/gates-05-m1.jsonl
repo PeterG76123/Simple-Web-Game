@@ -1,0 +1,6 @@
+{"level":"5|6|31RULL,00DD,03DRU,10DDRD,44UULDDL||G210P400","lines":5,"partial":1,"rounds":0,"initialFree":0,"states":2,"gates":1}
+{"level":"5|5|21RU,00RR,01DDRUR,23DLL,34RULURUU||G110P040","lines":5,"partial":0,"rounds":0,"initialFree":0,"states":1,"gates":1}
+{"level":"5|6|13DRR,00RDDRU,40DDLUUL,04UUU,33RD||G230P430","lines":5,"partial":1,"rounds":0,"initialFree":0,"states":2,"gates":1}
+{"level":"5|7|32RU,02UU,40LLDR,04URUUU,34URD,14RU||G220P320","lines":6,"partial":1,"rounds":0,"initialFree":0,"states":2,"gates":1}
+{"level":"5|6|13LU,11ULD,12RUUR,31DRUU,44UL,34LLL||G230P210","lines":6,"partial":0,"rounds":0,"initialFree":0,"states":1,"gates":1}
+{"level":"5|6|24UR,00DD,10RRRD,22RUL,12DDLU,34RUU||G110P440","lines":6,"partial":0,"rounds":0,"initialFree":0,"states":1,"gates":1}
