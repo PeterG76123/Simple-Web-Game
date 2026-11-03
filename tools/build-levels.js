@@ -11,6 +11,8 @@
  *     group runs from 1.0 to 10.0), and order it from lowest to highest.
  *
  * Run with: node tools/build-levels.js
+ *           node tools/build-levels.js --no-grow   (use only what is already in
+ *           the bank, leaving out groups that don't have enough levels yet)
  */
 'use strict';
 const fs = require('fs');
@@ -21,6 +23,7 @@ const { scale } = require('./difficulty.js');
 
 async function main() {
   const t0 = Date.now();
+  const noGrow = process.argv.includes('--no-grow');
   const tiers = [];
   for (const tier of plan.tiers) {
     const groups = [];
@@ -33,12 +36,18 @@ async function main() {
       }
       console.log(`${tier.name}, ${g.name}:`);
       const pools = new Map();
+      let short = false;
       for (const [key, count] of needed) {
         const [kind, size, mirrors] = [key.split(':')[0], Number(key.split(':')[1]), Number(key.split(':')[2])];
         let bank = readBank(kind, size, mirrors);
         const want = count * tier.pool;
-        if (bank.length < want) bank = await grow(kind, size, mirrors, want - bank.length);
+        if (bank.length < want && !noGrow) bank = await grow(kind, size, mirrors, want - bank.length);
+        if (bank.length < count) short = true;
         pools.set(key, bank);
+      }
+      if (short) {
+        console.log('  left out: not enough levels in the bank yet');
+        continue;
       }
       // One difficulty scale for the whole group, over every candidate.
       const rate = scale([...pools.values()].flat());

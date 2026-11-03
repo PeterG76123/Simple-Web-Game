@@ -282,7 +282,14 @@ h1 {
 }
 .hud .btn { padding: 8px 12px; font-size: 0.9rem; }
 
-.hud-center { text-align: center; }
+.hud-center { text-align: center; min-width: 0; }
+.level-label, .moves { white-space: nowrap; }
+.hud .btn { white-space: nowrap; }
+/* On phones the header buttons show just their icons (labels stay for screen readers). */
+@media (max-width: 480px) {
+  .hud .btn-text { display: none; }
+  .hud .btn { min-width: 40px; }
+}
 .level-label { font-weight: 700; font-size: 1.1rem; }
 
 .moves {

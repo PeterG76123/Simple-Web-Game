@@ -656,7 +656,7 @@
       buttons.push({ label: 'Back to menu', primary: nextGroup < 0, action: goToMenu });
       buttons.push({ label: 'Play again', action: () => startLevel(group, index) });
       const last = group + 1 >= groupsNow().length;
-      showDialog(`Group ${group + 1} complete!`, `${detail} ${last ? 'You untangled every level.' : ''}`.trim(), buttons);
+      showDialog(`Group ${group + 1} complete!`, `${detail} ${last ? `You untangled every ${TIERS[tier].name} level.` : ''}`.trim(), buttons);
     }
   }
 

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Arrow Escape</title>
   <meta name="description" content="A puzzle game: drag each tangled line off the board the way its arrow points, using see-through gaps to get past other lines." />
-  <link rel="stylesheet" href="style.css?v=e6b2aa83" />
+  <link rel="stylesheet" href="style.css?v=70767b9f" />
 </head>
 <body>
   <!-- Front screen -->
@@ -50,13 +50,13 @@
   <!-- Game screen -->
   <section id="game" class="screen" aria-label="Game">
     <header class="hud">
-      <button id="menuBtn" class="btn ghost" aria-label="Back to menu">&#8592; Menu</button>
+      <button id="menuBtn" class="btn ghost" aria-label="Back to menu">&#8592;<span class="btn-text"> Menu</span></button>
       <div class="hud-center">
         <div id="levelLabel" class="level-label">Level 1</div>
         <div id="moves" class="moves">0 moves</div>
       </div>
       <div class="hud-actions">
-        <button id="undoBtn" class="btn ghost" aria-label="Undo last move" title="Undo (Ctrl+Z)">&#8630; Undo</button>
+        <button id="undoBtn" class="btn ghost" aria-label="Undo last move" title="Undo (Ctrl+Z)">&#8630;<span class="btn-text"> Undo</span></button>
         <button id="restartBtn" class="btn ghost" aria-label="Restart level" title="Restart">&#8635;</button>
       </div>
     </header>
@@ -82,7 +82,7 @@
   </div>
 
   <script src="rules.js?v=3dcf7ecc"></script>
-  <script src="levels-data.js?v=05182d5f"></script>
-  <script src="game.js?v=e1313d0b"></script>
+  <script src="levels-data.js?v=cc82177c"></script>
+  <script src="game.js?v=1bd6c5e8"></script>
 </body>
 </html>
