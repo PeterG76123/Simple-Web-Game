@@ -8,9 +8,14 @@
   const EXIT_SPEED_START = 10;
   const EXIT_ACCEL = 40;
   const BLOCK_PUSH = 0.35; // how far past a blocker you must push to see it flash
+  const BUMP_SPEED = 16; // cells per second when a double-tapped line runs at a blocker
+  const BUMP_OVERLAP = 0.3; // how far it pokes into the blocker before springing back
+  const DOUBLE_TAP_MS = 350;
+  const TAP_MAX_MS = 300;
+  const TAP_MAX_MOVE = 0.2; // in cells
 
   const HINTS = [
-    'Drag a line the way its arrow points to slide it off the board.',
+    'Drag a line the way its arrow points to slide it off the board, or double-tap it to send it straight out.',
     'Lines can’t pass through each other. Clear the way first.',
     'Stuck? Drag a line back the way it came, or use Undo.',
     'You can stop a line partway, and drag it back as far as where it started.',
@@ -63,6 +68,7 @@
   // ---------- Game state ----------
   let state = null;
   let drag = null;
+  let lastTap = null; // { id, time } of the last quick tap, for double-tap
 
   function startLevel(index) {
     const level = LEVELS[index];
@@ -79,6 +85,7 @@
 
     state = { index, n, lines, history: [], finished: false };
     drag = null;
+    lastTap = null;
 
     $('levelLabel').textContent = `Level ${index + 1} of ${LEVELS.length}`;
     $('hint').textContent = HINTS[index] || '';
@@ -133,7 +140,7 @@
     const offsets = restOffsets();
     const r = reach(state.n, state.lines, offsets, line.id);
     const back = reachBack(state.n, state.lines, offsets, line.id);
-    drag = { line, pointerId: evt.pointerId, startX: px, startY: py, cell, reach: r, back };
+    drag = { line, pointerId: evt.pointerId, startX: px, startY: py, cell, reach: r, back, time: performance.now(), moved: 0 };
     line.mode = 'drag';
   }
 
@@ -143,6 +150,7 @@
     const { line, reach: r, back } = drag;
     const [dx, dy] = DIRS[line.dir];
     const pushed = ((px - drag.startX) * dx + (py - drag.startY) * dy) / drag.cell;
+    drag.moved = Math.max(drag.moved, Math.hypot(px - drag.startX, py - drag.startY) / drag.cell);
     const wanted = line.rest + pushed;
     const limit = r.exit ? line.exitAt : r.max;
     line.offset = Math.max(back.min, Math.min(wanted, limit));
@@ -159,8 +167,23 @@
   function onPointerUp(evt) {
     if (!drag || evt.pointerId !== drag.pointerId) return;
     const { line, reach: r, back } = drag;
+    const now = performance.now();
+    const isTap = drag.moved < TAP_MAX_MOVE && now - drag.time < TAP_MAX_MS;
     drag = null;
     const from = line.rest;
+
+    if (isTap) {
+      line.offset = line.rest;
+      if (lastTap && lastTap.id === line.id && now - lastTap.time < DOUBLE_TAP_MS) {
+        lastTap = null;
+        sendOut(line, r);
+      } else {
+        lastTap = { id: line.id, time: now };
+        line.mode = 'idle';
+      }
+      return;
+    }
+    lastTap = null;
 
     if (r.exit && line.offset >= line.ray.length + 0.5) {
       // The head is past the edge and nothing stops it: let it slide out.
@@ -175,6 +198,21 @@
       if (line.rest !== from) state.history.push({ id: line.id, from });
     }
     updateHud();
+  }
+
+  /** Double-tap: slide all the way off if nothing is in the way, otherwise bump and spring back. */
+  function sendOut(line, r) {
+    if (r.exit) {
+      state.history.push({ id: line.id, from: line.rest });
+      line.rest = -1;
+      line.mode = 'exit';
+      line.speed = EXIT_SPEED_START;
+      updateHud();
+    } else {
+      line.mode = 'bump';
+      line.bumpTarget = r.max + BUMP_OVERLAP;
+      line.blocker = r.blocker;
+    }
   }
 
   function undo() {
@@ -214,6 +252,16 @@
           l.mode = 'idle';
         } else {
           l.offset += Math.sign(diff) * step;
+        }
+      } else if (l.mode === 'bump') {
+        busy = true;
+        l.offset += BUMP_SPEED * dt;
+        if (l.offset >= l.bumpTarget) {
+          l.offset = l.bumpTarget;
+          l.mode = 'settle'; // springs back to where it was; not counted as a move
+          const blocker = state.lines[l.blocker];
+          if (blocker) blocker.flash = 1;
+          if (navigator.vibrate) navigator.vibrate(30);
         }
       } else if (l.mode === 'exit') {
         busy = true;
