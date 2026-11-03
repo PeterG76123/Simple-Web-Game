@@ -33,6 +33,7 @@ python3 -m http.server 8000
 - `levels-data.js`: all 75 levels (generated; don't edit by hand)
 - `game.js`: dragging, drawing, undo, groups and menus
 - `tools/build-levels.js`, `tools/generator.js`, `tools/pool-worker.js`: generate `levels-data.js`. Run `node tools/build-levels.js` to rebuild everything (slow), or `--only=3` to rebuild one group and keep the rest.
+- `tools/stamp-versions.js`: adds version tags to the CSS and JS links in `index.html`, so browsers don't mix a new page with old cached scripts. Run it after changing any of those files.
 - `tools/check-levels.js`: re-solves every level to prove it can be done (`node tools/check-levels.js`, add `--show` to print each board)
 
 ## How the levels are guaranteed to work
