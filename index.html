@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Arrow Escape</title>
-  <meta name="description" content="A puzzle game: tap the arrows to slide each tangled line off the board, but only when its path is clear." />
+  <meta name="description" content="A puzzle game: drag each tangled line off the board the way its arrow points, using see-through gaps to get past other lines." />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -30,10 +30,10 @@
       <details class="how">
         <summary>How to play</summary>
         <ul>
-          <li>Tap a line to send it sliding off the board in the direction its arrow points.</li>
-          <li>A line can only escape if nothing is in its way, all the way to the edge.</li>
-          <li>If another line is in the way, it bumps into it and you lose a life. You get 3 lives per level.</li>
-          <li>Clear every line to finish the level. Every level can be solved.</li>
+          <li>Drag a line the way its arrow points. The rest of the line follows the head.</li>
+          <li>You can stop partway. Lines only move forward, so use Undo if you go too far.</li>
+          <li>Solid parts block each other. Dashed parts are see-through, so other lines can pass through them.</li>
+          <li>Slide every line off the board to finish the level. Every level can be solved.</li>
         </ul>
       </details>
     </div>
@@ -45,15 +45,19 @@
       <button id="menuBtn" class="btn ghost" aria-label="Back to menu">&#8592; Menu</button>
       <div class="hud-center">
         <div id="levelLabel" class="level-label">Level 1</div>
-        <div id="lives" class="lives" aria-label="Lives"></div>
+        <div id="moves" class="moves">0 moves</div>
       </div>
-      <button id="restartBtn" class="btn ghost" aria-label="Restart level">&#8635; Restart</button>
+      <div class="hud-actions">
+        <button id="undoBtn" class="btn ghost" aria-label="Undo last move" title="Undo (Ctrl+Z)">&#8630; Undo</button>
+        <button id="restartBtn" class="btn ghost" aria-label="Restart level" title="Restart">&#8635;</button>
+      </div>
     </header>
 
     <div id="boardWrap" class="board-wrap">
       <canvas id="board"></canvas>
     </div>
 
+    <p id="hint" class="hint"></p>
     <p id="remaining" class="remaining"></p>
   </section>
 

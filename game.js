@@ -1,16 +1,26 @@
 (function () {
   'use strict';
 
-  const { DIRS, LEVELS, rayCells } = window.ArrowLevels;
-  const MAX_LIVES = 3;
+  const { DIRS, LEVELS, buildLine, reach } = window.ArrowLevels;
   const STORAGE_KEY = 'arrow-escape-progress';
 
-  // Animation speeds, in cells per second.
-  const EXIT_SPEED_START = 9;
+  const SETTLE_SPEED = 14; // cells per second when snapping to a cell
+  const EXIT_SPEED_START = 10;
   const EXIT_ACCEL = 40;
-  const BUMP_FORWARD_SPEED = 14;
-  const BUMP_BACK_SPEED = 9;
-  const BUMP_OVERLAP = 0.38; // how far the head pokes into the blocking cell
+  const BLOCK_PUSH = 0.35; // how far past a blocker you must push to see it flash
+
+  const HINTS = [
+    'Drag a line the way its arrow points to slide it off the board.',
+    'Lines can’t pass through each other. Clear the way first.',
+    'Stuck? Undo takes back your last move.',
+    'You can stop a line partway. It stays where you leave it.',
+    'Big board, same rules. Work out which lines are free first.',
+    'Dashed parts of a line are see-through. Other lines can slide right through them.',
+    'A line can’t get out? Slide another one partway so its see-through gap lines up.',
+    'The gap only lines up in one spot. Slide too far and it closes again, so use Undo.',
+    'Two gaps to line up this time.',
+    'See-through parts can also slide over other lines.',
+  ];
 
   // ---------- DOM ----------
   const $ = (id) => document.getElementById(id);
@@ -31,8 +41,7 @@
   function saveProgress() {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(progress)); } catch (e) { /* ignore */ }
   }
-  let progress = loadProgress();
-
+  const progress = loadProgress();
   const isCompleted = (i) => progress.completed.includes(i);
   const isUnlocked = (i) => i === 0 || isCompleted(i - 1);
 
@@ -53,108 +62,127 @@
 
   // ---------- Game state ----------
   let state = null;
+  let drag = null;
 
   function startLevel(index) {
     const level = LEVELS[index];
     const n = level.size;
-    const arrows = level.arrows.map((a, id) => {
-      const len = a.cells.length;
-      const d = DIRS[a.dir];
-      const [hx, hy] = a.cells[0];
-      const ray = rayCells(n, hx, hy, d);
-      // The path the line slides along: tail ... head, then straight out past the edge.
-      const track = a.cells.slice().reverse();
-      for (let i = 1; i <= ray.length + len + 2; i++) track.push([hx + d[0] * i, hy + d[1] * i]);
-      return {
-        id,
-        cells: a.cells,
-        dir: a.dir,
-        len,
-        ray,
-        track,
-        colorIndex: (id * 3) % 10,
-        mode: 'idle', // idle | exiting | bumpOut | bumpBack | gone
-        offset: 0,
-        speed: 0,
-        bumpTarget: 0,
-        flash: 0,
-      };
-    });
+    const lines = level.arrows.map((a, id) => Object.assign(buildLine(n, a), {
+      id,
+      colorIndex: (id * 3) % 10,
+      rest: 0, // where the line sits (-1 once it has left)
+      offset: 0, // where it is drawn
+      mode: 'idle', // idle | drag | settle | exit | gone
+      speed: 0,
+      flash: 0,
+    }));
 
-    const occ = new Int16Array(n * n).fill(-1);
-    arrows.forEach((a) => a.cells.forEach(([x, y]) => { occ[y * n + x] = a.id; }));
-
-    state = {
-      index,
-      n,
-      arrows,
-      occ,
-      lives: MAX_LIVES,
-      over: false,
-      finished: false,
-    };
+    state = { index, n, lines, history: [], finished: false };
+    drag = null;
 
     $('levelLabel').textContent = `Level ${index + 1} of ${LEVELS.length}`;
-    renderLives(false);
-    updateRemaining();
+    $('hint').textContent = HINTS[index] || '';
+    updateHud();
     hideDialog();
     showScreen('game');
     resizeCanvas();
   }
 
-  function remainingCount() {
-    return state.arrows.filter((a) => a.mode !== 'gone' && a.mode !== 'exiting').length;
-  }
+  const restOffsets = () => state.lines.map((l) => l.rest);
 
-  function updateRemaining() {
-    const left = remainingCount();
+  function updateHud() {
+    const moves = state.history.length;
+    $('moves').textContent = moves === 1 ? '1 move' : `${moves} moves`;
+    const left = state.lines.filter((l) => l.rest >= 0).length;
     $('remaining').textContent = left === 1 ? '1 line left' : `${left} lines left`;
+    $('undoBtn').disabled = moves === 0 || state.finished;
   }
 
   // ---------- Input ----------
-  function handleTap(evt) {
-    if (!state || state.over || state.finished) return;
+  function boardPoint(evt) {
     const rect = canvas.getBoundingClientRect();
     const { cell, margin } = layout(rect.width);
-    const x = Math.floor((evt.clientX - rect.left - margin) / cell);
-    const y = Math.floor((evt.clientY - rect.top - margin) / cell);
-    if (x < 0 || y < 0 || x >= state.n || y >= state.n) return;
-    const id = state.occ[y * state.n + x];
-    if (id === -1) return;
-    const arrow = state.arrows[id];
-    if (arrow.mode !== 'idle') return;
-    launch(arrow);
+    return { px: evt.clientX - rect.left, py: evt.clientY - rect.top, cell, margin };
   }
 
-  function launch(arrow) {
-    const { n, occ } = state;
-    const blockAt = arrow.ray.findIndex(([x, y]) => occ[y * n + x] !== -1);
+  /** The line under a cell, preferring a solid part over a see-through one. */
+  function lineAt(x, y) {
+    let fallback = null;
+    for (const l of state.lines) {
+      if (l.mode !== 'idle') continue;
+      for (let j = 0; j < l.len; j++) {
+        const [cx, cy] = l.track[l.rest + j];
+        if (cx === x && cy === y) {
+          if (l.solid[j]) return l;
+          fallback = fallback || l;
+        }
+      }
+    }
+    return fallback;
+  }
 
-    if (blockAt === -1) {
-      // Clear path: it is free to go, so take it off the board straight away.
-      arrow.mode = 'exiting';
-      arrow.speed = EXIT_SPEED_START;
-      arrow.cells.forEach(([x, y]) => { occ[y * n + x] = -1; });
-      updateRemaining();
-    } else {
-      // Blocked: slide up to the blocking line, bump it, and slide back.
-      const [bx, by] = arrow.ray[blockAt];
-      arrow.mode = 'bumpOut';
-      arrow.bumpTarget = blockAt + BUMP_OVERLAP;
-      arrow.blocker = state.arrows[occ[by * n + bx]];
+  function onPointerDown(evt) {
+    if (!state || state.finished || drag) return;
+    const { px, py, cell, margin } = boardPoint(evt);
+    const x = Math.floor((px - margin) / cell);
+    const y = Math.floor((py - margin) / cell);
+    const line = lineAt(x, y);
+    if (!line) return;
+    evt.preventDefault();
+    canvas.setPointerCapture(evt.pointerId);
+    const r = reach(state.n, state.lines, restOffsets(), line.id);
+    drag = { line, pointerId: evt.pointerId, startX: px, startY: py, cell, reach: r };
+    line.mode = 'drag';
+  }
+
+  function onPointerMove(evt) {
+    if (!drag || evt.pointerId !== drag.pointerId) return;
+    const { px, py } = boardPoint(evt);
+    const { line, reach: r } = drag;
+    const [dx, dy] = DIRS[line.dir];
+    const pushed = ((px - drag.startX) * dx + (py - drag.startY) * dy) / drag.cell;
+    const wanted = line.rest + Math.max(0, pushed);
+    const limit = r.exit ? line.exitAt : r.max;
+    line.offset = Math.min(wanted, limit);
+    if (!r.exit && wanted > r.max + BLOCK_PUSH) {
+      const blocker = state.lines[r.blocker];
+      if (blocker && blocker.flash < 0.4) {
+        blocker.flash = 1;
+        if (navigator.vibrate) navigator.vibrate(30);
+      }
     }
   }
 
-  function onBump(arrow) {
-    arrow.flash = 1;
-    if (arrow.blocker) arrow.blocker.flash = 1;
-    state.lives = Math.max(0, state.lives - 1);
-    renderLives(true);
-    boardWrap.classList.remove('shake');
-    void boardWrap.offsetWidth; // restart the CSS animation
-    boardWrap.classList.add('shake');
-    if (navigator.vibrate) navigator.vibrate(80);
-    if (state.lives <= 0) state.over = true;
+  function onPointerUp(evt) {
+    if (!drag || evt.pointerId !== drag.pointerId) return;
+    const { line, reach: r } = drag;
+    drag = null;
+    const from = line.rest;
+
+    if (r.exit && line.offset >= line.ray.length + 0.5) {
+      // The head is past the edge and nothing stops it: let it slide out.
+      line.rest = -1;
+      line.mode = 'exit';
+      line.speed = EXIT_SPEED_START;
+      state.history.push({ id: line.id, from });
+    } else {
+      const to = Math.min(Math.round(line.offset), r.max, line.exitAt - 1);
+      line.rest = Math.max(from, to);
+      line.mode = 'settle';
+      if (line.rest !== from) state.history.push({ id: line.id, from });
+    }
+    updateHud();
+  }
+
+  function undo() {
+    if (!state || state.finished || drag) return;
+    const last = state.history.pop();
+    if (!last) return;
+    const line = state.lines[last.id];
+    if (line.mode === 'gone' || line.mode === 'exit') line.offset = Math.min(line.offset, line.exitAt);
+    line.rest = last.from;
+    line.mode = 'settle';
+    updateHud();
   }
 
   // ---------- Update loop ----------
@@ -171,44 +199,34 @@
   }
 
   function update(dt) {
-    let busy = false;
-    for (const a of state.arrows) {
-      if (a.flash > 0) a.flash = Math.max(0, a.flash - dt * 1.8);
-
-      if (a.mode === 'exiting') {
+    let busy = !!drag;
+    for (const l of state.lines) {
+      if (l.flash > 0) l.flash = Math.max(0, l.flash - dt * 2.2);
+      if (l.mode === 'settle') {
         busy = true;
-        a.speed += EXIT_ACCEL * dt;
-        a.offset += a.speed * dt;
-        if (a.offset >= a.len + a.ray.length + 1) a.mode = 'gone';
-      } else if (a.mode === 'bumpOut') {
-        busy = true;
-        a.offset += BUMP_FORWARD_SPEED * dt;
-        if (a.offset >= a.bumpTarget) {
-          a.offset = a.bumpTarget;
-          a.mode = 'bumpBack';
-          onBump(a);
+        const diff = l.rest - l.offset;
+        const step = SETTLE_SPEED * dt;
+        if (Math.abs(diff) <= step) {
+          l.offset = l.rest;
+          l.mode = 'idle';
+        } else {
+          l.offset += Math.sign(diff) * step;
         }
-      } else if (a.mode === 'bumpBack') {
+      } else if (l.mode === 'exit') {
         busy = true;
-        a.offset -= BUMP_BACK_SPEED * dt;
-        if (a.offset <= 0) {
-          a.offset = 0;
-          a.mode = 'idle';
-        }
+        l.speed += EXIT_ACCEL * dt;
+        l.offset += l.speed * dt;
+        if (l.offset >= l.exitAt + 1) l.mode = 'gone';
       }
     }
 
-    if (busy || state.finished) return;
-
-    if (state.over) {
-      state.finished = true;
-      setTimeout(showLoseDialog, 250);
-    } else if (state.arrows.every((a) => a.mode === 'gone')) {
+    if (!busy && !state.finished && state.lines.every((l) => l.mode === 'gone')) {
       state.finished = true;
       if (!isCompleted(state.index)) {
         progress.completed.push(state.index);
         saveProgress();
       }
+      updateHud();
       setTimeout(showWinDialog, 250);
     }
   }
@@ -237,13 +255,24 @@
     return `rgb(${c(16)},${c(8)},${c(0)})`;
   }
 
+  /** Contiguous runs [from, to] of segments that are solid (or see-through). */
+  function runs(line, solid) {
+    const out = [];
+    let start = -1;
+    for (let j = 0; j <= line.len; j++) {
+      const match = j < line.len && line.solid[j] === solid;
+      if (match && start < 0) start = j;
+      if (!match && start >= 0) { out.push([start, j - 1]); start = -1; }
+    }
+    return out;
+  }
+
   function draw() {
     const size = canvas.width / (window.devicePixelRatio || 1);
     const { cell, margin } = layout(size);
     const center = (v) => margin + (v + 0.5) * cell;
     ctx.clearRect(0, 0, size, size);
 
-    // Grid dots
     ctx.fillStyle = colors.dot;
     for (let y = 0; y < state.n; y++) {
       for (let x = 0; x < state.n; x++) {
@@ -253,42 +282,89 @@
       }
     }
 
-    // Draw moving lines last so they appear on top.
-    const order = state.arrows
-      .filter((a) => a.mode !== 'gone')
-      .sort((a, b) => (a.mode === 'idle' ? 0 : 1) - (b.mode === 'idle' ? 0 : 1));
+    const visible = state.lines.filter((l) => l.mode !== 'gone');
+    // Moving lines are drawn on top.
+    visible.sort((a, b) => (a.mode === 'idle' ? 0 : 1) - (b.mode === 'idle' ? 0 : 1));
 
-    for (const a of order) {
-      const pointAt = (p) => {
-        const i = Math.max(0, Math.min(a.track.length - 2, Math.floor(p)));
+    const width = cell * 0.26;
+
+    const pathOf = (l, a, b) => {
+      const at = (p) => {
+        const i = Math.max(0, Math.min(l.track.length - 2, Math.floor(p)));
         const f = p - i;
-        const [x0, y0] = a.track[i];
-        const [x1, y1] = a.track[i + 1];
+        const [x0, y0] = l.track[i];
+        const [x1, y1] = l.track[i + 1];
         return [center(x0 + (x1 - x0) * f), center(y0 + (y1 - y0) * f)];
       };
+      const pts = [at(a)];
+      for (let i = Math.floor(a) + 1; i < b; i++) pts.push(at(i));
+      pts.push(at(b));
+      return pts;
+    };
 
-      const start = a.offset;
-      const end = a.offset + a.len - 1;
-      const pts = [pointAt(start)];
-      for (let i = Math.floor(start) + 1; i < end; i++) pts.push(pointAt(i));
-      pts.push(pointAt(end));
-
-      const base = colors.lines[a.colorIndex];
-      const color = a.flash > 0 ? mix(base, colors.danger, Math.min(1, a.flash * 1.4)) : base;
-
-      ctx.strokeStyle = color;
-      ctx.fillStyle = color;
-      ctx.lineWidth = cell * 0.26;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
+    const stroke = (pts) => {
       ctx.beginPath();
       ctx.moveTo(pts[0][0], pts[0][1]);
       for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
       ctx.stroke();
+    };
 
-      // Arrow head
-      const [hx, hy] = pts[pts.length - 1];
-      const [dx, dy] = DIRS[a.dir];
+    const colorOf = (l) => {
+      const base = colors.lines[l.colorIndex];
+      return l.flash > 0 ? mix(base, colors.danger, Math.min(1, l.flash * 1.3)) : base;
+    };
+
+    // Piece of the line covering segments from..to, clipped to the line's ends.
+    const piece = (l, from, to) => {
+      const a = Math.max(l.offset, l.offset + from - 0.5);
+      const b = Math.min(l.offset + l.len - 1, l.offset + to + 0.5);
+      return b > a ? pathOf(l, a, b) : null;
+    };
+
+    ctx.lineJoin = 'round';
+
+    // Layer 1: see-through parts (faint with a dashed centre), under everything solid.
+    for (const l of visible) {
+      const color = colorOf(l);
+      for (const [from, to] of runs(l, false)) {
+        const pts = piece(l, from, to);
+        if (!pts) continue;
+        ctx.lineCap = 'butt';
+        ctx.setLineDash([]);
+        ctx.globalAlpha = 0.22;
+        ctx.strokeStyle = color;
+        ctx.lineWidth = width;
+        stroke(pts);
+        ctx.globalAlpha = 0.9;
+        ctx.lineWidth = width * 0.28;
+        ctx.setLineDash([cell * 0.12, cell * 0.1]);
+        stroke(pts);
+      }
+    }
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
+
+    // Layer 2: solid parts and arrowheads.
+    for (const l of visible) {
+      const color = colorOf(l);
+      ctx.strokeStyle = color;
+      ctx.fillStyle = color;
+      ctx.lineWidth = l.mode === 'drag' ? width * 1.15 : width;
+      ctx.lineCap = 'butt';
+      for (const [from, to] of runs(l, true)) {
+        const pts = piece(l, from, to);
+        if (!pts) continue;
+        stroke(pts);
+        if (from === 0) {
+          // Rounded tail end.
+          ctx.beginPath();
+          ctx.arc(pts[0][0], pts[0][1], ctx.lineWidth / 2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      const [hx, hy] = pathOf(l, l.offset + l.len - 1, l.offset + l.len - 1)[0];
+      const [dx, dy] = DIRS[l.dir];
       const tip = cell * 0.42;
       const back = cell * 0.02;
       const wing = cell * 0.27;
@@ -299,26 +375,6 @@
       ctx.closePath();
       ctx.fill();
     }
-  }
-
-  // ---------- Lives ----------
-  const HEART_PATH = 'M12 21s-7.5-4.6-10-9.3C.3 8.4 2.2 4 6.3 4c2.2 0 3.7 1.3 4.7 2.7h2C14 5.3 15.5 4 17.7 4c4.1 0 6 4.4 4.3 7.7C19.5 16.4 12 21 12 21z';
-
-  function renderLives(animateLoss) {
-    const el = $('lives');
-    el.innerHTML = '';
-    for (let i = 0; i < MAX_LIVES; i++) {
-      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-      svg.setAttribute('viewBox', '0 0 24 24');
-      svg.classList.add('heart');
-      if (i >= state.lives) svg.classList.add('empty');
-      if (animateLoss && i === state.lives) svg.classList.add('pop');
-      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-      path.setAttribute('d', HEART_PATH);
-      svg.appendChild(path);
-      el.appendChild(svg);
-    }
-    el.setAttribute('aria-label', `${state.lives} of ${MAX_LIVES} lives left`);
   }
 
   // ---------- Dialogs ----------
@@ -342,26 +398,23 @@
 
   function showWinDialog() {
     const i = state.index;
-    const lost = MAX_LIVES - state.lives;
-    const detail = lost === 0 ? 'Perfect: no lives lost!' : `You lost ${lost} ${lost === 1 ? 'life' : 'lives'}.`;
+    const moves = state.history.length;
+    const par = LEVELS[i].par;
+    const detail = moves <= par
+      ? `Solved in ${moves} moves. That’s the best possible!`
+      : `Solved in ${moves} moves. It can be done in ${par}.`;
     if (i + 1 < LEVELS.length) {
       showDialog('Level complete!', detail, [
         { label: 'Next level', primary: true, action: () => startLevel(i + 1) },
+        { label: 'Play again', action: () => startLevel(i) },
         { label: 'Menu', action: goToMenu },
       ]);
     } else {
       showDialog('You beat every level!', `${detail} You untangled them all.`, [
         { label: 'Back to menu', primary: true, action: goToMenu },
-        { label: 'Play this level again', action: () => startLevel(i) },
+        { label: 'Play again', action: () => startLevel(i) },
       ]);
     }
-  }
-
-  function showLoseDialog() {
-    showDialog('Out of lives', 'A line got in the way one too many times. Look for arrows with a clear path first.', [
-      { label: 'Try again', primary: true, action: () => startLevel(state.index) },
-      { label: 'Menu', action: goToMenu },
-    ]);
   }
 
   // ---------- Menu ----------
@@ -401,7 +454,17 @@
   });
   $('menuBtn').addEventListener('click', goToMenu);
   $('restartBtn').addEventListener('click', () => startLevel(state.index));
-  canvas.addEventListener('pointerdown', handleTap);
+  $('undoBtn').addEventListener('click', undo);
+  document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'z' && screens.game.classList.contains('active')) {
+      e.preventDefault();
+      undo();
+    }
+  });
+  canvas.addEventListener('pointerdown', onPointerDown);
+  canvas.addEventListener('pointermove', onPointerMove);
+  canvas.addEventListener('pointerup', onPointerUp);
+  canvas.addEventListener('pointercancel', onPointerUp);
   new ResizeObserver(resizeCanvas).observe(boardWrap);
 
   renderMenu();

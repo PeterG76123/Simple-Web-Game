@@ -1,6 +1,10 @@
 # Arrow Escape
 
-A small puzzle game for the browser. The board is a tangle of lines, each with an arrow at one end. Tap a line to send it sliding off the board in the direction of its arrow. It only escapes if the straight path from the arrow to the edge is clear. If another line is in the way, the line bumps into it and you lose one of your 3 lives.
+A puzzle game for the browser. The board is a tangle of lines, each with an arrow at one end. Drag a line the way its arrow points and the rest of it follows the head like a worm. You can stop partway, and a line is cleared once it slides off the board.
+
+Solid parts of lines block each other. Some lines have dashed, see-through sections that other lines can pass through. Sometimes you have to slide a line only partway, so its see-through gap lines up and another line can get out. Lines only move forward, so use **Undo** if you slide one too far.
+
+There are 10 levels. Levels 1–5 use solid lines only, and levels 6–10 teach see-through sections. After each level you see how close you came to the fewest possible moves.
 
 ## Play
 
@@ -13,16 +17,17 @@ python3 -m http.server 8000
 # then open http://localhost:8000
 ```
 
-It can also be hosted as-is on GitHub Pages (Settings → Pages → deploy from the `main` branch).
-
 ## Files
 
 - `index.html`: front screen, game screen and dialogs
 - `style.css`: layout and light/dark themes
-- `levels.js`: level generator and solver
-- `game.js`: game logic, animation and input
-- `tools/check-levels.js`: confirms every level is solvable (`node tools/check-levels.js`)
+- `levels.js`: the rules, the level generator, the hand-built levels and the solver
+- `game.js`: dragging, drawing, undo and menus
+- `tools/check-levels.js`: solves every level to prove it can be done (`node tools/check-levels.js --show` also prints each board)
 
-## How the levels are always solvable
+## How the levels are guaranteed to work
 
-Lines are placed one at a time, and a new line is only accepted if the path from its arrow to the edge is empty when it is placed. Removing the lines in the reverse order of placement is therefore always a valid solution. Each level is picked from 60 seeded candidates. The pick favours boards that are well filled, take many steps to clear and have few lines free at the start. Every level is checked with a solver before it is used. Because the seeds are fixed, everyone gets the same 5 levels (5×5 up to 10×10).
+- **Levels 1–5** are generated from fixed seeds. Lines are placed one at a time, and each is only placed where its path out is empty, so removing them in reverse order always works.
+- **Levels 6–10** are hand-built. A solver tries every possible sequence of slides, including partial ones, to confirm each level can be solved and to find the fewest moves. For levels 7–10 it also confirms that sliding lines straight out can't solve the level: you have to use a partial slide.
+
+The game runs the same solver when it loads, and refuses to start if a hand-built level can't be solved.
