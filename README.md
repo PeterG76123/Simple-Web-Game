@@ -4,7 +4,7 @@ A puzzle game for the browser. The board is a tangle of lines, each with an arro
 
 Solid parts of lines block each other. Some lines have dashed, see-through sections that other lines can pass through. Sometimes you have to slide a line only partway, so its see-through gap lines up and another line can get out. If you slide one too far, drag it back. Lines can go back as far as where they started, but no further. There's also **Undo**.
 
-There are two difficulty settings, each with three groups:
+There are two difficulty settings, each with five groups:
 
 - **Easy:** 25 levels per group, on boards from 4×4 to 10×10.
 - **Medium:** 20 levels per group, on boards from 11×11 to 20×20.
@@ -14,6 +14,8 @@ The groups are:
 - **Group 1: Solid lines.** Boards grow from 4×4 to 10×10.
 - **Group 2: See-through lines.** Five short tutorials, then boards from 6×6 to 10×10 that need more and more partial slides.
 - **Group 3: Reflectors.** Triangles that fill half a square. A line that hits the slanted side turns 90° and keeps going, with its body following around the bend. The flat sides block. A mix of solid and see-through levels from 5×5 to 10×10, with 1 to 7 reflectors.
+- **Group 4: Turning reflectors.** Tap a reflector to turn it a quarter turn. A reflector can't turn while a line is on it, or while a line that went through it is still on the board. Every level needs at least one turn, and later levels need several.
+- **Group 5: Gates and plates.** Coloured gates block lines. A gate is open while any line sits on a plate of the same colour, and it can't close on a line inside it. Plates sit under lines, so a line leaving can close a gate, and a line slid partway onto a plate can reopen it. Every level needs its gates.
 
 Levels unlock one at a time within a group. Finish 10 levels in a group to unlock the next group in that setting. Each group's level buttons have their own colour.
 
@@ -45,6 +47,8 @@ python3 -m http.server 8000
 Every level fills the whole board: there are no empty squares, and every line is at least 3 squares long.
 
 1. **The generator** (`tools/fullgen.js`) splits the board into long winding paths, which become the lines. With reflectors, it starts by aiming one line at each reflector. Then it picks which end of each line is the arrow, flipping stuck lines until the board can be cleared.
+   - **Turning-reflector levels:** start from a solvable board with every reflector set right, then turn some reflectors away. A level is kept only if the solver proves it can't be solved without turning, and that it needs at least the minimum number of turns.
+   - **Gate levels:** aim a line through each gate and make the board solvable as if the gates were open. Then place plates until the solver proves the level can be solved with the real rules, but not with the gates shut.
    - **See-through levels:** start from a solvable board, add see-through sections, then flip a few arrows so the lines jam. The level is kept only if the solver proves it can be solved, it needs at least one partial slide, and it can't be solved with the see-through parts made solid.
 2. **The level bank** (`levels-bank/`) stores verified levels by kind, board size and number of reflectors, one per line. Grow it with:
 
@@ -53,7 +57,7 @@ Every level fills the whole board: there are no empty squares, and every line is
    node tools/bank.js --kind=clear --size=10 --mirrors=4 --count=100
    ```
 
-   It runs on every CPU core, skips duplicates, and each run finds new levels.
+   Kinds are listed in `tools/kinds.js` (`solid`, `clear`, `rotate`, `gates`). The bank keeps one worker per CPU core busy across every kind at once, handing out one level at a time, so no core sits idle. It skips duplicates, and each run finds new levels.
 3. **The plan** (`tools/level-plan.js`) lists each difficulty setting's size range and each group's levels as `[size, kind, reflectors]`.
 4. **The difficulty scale** (`tools/difficulty.js`) scores each level on what makes it hard. In order of weight:
    - partial slides needed

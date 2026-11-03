@@ -28,15 +28,20 @@ t.groups.forEach((g, gi) => {
     const name = `${t.name[0]}${gi + 1}-${i + 1}`;
     const hasClear = level.lines.some((l) => l.clear.length > 0);
     const mirrors = level.mirrors || [];
-    const result = solve(n, level.lines, { maxStates: 400000, mirrors });
+    const gates = level.gates || [];
+    const plates = level.plates || [];
+    const world = { mirrors, rotatable: level.rotatable, gates, plates };
+    const result = solve(n, level.lines, { maxStates: 400000, ...world });
     console.log(`  ${name.padStart(5)}  ${n}x${n}  ${String(level.lines.length).padStart(2)} lines  par ${String(level.par).padStart(2)}  ` +
       (result.solvable ? `solved in ${result.par}` : 'NOT SOLVED') +
-      (mirrors.length ? `  ${mirrors.length} reflectors${hasClear ? ', see-through' : ''}` : '') +
+      (mirrors.length ? `  ${mirrors.length} ${level.rotatable ? 'turnable ' : ''}reflectors${hasClear ? ', see-through' : ''}` : '') +
+      (gates.length ? `  ${gates.length} gates` : '') +
       (ratings[i] !== undefined ? `  rated ${ratings[i].toFixed(1)}` : ''));
     if (!result.solvable) fail(`${name} cannot be solved`);
     else if (result.par !== level.par) fail(`${name} par is ${result.par}, data says ${level.par}`);
     if (n < minSize || n > maxSize) fail(`${name} is ${n}x${n}, outside ${minSize}-${maxSize}`);
-    const covered = new Set(mirrors.map(([x, y]) => y * n + x));
+    // Reflectors and gates fill their squares; plates sit under lines.
+    const covered = new Set([...mirrors, ...gates].map(([x, y]) => y * n + x));
     level.lines.forEach((l) => l.cells.forEach(([x, y]) => {
       if (covered.has(y * n + x)) fail(`${name}: two things on square ${x},${y}`);
       covered.add(y * n + x);
@@ -45,7 +50,9 @@ t.groups.forEach((g, gi) => {
     const short = level.lines.filter((l) => l.cells.length < 3).length;
     if (short) fail(`${name}: ${short} lines shorter than 3 squares`);
     if (gi === 0 && hasClear) fail(`${name} has see-through parts`);
-    if (gi < 2 && mirrors.length) fail(`${name} has reflectors`);
+    if ((gi < 2 || gi === 4) && mirrors.length) fail(`${name} has reflectors`);
+    if (gi !== 4 && gates.length) fail(`${name} has gates`);
+    if (gi !== 3 && level.rotatable) fail(`${name} has turnable reflectors`);
     if (gi === 1 && !hasClear) fail(`${name} has no see-through parts`);
     if (gi === 1 || (gi === 2 && hasClear)) {
       const solidOnly = level.lines.map((l) => ({ ...l, clear: [] }));
@@ -58,6 +65,28 @@ t.groups.forEach((g, gi) => {
       level.lines.forEach((l) => tracePath(n, l.cells[0][0], l.cells[0][1], l.dir, map).cells.forEach(([x, y]) => onPath.add(y * n + x)));
       mirrors.forEach(([x, y]) => { if (!onPath.has(y * n + x)) fail(`${name}: reflector at ${x},${y} is never used`); });
       level.lines.forEach((l) => l.cells.forEach(([x, y]) => { if (map.has(y * n + x)) fail(`${name}: a line starts on a reflector`); }));
+    }
+
+    if (gi === 3) {
+      // Turning reflectors: every reflector turns, and turning is needed.
+      if (!level.rotatable || !mirrors.length) fail(`${name} has no turnable reflectors`);
+      const still = solve(n, level.lines, { maxStates: 400000, mirrors });
+      if (still.solvable) fail(`${name} can be solved without turning a reflector`);
+      if (still.gaveUp) {
+        const map = mirrorMap(n, mirrors);
+        if (level.lines.every((l) => tracePath(n, l.cells[0][0], l.cells[0][1], l.dir, map).escapes)) fail(`${name}: couldn't prove turning is needed`);
+      }
+      if (hasClear) fail(`${name} has see-through parts`);
+    }
+    if (gi === 4) {
+      // Gates and plates: the gates matter.
+      if (!gates.length || !plates.length) fail(`${name} has no gates or plates`);
+      const throughGate = level.lines.some((l) => tracePath(n, l.cells[0][0], l.cells[0][1], l.dir, null).cells.some(([x, y]) => gates.some(([gx, gy]) => gx === x && gy === y)));
+      if (!throughGate) {
+        const shut = solve(n, level.lines, { maxStates: 400000, gates, plates: [] });
+        if (shut.solvable || shut.gaveUp) fail(`${name} doesn't need its gates`);
+      }
+      if (hasClear) fail(`${name} has see-through parts`);
     }
 
     if (process.argv.includes('--show')) {
