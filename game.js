@@ -1,9 +1,20 @@
 (function () {
   'use strict';
 
-  const { DIRS, buildLine, mirrorMap, reach, reachBack, solve } = window.ArrowRules;
+  const { DIRS, buildLine, mirrorMap, reach, reachBack, solve, decodeLevel } = window.ArrowRules;
   const { groups: GROUPS, unlockAfter: UNLOCK_AFTER } = window.ArrowLevelData;
   const STORAGE_KEY = 'arrow-escape-progress-v2';
+
+  // Levels are stored compactly (see rules.js) and decoded when first needed.
+  const decoded = new Map();
+  function levelAt(group, index) {
+    const key = `${group}-${index}`;
+    if (!decoded.has(key)) {
+      const raw = GROUPS[group].levels[index];
+      decoded.set(key, typeof raw === 'string' ? decodeLevel(raw) : raw);
+    }
+    return decoded.get(key);
+  }
 
   const SETTLE_SPEED = 14; // cells per second when snapping to a cell
   const EXIT_SPEED_START = 10;
@@ -27,9 +38,9 @@
     [
       'Dashed parts of a line are see-through. Other lines can slide right through them.',
       'A line can’t get out? Slide another one partway so its see-through gap lines up.',
-      'The gap only lines up in one spot. Slide too far and it closes again, so drag it back.',
-      'Two gaps to line up this time.',
-      'See-through parts can also slide over other lines.',
+      'Slide too far and the gap closes again. Drag it back.',
+      'Some levels need more than one gap lined up.',
+      'See-through parts can slide over other lines too.',
       'From here on, it’s up to you to spot which gaps to use.',
     ],
     [
@@ -90,7 +101,7 @@
   let lastTap = null; // { id, time } of the last quick tap, for double-tap
 
   function startLevel(group, index) {
-    const level = GROUPS[group].levels[index];
+    const level = levelAt(group, index);
     const n = level.size;
     const mirrors = level.mirrors || [];
     const map = mirrorMap(n, mirrors);
@@ -155,7 +166,7 @@
   function showHint() {
     if (!state || state.finished || drag) return;
     if (state.lines.every((l) => l.rest < 0)) return;
-    const level = GROUPS[state.group].levels[state.index];
+    const level = levelAt(state.group, state.index);
     const result = solve(state.n, level.lines, { mirrors: state.mirrors, start: restOffsets(), maxStates: 150000 });
     state.hintsUsed++;
     const moves = state.history.length;
@@ -609,7 +620,7 @@
     const { group, index } = state;
     const levels = GROUPS[group].levels;
     const moves = state.history.length;
-    const par = levels[index].par;
+    const par = levelAt(group, index).par;
     let detail = moves <= par
       ? `Solved in ${moves} moves. That’s the best possible!`
       : `Solved in ${moves} moves. It can be done in ${par}.`;
@@ -688,7 +699,8 @@
 
     const grid = $('levelGrid');
     grid.innerHTML = '';
-    GROUPS[menuGroup].levels.forEach((level, i) => {
+    GROUPS[menuGroup].levels.forEach((_, i) => {
+      const level = levelAt(menuGroup, i);
       const b = document.createElement('button');
       b.className = 'level-btn';
       const open = isUnlocked(menuGroup, i);

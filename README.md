@@ -29,17 +29,27 @@ python3 -m http.server 8000
 
 - `index.html`: front screen, game screen and dialogs
 - `style.css`: layout and light/dark themes
-- `rules.js`: how lines move, block each other and bounce off reflectors, plus the solver
-- `levels-data.js`: all 75 levels (generated; don't edit by hand)
-- `game.js`: dragging, drawing, undo, groups and menus
-- `tools/build-levels.js`, `tools/generator.js`, `tools/pool-worker.js`: generate `levels-data.js`. Run `node tools/build-levels.js` to rebuild everything (slow), or `--only=3` to rebuild one group and keep the rest.
-- `tools/stamp-versions.js`: adds version tags to the CSS and JS links in `index.html`, so browsers don't mix a new page with old cached scripts. Run it after changing any of those files.
-- `tools/check-levels.js`: re-solves every level to prove it can be done (`node tools/check-levels.js`, add `--show` to print each board)
+- `rules.js`: how lines move, block each other and bounce off reflectors; the solver; the compact level format
+- `levels-data.js`: the levels the game plays (generated; don't edit by hand)
+- `game.js`: dragging, drawing, undo, hints, groups and menus
 
-## How the levels are guaranteed to work
+## Making levels
 
-- **Group 1** levels are built so lines can always be slid straight out in reverse order of placement.
-- **Group 2** starts with five hand-built tutorials. The generated levels after them are random boards that the solver has proven can be solved. Each one also needs at least one partial slide, and can't be solved if its see-through parts were solid, so the see-through parts always matter.
-- **Group 3** solid levels are built the same way as Group 1, with paths that bend around reflectors. Its see-through levels are checked the same way as Group 2. In every level, each reflector is on at least one line's way out.
-- The solver searches every combination of partial slides, forward and back. It always takes free lines straight off, which never hurts, and from that it works out the fewest moves for each level.
-- Seeds are fixed, so the build always produces the same levels.
+Every level fills the whole board: there are no empty squares, and every line is at least 3 squares long.
+
+1. **The generator** (`tools/fullgen.js`) splits the board into long winding paths, which become the lines. With reflectors, it starts by aiming one line at each reflector. Then it picks which end of each line is the arrow, flipping stuck lines until the board can be cleared.
+   - **See-through levels:** start from a solvable board, add see-through sections, then flip a few arrows so the lines jam. The level is kept only if the solver proves it can be solved, it needs at least one partial slide, and it can't be solved with the see-through parts made solid.
+2. **The level bank** (`levels-bank/`) stores verified levels by kind, board size and number of reflectors, one per line. Grow it with:
+
+   ```sh
+   node tools/bank.js --kind=solid --size=8 --count=500
+   node tools/bank.js --kind=clear --size=10 --mirrors=4 --count=100
+   ```
+
+   It runs on every CPU core, skips duplicates, and each run finds new levels.
+3. **The plan** (`tools/level-plan.js`) lists each group's levels as `[size, kind, reflectors]`.
+4. **The builder** (`node tools/build-levels.js`) tops up the bank where needed, picks levels for each group from easy to hard, and writes `levels-data.js`.
+5. **The checker** (`node tools/check-levels.js`, add `--show` to print boards) re-solves every level and confirms the rules above.
+6. **`node tools/stamp-versions.js`** adds version tags to the CSS and JS links in `index.html`, so browsers don't mix a new page with old cached scripts. Run it after changing any of those files.
+
+Levels are stored in a compact text format (about 80–150 characters for a 10×10 board), so thousands of levels stay small.

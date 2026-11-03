@@ -271,5 +271,56 @@
     return offsets.every((o) => o < 0);
   }
 
-  root.ArrowRules = { DIRS, inBounds, rayCells, mirrorMap, tracePath, buildLine, solidMap, reach, reachBack, clearFree, solve, solvableWithWholeExits };
+  // ---------------------------------------------------------------------------
+  // Compact level format
+  // ---------------------------------------------------------------------------
+  //
+  //   "<size>|<par>|<line>,<line>,...|<reflectors>"
+  //
+  // size: base 36. Each line: head x and y (base 36), then one letter per
+  // further cell for the step to it (U, R, D, L); a lowercase letter means
+  // that cell is see-through. Reflectors: x, y (base 36) and the shape
+  // (0-3) for each, run together. A 10x10 level is about 150 characters.
+
+  const STEP = 'URDL';
+  const SHAPES = [[0, 3], [0, 1], [2, 3], [2, 1]];
+
+  function encodeLevel({ size, par, lines, mirrors = [] }) {
+    const enc = lines.map(({ cells, clear = [] }) => {
+      let out = cells[0][0].toString(36) + cells[0][1].toString(36);
+      for (let k = 1; k < cells.length; k++) {
+        const d = DIRS.findIndex(([dx, dy]) => dx === cells[k][0] - cells[k - 1][0] && dy === cells[k][1] - cells[k - 1][1]);
+        out += clear.includes(k) ? STEP[d].toLowerCase() : STEP[d];
+      }
+      return out;
+    });
+    const m = mirrors.map(([x, y, a, b]) => x.toString(36) + y.toString(36) +
+      SHAPES.findIndex(([p, q]) => (p === a && q === b) || (p === b && q === a))).join('');
+    return `${size.toString(36)}|${par}|${enc.join(',')}|${m}`;
+  }
+
+  function decodeLevel(text) {
+    const [size, par, lineText, mirrorText] = text.split('|');
+    const lines = lineText.split(',').map((t) => {
+      const cells = [[parseInt(t[0], 36), parseInt(t[1], 36)]];
+      const clear = [];
+      for (let k = 2; k < t.length; k++) {
+        const ch = t[k];
+        const [dx, dy] = DIRS[STEP.indexOf(ch.toUpperCase())];
+        const [px, py] = cells[cells.length - 1];
+        cells.push([px + dx, py + dy]);
+        if (ch !== ch.toUpperCase()) clear.push(cells.length - 1);
+      }
+      const dir = DIRS.findIndex(([dx, dy]) => dx === cells[0][0] - cells[1][0] && dy === cells[0][1] - cells[1][1]);
+      return { cells, dir, clear };
+    });
+    const mirrors = [];
+    for (let i = 0; i + 2 < (mirrorText || '').length + 0; i += 3) {
+      const [a, b] = SHAPES[Number(mirrorText[i + 2])];
+      mirrors.push([parseInt(mirrorText[i], 36), parseInt(mirrorText[i + 1], 36), a, b]);
+    }
+    return { size: parseInt(size, 36), par: Number(par), lines, mirrors };
+  }
+
+  root.ArrowRules = { encodeLevel, decodeLevel, DIRS, inBounds, rayCells, mirrorMap, tracePath, buildLine, solidMap, reach, reachBack, clearFree, solve, solvableWithWholeExits };
 })(typeof window !== 'undefined' ? window : globalThis);

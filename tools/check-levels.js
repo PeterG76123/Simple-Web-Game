@@ -2,11 +2,12 @@
 // moves) is right, Group 1 has no see-through parts, Group 2 levels after the
 // first need their see-through parts, and Group 3 levels have reflectors that
 // are all on some line's way out (and need see-through parts when they have them).
+// Every level must fill the whole board, with every line 3 squares or longer.
 // Run with: node tools/check-levels.js        (add --show to print boards)
 'use strict';
 require('../rules.js');
 require('../levels-data.js');
-const { solve, buildLine, mirrorMap, tracePath } = globalThis.ArrowRules;
+const { solve, buildLine, mirrorMap, tracePath, decodeLevel } = globalThis.ArrowRules;
 const { groups } = globalThis.ArrowLevelData;
 
 let ok = true;
@@ -14,7 +15,8 @@ const fail = (msg) => { ok = false; console.log(`  FAIL: ${msg}`); };
 
 groups.forEach((g, gi) => {
   console.log(`Group ${gi + 1}: ${g.name} (${g.levels.length} levels)`);
-  g.levels.forEach((level, i) => {
+  g.levels.forEach((raw, i) => {
+    const level = typeof raw === 'string' ? decodeLevel(raw) : raw;
     const n = level.size;
     const name = `${gi + 1}-${i + 1}`;
     const hasClear = level.lines.some((l) => l.clear.length > 0);
@@ -26,6 +28,14 @@ groups.forEach((g, gi) => {
     if (!result.solvable) fail(`${name} cannot be solved`);
     else if (result.par !== level.par) fail(`${name} par is ${result.par}, data says ${level.par}`);
     if (n > 10) fail(`${name} is bigger than 10x10`);
+    const covered = new Set(mirrors.map(([x, y]) => y * n + x));
+    level.lines.forEach((l) => l.cells.forEach(([x, y]) => {
+      if (covered.has(y * n + x)) fail(`${name}: two things on square ${x},${y}`);
+      covered.add(y * n + x);
+    }));
+    if (covered.size !== n * n) fail(`${name}: ${n * n - covered.size} empty squares`);
+    const short = level.lines.filter((l) => l.cells.length < 3).length;
+    if (short) fail(`${name}: ${short} lines shorter than 3 squares`);
     if (gi === 0 && hasClear) fail(`${name} has see-through parts`);
     if (gi < 2 && mirrors.length) fail(`${name} has reflectors`);
     if ((gi === 1 && i > 0) || (gi === 2 && hasClear)) {
