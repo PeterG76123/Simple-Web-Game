@@ -1,7 +1,7 @@
 (function () {
   'use strict';
 
-  const { DIRS, LEVELS, buildLine, reach } = window.ArrowLevels;
+  const { DIRS, LEVELS, buildLine, reach, reachBack } = window.ArrowLevels;
   const STORAGE_KEY = 'arrow-escape-progress';
 
   const SETTLE_SPEED = 14; // cells per second when snapping to a cell
@@ -12,12 +12,12 @@
   const HINTS = [
     'Drag a line the way its arrow points to slide it off the board.',
     'Lines can’t pass through each other. Clear the way first.',
-    'Stuck? Undo takes back your last move.',
-    'You can stop a line partway. It stays where you leave it.',
+    'Stuck? Drag a line back the way it came, or use Undo.',
+    'You can stop a line partway, and drag it back as far as where it started.',
     'Big board, same rules. Work out which lines are free first.',
     'Dashed parts of a line are see-through. Other lines can slide right through them.',
     'A line can’t get out? Slide another one partway so its see-through gap lines up.',
-    'The gap only lines up in one spot. Slide too far and it closes again, so use Undo.',
+    'The gap only lines up in one spot. Slide too far and it closes again, so drag it back.',
     'Two gaps to line up this time.',
     'See-through parts can also slide over other lines.',
   ];
@@ -130,32 +130,35 @@
     if (!line) return;
     evt.preventDefault();
     canvas.setPointerCapture(evt.pointerId);
-    const r = reach(state.n, state.lines, restOffsets(), line.id);
-    drag = { line, pointerId: evt.pointerId, startX: px, startY: py, cell, reach: r };
+    const offsets = restOffsets();
+    const r = reach(state.n, state.lines, offsets, line.id);
+    const back = reachBack(state.n, state.lines, offsets, line.id);
+    drag = { line, pointerId: evt.pointerId, startX: px, startY: py, cell, reach: r, back };
     line.mode = 'drag';
   }
 
   function onPointerMove(evt) {
     if (!drag || evt.pointerId !== drag.pointerId) return;
     const { px, py } = boardPoint(evt);
-    const { line, reach: r } = drag;
+    const { line, reach: r, back } = drag;
     const [dx, dy] = DIRS[line.dir];
     const pushed = ((px - drag.startX) * dx + (py - drag.startY) * dy) / drag.cell;
-    const wanted = line.rest + Math.max(0, pushed);
+    const wanted = line.rest + pushed;
     const limit = r.exit ? line.exitAt : r.max;
-    line.offset = Math.min(wanted, limit);
-    if (!r.exit && wanted > r.max + BLOCK_PUSH) {
-      const blocker = state.lines[r.blocker];
-      if (blocker && blocker.flash < 0.4) {
-        blocker.flash = 1;
-        if (navigator.vibrate) navigator.vibrate(30);
-      }
+    line.offset = Math.max(back.min, Math.min(wanted, limit));
+    let blockerId = -1;
+    if (!r.exit && wanted > r.max + BLOCK_PUSH) blockerId = r.blocker;
+    if (back.blocker !== -1 && wanted < back.min - BLOCK_PUSH) blockerId = back.blocker;
+    const blocker = state.lines[blockerId];
+    if (blocker && blocker.flash < 0.4) {
+      blocker.flash = 1;
+      if (navigator.vibrate) navigator.vibrate(30);
     }
   }
 
   function onPointerUp(evt) {
     if (!drag || evt.pointerId !== drag.pointerId) return;
-    const { line, reach: r } = drag;
+    const { line, reach: r, back } = drag;
     drag = null;
     const from = line.rest;
 
@@ -167,7 +170,7 @@
       state.history.push({ id: line.id, from });
     } else {
       const to = Math.min(Math.round(line.offset), r.max, line.exitAt - 1);
-      line.rest = Math.max(from, to);
+      line.rest = Math.max(back.min, to);
       line.mode = 'settle';
       if (line.rest !== from) state.history.push({ id: line.id, from });
     }

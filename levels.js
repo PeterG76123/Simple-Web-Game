@@ -2,8 +2,9 @@
  * Levels and game rules for Arrow Escape.
  *
  * Rules (shared by the game and the solver):
- *  - A line moves only forward, the way its arrow points. Its body follows the
- *    head like a worm, and the head travels in a straight line off the board.
+ *  - A line slides along its own track: forward the way its arrow points (the
+ *    body follows the head like a worm, and the head travels in a straight
+ *    line off the board), or back again, but never behind where it started.
  *  - A line may stop anywhere. It is removed once it has slid fully off.
  *  - Some parts of a line are see-through. Two lines may share a cell as long
  *    as at least one of them is see-through there. Two solid parts never
@@ -98,9 +99,32 @@
   }
 
   /**
-   * Breadth-first solver. A move slides one line forward to any reachable
-   * offset (or all the way off). With partial = false only whole exits are
-   * allowed. Returns { solvable, moves, path } where moves is the fewest
+   * How far line `id` can slide back towards where it started.
+   * Returns { min, blocker }: the lowest offset it can reach (0 is its start)
+   * and which line stops it (or -1).
+   */
+  function reachBack(n, lines, offsets, id) {
+    const line = lines[id];
+    const occ = solidMap(n, lines, offsets, id);
+    let s = offsets[id];
+    while (s > 0) {
+      const next = s - 1;
+      for (let j = 0; j < line.len; j++) {
+        if (!line.solid[j]) continue;
+        const [x, y] = line.track[next + j];
+        if (inBounds(n, x, y) && occ[y * n + x] !== -1) {
+          return { min: s, blocker: occ[y * n + x] };
+        }
+      }
+      s = next;
+    }
+    return { min: 0, blocker: -1 };
+  }
+
+  /**
+   * Breadth-first solver. A move slides one line to any reachable offset,
+   * forward or back (or all the way off). With partial = false only whole
+   * exits are allowed. Returns { solvable, moves, path } where moves is the fewest
    * possible and path lists them as { line, to } (to = -1 means it left).
    */
   function solve(n, arrows, { partial = true, maxStates = 500000 } = {}) {
@@ -127,6 +151,8 @@
           if (partial) {
             const top = Math.min(r.max, lines[id].exitAt - 1);
             for (let s = offsets[id] + 1; s <= top; s++) targets.push(s);
+            const low = reachBack(n, lines, offsets, id).min;
+            for (let s = low; s < offsets[id]; s++) targets.push(s);
           }
           for (const t of targets) {
             const o = offsets.slice();
@@ -373,5 +399,5 @@
     ...CRAFTED.map(buildCraftedLevel),
   ];
 
-  root.ArrowLevels = { DIRS, LEVELS, rayCells, inBounds, buildLine, reach, solve, analyse };
+  root.ArrowLevels = { DIRS, LEVELS, rayCells, inBounds, buildLine, reach, reachBack, solve, analyse };
 })(typeof window !== 'undefined' ? window : globalThis);
