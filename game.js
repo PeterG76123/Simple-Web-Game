@@ -27,16 +27,15 @@
   const EXIT_SPEED_START = 10;
   const EXIT_ACCEL = 40;
   const BLOCK_PUSH = 0.35; // how far past a blocker you must push to see it flash
-  const BUMP_SPEED = 16; // cells per second when a double-tapped line runs at a blocker
+  const BUMP_SPEED = 16; // cells per second when a tapped line runs at a blocker
   const BUMP_OVERLAP = 0.3; // how far it pokes into the blocker before springing back
-  const DOUBLE_TAP_MS = 350;
-  const TAP_MAX_MS = 300;
+  const TAP_MAX_MS = 500; // a press this short that barely moves counts as a tap
   const TAP_MAX_MOVE = 0.2; // in cells
 
   // Hints shown under the board, per group, for the first few levels.
   const HINTS = [
     [
-      'Drag a line the way its arrow points to slide it off the board, or double-tap it to send it straight out.',
+      'Tap a line to send it straight out, or drag it the way its arrow points to slide it as far as you like.',
       'Lines can’t pass through each other. Clear the way first.',
       'Stuck? Drag a line back the way it came, or use Undo.',
       'You can stop a line partway, and drag it back as far as where it started.',
@@ -110,7 +109,6 @@
   // ---------- Game state ----------
   let state = null;
   let drag = null;
-  let lastTap = null; // { id, time } of the last quick tap, for double-tap
 
   function startLevel(group, index) {
     const level = levelAt(group, index);
@@ -136,7 +134,6 @@
       hintsUsed: 0, // counted so hints can be tied to ads later
     };
     drag = null;
-    lastTap = null;
 
     $('levelLabel').textContent = `Group ${group + 1} · Level ${index + 1}`;
     $('hint').textContent = state.levelHint;
@@ -294,17 +291,12 @@
     const from = line.rest;
 
     if (isTap) {
+      // A tap sends the line out (or bumps whatever is in its way); dragging
+      // moves it exactly as far as you drag.
       line.offset = line.rest;
-      if (lastTap && lastTap.id === line.id && now - lastTap.time < DOUBLE_TAP_MS) {
-        lastTap = null;
-        sendOut(line, r);
-      } else {
-        lastTap = { id: line.id, time: now };
-        line.mode = 'idle';
-      }
+      sendOut(line, r);
       return;
     }
-    lastTap = null;
 
     if (r.exit && line.offset >= line.ray.length + 0.5) {
       // The head is past the edge and nothing stops it: let it slide out.
@@ -321,7 +313,7 @@
     updateHud();
   }
 
-  /** Double-tap: slide all the way off if nothing is in the way, otherwise bump and spring back. */
+  /** Tap: slide all the way off if nothing is in the way, otherwise bump and spring back. */
   function sendOut(line, r) {
     if (r.exit) {
       state.history.push({ id: line.id, from: line.rest });
