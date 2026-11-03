@@ -372,7 +372,8 @@ function makeSolid(n, rng, { mirrors: mirrorCount = 0 } = {}) {
   if (!paths) return null;
   const extra = mirrorCount ? (arrows) => -unusedMirrors(n, arrows, mirrors, map) * 150 : null;
   const arrows = repair(n, paths, rng, { map, extra });
-  if (!arrows) return null;
+  // Cutting dead ends can leave short pieces; every line must be 3 or longer.
+  if (!arrows || arrows.some((a) => a.cells.length < lengths(n).minLen)) return null;
   const g = greedy(n, arrows, map);
   return { size: n, arrows, mirrors, par: arrows.length, partial: 0, rounds: g.rounds, initialFree: g.initialFree };
 }
