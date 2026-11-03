@@ -205,8 +205,50 @@ function greedy(n, arrows, map) {
 }
 
 /**
+ * Fast version of greedy() for boards where every line is solid: a solid line
+ * can slide straight out exactly when it could leave an empty board on its own
+ * (`alone`) and no other line sits on its path out (`ray`, as cell indices).
+ * `lines[i]` = { ray, alone }, `owner[cell]` = line id covering that cell.
+ */
+function fastGreedy(lines, owner) {
+  const gone = new Uint8Array(lines.length);
+  let rounds = 0;
+  let initialFree = -1;
+  for (;;) {
+    const free = [];
+    for (let id = 0; id < lines.length; id++) {
+      if (gone[id] || !lines[id].alone) continue;
+      const ray = lines[id].ray;
+      let clear = true;
+      for (let k = 0; k < ray.length; k++) {
+        const o = owner[ray[k]];
+        if (o >= 0 && o !== id && !gone[o]) { clear = false; break; }
+      }
+      if (clear) free.push(id);
+    }
+    if (initialFree < 0) initialFree = free.length;
+    if (free.length === 0) break;
+    for (const id of free) gone[id] = 1;
+    rounds++;
+  }
+  const stuck = [];
+  for (let id = 0; id < lines.length; id++) if (!gone[id]) stuck.push(id);
+  return { stuck, rounds, initialFree };
+}
+
+/** Each orientation of a path, worked out once: its arrow, path out and whether it can leave alone. */
+function orientations(n, path, map) {
+  return [path, path.slice().reverse()].map((cells) => {
+    const arrow = toArrow(cells);
+    const ray = tracePath(n, cells[0][0], cells[0][1], arrow.dir, map).cells.map(([x, y]) => y * n + x);
+    return { arrow, ray, alone: escapesAlone(n, cells, map) };
+  });
+}
+
+/**
  * Picks arrow ends so every line can be slid out. Returns arrows or null.
- * `score` can add extra goals (e.g. reflectors in use); flips that lower it
+ * `extra(chosen)` can add extra goals (e.g. reflectors in use), given each
+ * line's chosen orientation ({ arrow, ray, alone }); flips that lower it
  * are rejected.
  */
 /** True if the path, as a line with its arrow on path[0], could leave an empty board. */
@@ -255,16 +297,20 @@ function fixDeadEnds(n, paths, map, rng) {
   return out;
 }
 
-function repair(n, paths, rng, { map = null, iterations = 3000, extra = null } = {}) {
+function repair(n, paths, rng, { map = null, iterations = 8000, extra = null } = {}) {
   paths = fixDeadEnds(n, paths, map, rng);
   if (!paths) return null;
   const fixed = paths.canFlip.map((c) => !c);
   const heads = paths.map((_, i) => fixed[i] || paths.seeded[i] || rng() < 0.5);
-  const arrowsFor = () => paths.map((p, i) => toArrow(heads[i] ? p : p.slice().reverse()));
+  const options = paths.map((p) => orientations(n, p, map));
+  const owner = new Int32Array(n * n).fill(-1);
+  paths.forEach((p, id) => p.forEach(([x, y]) => { owner[y * n + x] = id; }));
+  const arrowsFor = () => paths.map((_, i) => options[i][heads[i] ? 0 : 1].arrow);
   const evaluate = () => {
     const arrows = arrowsFor();
-    const g = greedy(n, arrows, map);
-    const bonus = extra ? extra(arrows) : 0;
+    const chosen = paths.map((_, i) => options[i][heads[i] ? 0 : 1]);
+    const g = fastGreedy(chosen, owner);
+    const bonus = extra ? extra(chosen) : 0;
     return { arrows, g, score: (paths.length - g.stuck.length) * 100 + bonus, bonus };
   };
   let cur = evaluate();
@@ -281,7 +327,7 @@ function repair(n, paths, rng, { map = null, iterations = 3000, extra = null } =
   return null;
 }
 
-module.exports = { mulberry32, shuffle, pathCover, toArrow, greedy, repair };
+module.exports = { mulberry32, shuffle, pathCover, toArrow, greedy, fastGreedy, orientations, repair };
 
 // ---------------------------------------------------------------------------
 // Level makers
@@ -370,11 +416,20 @@ function makeSolid(n, rng, { mirrors: mirrorCount = 0 } = {}) {
   const blocked = new Set(mirrors.map(([x, y]) => y * n + x));
   const paths = pathCover(n, blocked, rng, lengths(n), seeds);
   if (!paths) return null;
-  const extra = mirrorCount ? (arrows) => -unusedMirrors(n, arrows, mirrors, map) * 150 : null;
+  // Penalty for reflectors that no line's path out goes through, counted from
+  // the paths repair() already worked out for each line.
+  const mirrorCells = new Set(mirrors.map(([x, y]) => y * n + x));
+  const extra = mirrorCount ? (chosen) => {
+    const hit = new Set();
+    for (const o of chosen) for (const c of o.ray) if (mirrorCells.has(c)) hit.add(c);
+    return -(mirrorCells.size - hit.size) * 150;
+  } : null;
   const arrows = repair(n, paths, rng, { map, extra });
   // Cutting dead ends can leave short pieces; every line must be 3 or longer.
   if (!arrows || arrows.some((a) => a.cells.length < lengths(n).minLen)) return null;
-  const g = greedy(n, arrows, map);
+  const owner = new Int32Array(n * n).fill(-1);
+  arrows.forEach((a, id) => a.cells.forEach(([x, y]) => { owner[y * n + x] = id; }));
+  const g = fastGreedy(arrows.map((a) => orientations(n, a.cells, map)[0]), owner);
   return { size: n, arrows, mirrors, par: arrows.length, partial: 0, rounds: g.rounds, initialFree: g.initialFree };
 }
 
@@ -384,36 +439,55 @@ function makeSolid(n, rng, { mirrors: mirrorCount = 0 } = {}) {
  * Built from a solvable solid board: add see-through runs, then flip a few
  * arrows to create a jam that only a see-through gap can undo.
  */
-function makeSeeThrough(n, rng, { mirrors: mirrorCount = 0, flips = 2, tries = 60, maxStates = 30000 } = {}) {
+function makeSeeThrough(n, rng, { mirrors: mirrorCount = 0, layouts = 12, pairs = 40, maxStates = 2500 } = {}) {
   const base = makeSolid(n, rng, { mirrors: mirrorCount });
   if (!base) return null;
   const { mirrors } = base;
   const map = mirrorMap(n, mirrors);
-  for (let t = 0; t < tries; t++) {
-    const arrows = base.arrows.map((a) => ({ cells: a.cells, dir: a.dir, clear: [] }));
-    // See-through runs of 1-2 cells on some lines (never the head).
-    for (const a of arrows) {
+
+  const flip = (a) => {
+    const cells = a.cells.slice().reverse();
+    const len = cells.length;
+    return toArrow(cells, a.clear.map((k) => len - 1 - k).filter((k) => k !== 0));
+  };
+  const check = (arrows) => {
+    if (mirrorCount && unusedMirrors(n, arrows, mirrors, map)) return null;
+    if (solvableWithWholeExits(n, arrows, mirrors)) return null;
+    const result = solve(n, arrows, { mirrors, maxStates });
+    if (!result.solvable) return null;
+    const solidOnly = arrows.map((a) => ({ ...a, clear: [] }));
+    if (solve(n, solidOnly, { mirrors, maxStates }).solvable) return null;
+    return { size: n, arrows, mirrors, par: result.par, partial: result.partialMoves, states: result.states };
+  };
+
+  for (let t = 0; t < layouts; t++) {
+    // A random layout of see-through runs (1-2 cells, never the head)...
+    const layout = base.arrows.map((a) => ({ cells: a.cells, dir: a.dir, clear: [] }));
+    for (const a of layout) {
       if (a.cells.length < 3 || rng() > 0.45) continue;
       const start = 1 + ((rng() * (a.cells.length - 1)) | 0);
       const run = Math.min(a.cells.length - start, 1 + ((rng() * 2) | 0));
       for (let k = start; k < start + run; k++) a.clear.push(k);
     }
-    // Flip a few arrows to the other end.
-    const count = 1 + ((rng() * flips) | 0);
-    for (let f = 0; f < count; f++) {
-      const i = (rng() * arrows.length) | 0;
-      const cells = arrows[i].cells.slice().reverse();
-      const len = cells.length;
-      arrows[i] = toArrow(cells, arrows[i].clear.map((k) => len - 1 - k).filter((k) => k !== 0));
+    if (!layout.some((a) => a.clear.length)) continue;
+    // ...then jam it by flipping one arrow (trying every line), or two.
+    const order = shuffle(layout.map((_, i) => i), rng);
+    for (const i of order) {
+      const arrows = layout.slice();
+      arrows[i] = flip(arrows[i]);
+      const found = check(arrows);
+      if (found) return found;
     }
-    if (!arrows.some((a) => a.clear.length)) continue;
-    if (mirrorCount && unusedMirrors(n, arrows, mirrors, map)) continue;
-    if (solvableWithWholeExits(n, arrows, mirrors)) continue;
-    const result = solve(n, arrows, { mirrors, maxStates });
-    if (!result.solvable) continue;
-    const solidOnly = arrows.map((a) => ({ ...a, clear: [] }));
-    if (solve(n, solidOnly, { mirrors, maxStates }).solvable) continue;
-    return { size: n, arrows, mirrors, par: result.par, partial: result.partialMoves, states: result.states };
+    for (let p = 0; p < pairs; p++) {
+      const i = (rng() * layout.length) | 0;
+      const j = (rng() * layout.length) | 0;
+      if (i === j) continue;
+      const arrows = layout.slice();
+      arrows[i] = flip(arrows[i]);
+      arrows[j] = flip(arrows[j]);
+      const found = check(arrows);
+      if (found) return found;
+    }
   }
   return null;
 }

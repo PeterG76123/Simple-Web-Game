@@ -135,7 +135,8 @@
       const [x, y] = line.track[to + j];
       if (!inBounds(n, x, y)) continue;
       const i = y * n + x;
-      if (occ[i] !== -1) return occ[i];
+      // occ may include this line's own cells (a shared map); those don't block.
+      if (occ[i] !== -1 && occ[i] !== id) return occ[i];
       own = own || new Set();
       if (own.has(i)) return id;
       own.add(i);
@@ -182,17 +183,24 @@
    * Taking a line off never blocks another, so this is always safe.
    * Returns the ids removed, in order.
    */
-  function clearFree(n, lines, offsets) {
+  function clearFree(n, lines, offsets, occ) {
+    // One map shared by every line (solid parts never overlap), updated as
+    // lines leave, instead of rebuilding it for each line checked.
+    occ = occ || solidMap(n, lines, offsets, -1);
     const removed = [];
     let changed = true;
     while (changed) {
       changed = false;
       for (let id = 0; id < lines.length; id++) {
-        if (offsets[id] >= 0 && reach(n, lines, offsets, id).exit) {
-          offsets[id] = -1;
-          removed.push(id);
-          changed = true;
+        if (offsets[id] < 0 || !reach(n, lines, offsets, id, occ).exit) continue;
+        const line = lines[id];
+        for (let j = 0; j < line.len; j++) {
+          const [x, y] = line.track[offsets[id] + j];
+          if (inBounds(n, x, y) && occ[y * n + x] === id) occ[y * n + x] = -1;
         }
+        offsets[id] = -1;
+        removed.push(id);
+        changed = true;
       }
     }
     return removed;
@@ -238,9 +246,9 @@
           return { solvable: true, par: remaining + depth, partialMoves: depth, path: pathTo(offsets.join(',')), states: seen.size };
         }
         const key = offsets.join(',');
+        const occ = solidMap(n, lines, offsets, -1);
         for (let id = 0; id < lines.length; id++) {
           if (offsets[id] < 0) continue;
-          const occ = solidMap(n, lines, offsets, id);
           const hi = reach(n, lines, offsets, id, occ).max;
           const lo = reachBack(n, lines, offsets, id, occ).min;
           for (let s = lo; s <= hi; s++) {
