@@ -1,5 +1,5 @@
 /*
- * Builds levels-data.js: two groups of 25 levels, each getting harder.
+ * Builds levels-data.js: three groups of 25 levels, each getting harder.
  *
  *   Group 1 (solid lines): generated so lines can always be slid straight out
  *   in reverse order of placement. Ordered by board size, then by how many
@@ -10,13 +10,19 @@
  *   partial slide, and that cannot be solved if their see-through parts were
  *   solid. Ordered by board size and the number of partial slides needed.
  *
+ *   Group 3 (reflectors): a mix of solid levels (built the same way as Group 1)
+ *   and see-through levels (checked the same way as Group 2), all with
+ *   reflectors, where every reflector is on at least one line's way out.
+ *
  * Seeds are fixed, so the output is the same every time.
- * Run with: node tools/build-levels.js
+ * Run with: node tools/build-levels.js            (all groups, ~20 minutes)
+ *           node tools/build-levels.js --only=3   (rebuild one group, keep the rest)
  */
 'use strict';
 const fs = require('fs');
 const path = require('path');
-const { mulberry32, generate, rounds } = require('./generator.js');
+const { Worker } = require('worker_threads');
+const { mulberry32, generate, rounds, mirrorsUsed, bouncingLines } = require('./generator.js');
 const { DIRS, inBounds, buildLine, solve, solvableWithWholeExits } = globalThis.ArrowRules;
 
 const LEVELS_PER_GROUP = 25;
@@ -202,13 +208,106 @@ function buildGroup2() {
 }
 
 // ---------------------------------------------------------------------------
+// Group 3
+// ---------------------------------------------------------------------------
 
-function main() {
+// [board size, 'solid' or 'clear', number of reflectors]
+const G3_PLAN = [
+  [5, 'solid', 1], [5, 'solid', 1], [6, 'solid', 2], [6, 'clear', 1], [6, 'solid', 2],
+  [7, 'solid', 2], [7, 'clear', 2], [7, 'solid', 3], [7, 'clear', 2], [8, 'solid', 3],
+  [8, 'clear', 3], [8, 'solid', 4], [8, 'clear', 3], [9, 'solid', 4], [8, 'clear', 3],
+  [9, 'solid', 5], [9, 'clear', 3], [9, 'solid', 5], [9, 'clear', 3], [10, 'solid', 6],
+  [10, 'clear', 4], [10, 'solid', 6], [10, 'clear', 4], [10, 'solid', 7], [10, 'clear', 4],
+];
+
+const G3_CLEAR_OPTIONS = { minLen: 3, tangle: 0.2, clearChance: 0.5 };
+
+function buildG3Solid(n, mirrorCount, i) {
+  const rng = mulberry32(30011 + i * 7919);
+  // The first two levels are kept small to introduce reflectors gently.
+  const maxLines = i === 0 ? 4 : i === 1 ? 6 : 99;
+  let best = null;
+  for (let c = 0; c < 400 && (!best || c < 80); c++) {
+    const { arrows, mirrors } = generate(n, { minLen: 2, maxLen: Math.min(n - 1, 3 + Math.floor(i / 3)), mirrors: mirrorCount, maxLines }, rng);
+    if (!mirrorsUsed(n, arrows, mirrors)) continue;
+    const r = rounds(n, arrows, mirrors);
+    if (!r.cleared) continue;
+    const coverage = arrows.reduce((s, a) => s + a.cells.length, 0) / (n * n);
+    const bounce = bouncingLines(n, arrows, mirrors);
+    const score = (i < 2 ? 0 : coverage * 100) + r.rounds * 6 - r.initialFree * 2 + bounce * 8;
+    if (!best || score > best.score) best = { size: n, arrows, mirrors, par: arrows.length, score };
+  }
+  if (!best) throw new Error(`No solid reflector level for slot ${i + 1}`);
+  return best;
+}
+
+function runWorker(data) {
+  return new Promise((resolve, reject) => {
+    const w = new Worker(path.join(__dirname, 'pool-worker.js'), { workerData: data });
+    w.once('message', resolve);
+    w.once('error', reject);
+  });
+}
+
+async function buildGroup3() {
+  // See-through slots, grouped by board size and reflector count.
+  const wanted = new Map();
+  G3_PLAN.forEach(([n, kind, m]) => {
+    if (kind !== 'clear') return;
+    const key = `${n}:${m}`;
+    wanted.set(key, (wanted.get(key) || 0) + 1);
+  });
+  const pools = new Map();
+  await Promise.all([...wanted].map(async ([key, count]) => {
+    const [n, m] = key.split(':').map(Number);
+    const found = await runWorker({
+      n, mirrors: m, need: count * 3, seed: 40009 + n * 104729 + m * 7,
+      maxTries: 4000, options: { ...G3_CLEAR_OPTIONS, maxLen: n - 2 },
+    });
+    if (found.length < count) throw new Error(`Only found ${found.length} of ${count} see-through ${n}x${n} levels`);
+    // Hardest last: more partial slides, then a bigger search.
+    found.sort((a, b) => a.partial - b.partial || a.states - b.states);
+    pools.set(key, found);
+  }));
+
+  const levels = G3_PLAN.map(([n, kind, m], i) => {
+    if (kind === 'solid') return buildG3Solid(n, m, i);
+    // Spread picks across the pool, easiest first.
+    const pool = pools.get(`${n}:${m}`);
+    const total = wanted.get(`${n}:${m}`);
+    const taken = G3_PLAN.slice(0, i).filter(([pn, pk, pm]) => pn === n && pk === kind && pm === m).length;
+    return pool[Math.round(((taken + 1) / total) * (pool.length - 1))] || pool[pool.length - 1];
+  });
+  return levels;
+}
+
+// ---------------------------------------------------------------------------
+
+function readExisting() {
+  const file = path.join(__dirname, '..', 'levels-data.js');
+  if (!fs.existsSync(file)) return null;
+  delete globalThis.ArrowLevelData;
+  require(file);
+  return globalThis.ArrowLevelData.groups.map((g) => ({
+    name: g.name,
+    levels: g.levels.map((l) => ({ size: l.size, par: l.par, arrows: l.lines, mirrors: l.mirrors || [] })),
+  }));
+}
+
+async function main() {
   const t0 = Date.now();
-  const groups = [
-    { name: 'Solid lines', levels: buildGroup1() },
-    { name: 'See-through lines', levels: buildGroup2() },
+  const only = (process.argv.find((a) => a.startsWith('--only=')) || '').split('=')[1];
+  const existing = only ? readExisting() : null;
+  const builders = [
+    { name: 'Solid lines', build: buildGroup1 },
+    { name: 'See-through lines', build: buildGroup2 },
+    { name: 'Reflectors', build: buildGroup3 },
   ];
+  const groups = [];
+  for (let gi = 0; gi < builders.length; gi++) {
+    const keep = only && Number(only) !== gi + 1 && existing && existing[gi];
+    groups.push({ name: builders[gi].name, levels: keep ? existing[gi].levels : await builders[gi].build() });
+  }
   for (const g of groups) {
     if (g.levels.length !== LEVELS_PER_GROUP) throw new Error(`${g.name}: expected ${LEVELS_PER_GROUP} levels`);
   }
@@ -216,6 +315,7 @@ function main() {
   const lines = [
     '// Generated by tools/build-levels.js. Do not edit by hand.',
     '// Each line: cells (head first), dir (0 up, 1 right, 2 down, 3 left), clear (see-through cells, counted from the head).',
+    '// Reflectors: [x, y, openA, openB], the two open sides as directions.',
     '(function (root) {',
     '  root.ArrowLevelData = {',
     '    unlockAfter: 10,',
@@ -225,6 +325,7 @@ function main() {
     lines.push(`      { name: ${JSON.stringify(g.name)}, levels: [`);
     for (const l of g.levels) {
       const data = { size: l.size, par: l.par, lines: l.arrows.map((a) => ({ cells: a.cells, dir: a.dir, clear: a.clear })) };
+      if (l.mirrors && l.mirrors.length) data.mirrors = l.mirrors;
       lines.push(`        ${JSON.stringify(data)},`);
     }
     lines.push('      ] },');
@@ -235,11 +336,12 @@ function main() {
   groups.forEach((g, gi) => {
     console.log(`Group ${gi + 1}: ${g.name}`);
     g.levels.forEach((l, i) => {
-      const extra = l.partial !== undefined ? `, ${l.partial} partial` : '';
+      let extra = l.partial !== undefined ? `, ${l.partial} partial` : '';
+      if (l.mirrors && l.mirrors.length) extra += `, ${l.mirrors.length} reflectors${l.arrows.some((a) => a.clear.length) ? ', see-through' : ''}`;
       console.log(`  ${String(i + 1).padStart(2)}. ${l.size}x${l.size}, ${l.arrows.length} lines, par ${l.par}${extra}`);
     });
   });
   console.log(`Built in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
 }
 
-main();
+main().catch((e) => { console.error(e); process.exit(1); });

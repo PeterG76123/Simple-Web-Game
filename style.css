@@ -5,6 +5,8 @@
   --muted: #6d6878;
   --border: #dde0ea;
   --dot: #c9cdd9;
+  --mirror: #b9bfd3;
+  --mirror-edge: #2e3245;
   --accent: #5b5bd6;
   --accent-text: #ffffff;
   --danger: #e5484d;
@@ -32,6 +34,8 @@
     --muted: #a09cab;
     --border: #34323d;
     --dot: #3b3945;
+    --mirror: #4a4858;
+    --mirror-edge: #e6e4ef;
     --accent: #8282ff;
     --accent-text: #111016;
     --c1: #8282ff;
@@ -55,6 +59,8 @@
   --muted: #a09cab;
   --border: #34323d;
   --dot: #3b3945;
+  --mirror: #4a4858;
+  --mirror-edge: #e6e4ef;
   --accent: #8282ff;
   --accent-text: #111016;
   --c1: #8282ff;
@@ -132,7 +138,8 @@ h1 {
 
 .group-tabs {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
   gap: 10px;
   margin-bottom: 12px;
 }

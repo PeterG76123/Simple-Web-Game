@@ -1,7 +1,7 @@
 (function () {
   'use strict';
 
-  const { DIRS, buildLine, reach, reachBack } = window.ArrowRules;
+  const { DIRS, buildLine, mirrorMap, reach, reachBack } = window.ArrowRules;
   const { groups: GROUPS, unlockAfter: UNLOCK_AFTER } = window.ArrowLevelData;
   const STORAGE_KEY = 'arrow-escape-progress-v2';
 
@@ -31,6 +31,13 @@
       'Two gaps to line up this time.',
       'See-through parts can also slide over other lines.',
       'From here on, it’s up to you to spot which gaps to use.',
+    ],
+    [
+      'Triangles are reflectors. A line that hits the slanted side turns 90° and keeps going.',
+      'Follow each line’s path around the reflectors before you move it.',
+      'A line that bounces can still be blocked by lines on its new path.',
+      'Reflectors work with see-through parts too.',
+      'Some lines bounce off more than one reflector on the way out.',
     ],
   ];
 
@@ -67,6 +74,8 @@
     const v = (name) => cs.getPropertyValue(name).trim();
     colors = {
       dot: v('--dot'),
+      mirror: v('--mirror'),
+      mirrorEdge: v('--mirror-edge'),
       danger: v('--danger'),
       lines: Array.from({ length: 10 }, (_, i) => v(`--c${i + 1}`)),
     };
@@ -83,7 +92,9 @@
   function startLevel(group, index) {
     const level = GROUPS[group].levels[index];
     const n = level.size;
-    const lines = level.lines.map((a, id) => Object.assign(buildLine(n, a), {
+    const mirrors = level.mirrors || [];
+    const map = mirrorMap(n, mirrors);
+    const lines = level.lines.map((a, id) => Object.assign(buildLine(n, a, map), {
       id,
       colorIndex: (id * 3) % 10,
       rest: 0, // where the line sits (-1 once it has left)
@@ -93,7 +104,7 @@
       flash: 0,
     }));
 
-    state = { group, index, n, lines, history: [], finished: false };
+    state = { group, index, n, lines, mirrors, history: [], finished: false };
     drag = null;
     lastTap = null;
 
@@ -150,7 +161,10 @@
     const offsets = restOffsets();
     const r = reach(state.n, state.lines, offsets, line.id);
     const back = reachBack(state.n, state.lines, offsets, line.id);
-    drag = { line, pointerId: evt.pointerId, startX: px, startY: py, cell, reach: r, back, time: performance.now(), moved: 0 };
+    drag = {
+      line, pointerId: evt.pointerId, startX: px, startY: py, lastX: px, lastY: py,
+      cell, reach: r, back, time: performance.now(), moved: 0, wanted: line.rest,
+    };
     line.mode = 'drag';
   }
 
@@ -158,11 +172,25 @@
     if (!drag || evt.pointerId !== drag.pointerId) return;
     const { px, py } = boardPoint(evt);
     const { line, reach: r, back } = drag;
-    const [dx, dy] = DIRS[line.dir];
-    const pushed = ((px - drag.startX) * dx + (py - drag.startY) * dy) / drag.cell;
     drag.moved = Math.max(drag.moved, Math.hypot(px - drag.startX, py - drag.startY) / drag.cell);
-    const wanted = line.rest + pushed;
+    // Follow the path: project the finger's movement onto the way the head is
+    // travelling right now, which changes when the line goes round a reflector.
+    const mx = px - drag.lastX;
+    const my = py - drag.lastY;
+    drag.lastX = px;
+    drag.lastY = py;
+    const head = line.offset + line.len - 1;
+    const fwd = Math.min(line.track.length - 2, Math.floor(head + 1e-6));
+    const bwd = Math.max(1, Math.ceil(head - 1e-6));
+    const step = (i) => [line.track[i + 1][0] - line.track[i][0], line.track[i + 1][1] - line.track[i][1]];
+    const [fx, fy] = step(fwd);
+    const [bx, by] = step(bwd - 1);
+    const ahead = (mx * fx + my * fy) / drag.cell; // along the way forward
+    const behind = (mx * bx + my * by) / drag.cell; // along the way it came
+    const pushed = ahead > 0 ? ahead : behind < 0 ? behind : 0;
     const limit = r.exit ? line.exitAt : r.max;
+    drag.wanted = Math.max(back.min - 1, Math.min(limit + 1, drag.wanted + pushed));
+    const wanted = drag.wanted;
     line.offset = Math.max(back.min, Math.min(wanted, limit));
     let blockerId = -1;
     if (!r.exit && wanted > r.max + BLOCK_PUSH) blockerId = r.blocker;
@@ -346,6 +374,31 @@
       }
     }
 
+    // Reflectors: a triangle filling half the cell, with its slanted side
+    // facing the two open sides.
+    const half = cell * 0.4;
+    for (const [mx, my, a, b] of state.mirrors) {
+      const [c1, c2] = [0, 1, 2, 3].filter((d) => d !== a && d !== b);
+      const cx = center(mx) + half * (DIRS[c1][0] + DIRS[c2][0]);
+      const cy = center(my) + half * (DIRS[c1][1] + DIRS[c2][1]);
+      const p1 = [cx - 2 * half * DIRS[c1][0], cy - 2 * half * DIRS[c1][1]];
+      const p2 = [cx - 2 * half * DIRS[c2][0], cy - 2 * half * DIRS[c2][1]];
+      ctx.fillStyle = colors.mirror;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(p1[0], p1[1]);
+      ctx.lineTo(p2[0], p2[1]);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = colors.mirrorEdge;
+      ctx.lineWidth = cell * 0.07;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(p1[0], p1[1]);
+      ctx.lineTo(p2[0], p2[1]);
+      ctx.stroke();
+    }
+
     const visible = state.lines.filter((l) => l.mode !== 'gone');
     // Moving lines are drawn on top.
     visible.sort((a, b) => (a.mode === 'idle' ? 0 : 1) - (b.mode === 'idle' ? 0 : 1));
@@ -428,7 +481,10 @@
       }
 
       const [hx, hy] = pathOf(l, l.offset + l.len - 1, l.offset + l.len - 1)[0];
-      const [dx, dy] = DIRS[l.dir];
+      // The head points the way it is travelling, which changes at reflectors.
+      const hp = Math.max(1, Math.min(l.track.length - 1, Math.ceil(l.offset + l.len - 1 - 1e-6)));
+      const dx = l.track[hp][0] - l.track[hp - 1][0];
+      const dy = l.track[hp][1] - l.track[hp - 1][1];
       const tip = cell * 0.42;
       const back = cell * 0.02;
       const wing = cell * 0.27;
