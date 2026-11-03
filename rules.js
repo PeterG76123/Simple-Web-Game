@@ -203,13 +203,18 @@
    * leave, so the search is over partial slides (forward or back) of lines
    * that are stuck, with free lines always taken off straight away.
    *
+   * `start` gives each line's offset to search from (-1 for lines already
+   * gone); by default every line is where the level starts it.
+   *
    * Returns { solvable, par, partialMoves, path, states } where par counts
-   * every move and path lists them as { line, to } (to = -1 means it left).
+   * every move still needed and path lists them as { line, to } (to = -1
+   * means it leaves the board).
    */
-  function solve(n, arrows, { maxStates = 200000, mirrors = [] } = {}) {
+  function solve(n, arrows, { maxStates = 200000, mirrors = [], start: from } = {}) {
     const map = mirrorMap(n, mirrors);
     const lines = arrows.map((a) => buildLine(n, a, map));
-    const start = lines.map(() => 0);
+    const start = from ? from.slice() : lines.map(() => 0);
+    const remaining = start.filter((o) => o >= 0).length;
     const startExits = clearFree(n, lines, start);
     const seen = new Map([[start.join(','), null]]);
     let frontier = [start];
@@ -230,7 +235,7 @@
       const next = [];
       for (const offsets of frontier) {
         if (offsets.every((o) => o < 0)) {
-          return { solvable: true, par: lines.length + depth, partialMoves: depth, path: pathTo(offsets.join(',')), states: seen.size };
+          return { solvable: true, par: remaining + depth, partialMoves: depth, path: pathTo(offsets.join(',')), states: seen.size };
         }
         const key = offsets.join(',');
         for (let id = 0; id < lines.length; id++) {

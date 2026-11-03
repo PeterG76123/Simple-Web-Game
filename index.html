@@ -38,6 +38,7 @@
           <li>Solid parts block each other. Dashed parts are see-through, so other lines can pass through them.</li>
           <li>Triangles are reflectors. A line that hits the slanted side turns 90° and keeps going. The flat sides block.</li>
           <li>Slide every line off the board to finish the level. Every level can be solved.</li>
+          <li>Stuck? Press Hint and the next best move flashes.</li>
           <li>Finish 10 levels in a group to unlock the next group.</li>
         </ul>
       </details>
@@ -62,8 +63,11 @@
       <canvas id="board"></canvas>
     </div>
 
-    <p id="hint" class="hint"></p>
-    <p id="remaining" class="remaining"></p>
+    <div class="board-footer">
+      <p id="remaining" class="remaining"></p>
+      <button id="hintBtn" class="btn ghost hint-btn" title="Hint (H)">Hint</button>
+    </div>
+    <p id="hint" class="hint" aria-live="polite"></p>
   </section>
 
   <!-- Win / lose dialog -->

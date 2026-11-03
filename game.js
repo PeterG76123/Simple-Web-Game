@@ -1,7 +1,7 @@
 (function () {
   'use strict';
 
-  const { DIRS, buildLine, mirrorMap, reach, reachBack } = window.ArrowRules;
+  const { DIRS, buildLine, mirrorMap, reach, reachBack, solve } = window.ArrowRules;
   const { groups: GROUPS, unlockAfter: UNLOCK_AFTER } = window.ArrowLevelData;
   const STORAGE_KEY = 'arrow-escape-progress-v2';
 
@@ -104,12 +104,20 @@
       flash: 0,
     }));
 
-    state = { group, index, n, lines, mirrors, history: [], finished: false };
+    state = {
+      group, index, n, lines, mirrors, history: [], finished: false,
+      levelHint: (HINTS[group] || [])[index] || '',
+      hint: null, // { id, to, start, moves } while a hint is showing
+      hintsUsed: 0, // counted so hints can be tied to ads later
+    };
     drag = null;
     lastTap = null;
 
     $('levelLabel').textContent = `Group ${group + 1} · Level ${index + 1}`;
-    $('hint').textContent = (HINTS[group] || [])[index] || '';
+    $('hint').textContent = state.levelHint;
+    $('hint').classList.remove('active');
+    delete canvas.dataset.hintLine;
+    delete canvas.dataset.hintTo;
     updateHud();
     hideDialog();
     showScreen('game');
@@ -124,6 +132,55 @@
     const left = state.lines.filter((l) => l.rest >= 0).length;
     $('remaining').textContent = left === 1 ? '1 line left' : `${left} lines left`;
     $('undoBtn').disabled = moves === 0 || state.finished;
+    $('hintBtn').disabled = state.finished || left === 0;
+    // Any move (or undo) makes the current hint out of date.
+    if (state.hint && state.hint.moves !== moves) clearHint();
+  }
+
+  // ---------- Hints ----------
+  function setHintText(text) {
+    $('hint').textContent = text;
+    $('hint').classList.add('active');
+  }
+
+  function clearHint() {
+    state.hint = null;
+    delete canvas.dataset.hintLine;
+    delete canvas.dataset.hintTo;
+    $('hint').textContent = state.levelHint;
+    $('hint').classList.remove('active');
+  }
+
+  /** Works out the best next move from where the lines are now, and flashes that line. */
+  function showHint() {
+    if (!state || state.finished || drag) return;
+    if (state.lines.every((l) => l.rest < 0)) return;
+    const level = GROUPS[state.group].levels[state.index];
+    const result = solve(state.n, level.lines, { mirrors: state.mirrors, start: restOffsets(), maxStates: 150000 });
+    state.hintsUsed++;
+    const moves = state.history.length;
+    if (!result.solvable) {
+      state.hint = { id: -1, to: 0, start: performance.now(), moves };
+      setHintText(result.gaveUp
+        ? 'This is too tangled to work out from here. Try Undo or Restart.'
+        : 'There’s no way out from here. Undo some moves or restart.');
+      return;
+    }
+    const move = result.path[0];
+    const line = state.lines[move.line];
+    let text;
+    if (move.to === -1) {
+      text = 'Slide the flashing line all the way out.';
+    } else {
+      const d = move.to - line.rest;
+      const k = Math.abs(d);
+      text = `Slide the flashing line ${d > 0 ? 'forward' : 'back'} ${k} ${k === 1 ? 'square' : 'squares'}, until its head reaches the ring.`;
+    }
+    text += result.par > 1 ? ` You can finish in ${result.par} moves.` : '';
+    state.hint = { id: move.line, to: move.to, start: performance.now(), moves };
+    canvas.dataset.hintLine = String(move.line);
+    canvas.dataset.hintTo = String(move.to);
+    setHintText(text);
   }
 
   // ---------- Input ----------
@@ -440,6 +497,38 @@
 
     ctx.lineJoin = 'round';
 
+    // The hinted line pulses, with a dotted outline where it should stop.
+    if (state.hint && state.hint.id >= 0) {
+      const l = state.lines[state.hint.id];
+      if (l && l.mode !== 'gone' && l.mode !== 'exit') {
+        const t = (performance.now() - state.hint.start) / 1000;
+        const pulse = 0.5 + 0.5 * Math.sin(t * 7);
+        ctx.save();
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.strokeStyle = colorOf(l);
+        ctx.globalAlpha = 0.2 + 0.35 * pulse;
+        ctx.lineWidth = width * 2.6;
+        stroke(pathOf(l, l.offset, l.offset + l.len - 1));
+        const to = state.hint.to;
+        if (to >= 0 && l.mode === 'idle') {
+          // Round dots along where the line will be, and a ring where its head stops.
+          const target = pathOf(l, to, to + l.len - 1);
+          ctx.globalAlpha = 0.9;
+          ctx.lineWidth = width * 0.4;
+          ctx.setLineDash([0.001, cell * 0.22]);
+          stroke(target);
+          ctx.setLineDash([]);
+          const [tx, ty] = target[target.length - 1];
+          ctx.lineWidth = width * 0.3;
+          ctx.beginPath();
+          ctx.arc(tx, ty, cell * 0.34, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+    }
+
     // Layer 1: see-through parts (faint with a dashed centre), under everything solid.
     for (const l of visible) {
       const color = colorOf(l);
@@ -626,10 +715,13 @@
   $('menuBtn').addEventListener('click', goToMenu);
   $('restartBtn').addEventListener('click', () => startLevel(state.group, state.index));
   $('undoBtn').addEventListener('click', undo);
+  $('hintBtn').addEventListener('click', showHint);
   document.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'z' && screens.game.classList.contains('active')) {
       e.preventDefault();
       undo();
+    } else if (e.key === 'h' && !e.ctrlKey && !e.metaKey && screens.game.classList.contains('active') && overlay.hidden) {
+      showHint();
     }
   });
   canvas.addEventListener('pointerdown', onPointerDown);

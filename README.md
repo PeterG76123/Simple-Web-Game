@@ -10,7 +10,9 @@ There are three groups of 25 levels, and each group starts easy and gets harder:
 - **Group 2: See-through lines.** Five short tutorials, then boards from 6×6 to 10×10 that need more and more partial slides.
 - **Group 3: Reflectors.** Triangles that fill half a square. A line that hits the slanted side turns 90° and keeps going, with its body following around the bend. The flat sides block. A mix of solid and see-through levels from 5×5 to 10×10, with 1 to 7 reflectors.
 
-Levels unlock one at a time within a group. Finish 10 levels in a group to unlock the next one. After each level you see how close you came to the fewest possible moves.
+Levels unlock one at a time within a group. Finish 10 levels in a group to unlock the next one.
+
+Stuck? Press **Hint** (or the H key). The game works out the best next move from wherever the lines are now. It makes that line glow and says what to do with it. For a partial slide, it also marks the line's route with dots and a ring where its head should stop. Hints are unlimited, and each level counts how many you use. After each level you see how close you came to the fewest possible moves.
 
 ## Play
 
