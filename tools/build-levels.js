@@ -18,12 +18,32 @@
 const fs = require('fs');
 const path = require('path');
 const plan = require('./level-plan.js');
-const { readBank, grow } = require('./bank.js');
+const { readBank, fill } = require('./bank.js');
 const { scale } = require('./difficulty.js');
 
 async function main() {
   const t0 = Date.now();
   const noGrow = process.argv.includes('--no-grow');
+
+  // First work out everything the whole plan still needs, so the bank can
+  // make it all in one parallel run instead of one kind at a time.
+  const wants = new Map();
+  for (const tier of plan.tiers) {
+    for (const g of tier.groups) {
+      const counts = new Map();
+      for (const [size, kind, mirrors] of g.slots) counts.set(`${kind}:${size}:${mirrors}`, (counts.get(`${kind}:${size}:${mirrors}`) || 0) + 1);
+      for (const [key, count] of counts) wants.set(key, (wants.get(key) || 0) + count * tier.pool);
+    }
+  }
+  const jobs = [...wants].map(([key, want]) => {
+    const [kind, size, mirrors] = [key.split(':')[0], Number(key.split(':')[1]), Number(key.split(':')[2])];
+    return { kind, size, mirrors, count: Math.max(0, want - readBank(kind, size, mirrors).length) };
+  }).filter((j) => j.count > 0);
+  if (jobs.length && !noGrow) {
+    console.log(`Making ${jobs.reduce((s, j) => s + j.count, 0)} levels for the bank:`);
+    await fill(jobs);
+  }
+
   const tiers = [];
   for (const tier of plan.tiers) {
     const groups = [];
@@ -39,9 +59,7 @@ async function main() {
       let short = false;
       for (const [key, count] of needed) {
         const [kind, size, mirrors] = [key.split(':')[0], Number(key.split(':')[1]), Number(key.split(':')[2])];
-        let bank = readBank(kind, size, mirrors);
-        const want = count * tier.pool;
-        if (bank.length < want && !noGrow) bank = await grow(kind, size, mirrors, want - bank.length);
+        const bank = readBank(kind, size, mirrors);
         if (bank.length < count) short = true;
         pools.set(key, bank);
       }

@@ -1,13 +1,19 @@
 /*
  * The level bank: verified levels stored by kind, board size and number of
- * reflectors, one JSON object per line, in levels-bank/<kind>-<size>-m<reflectors>.jsonl.
+ * reflectors, one JSON object per line, in
+ * levels-bank/<kind>-<size>-m<reflectors>.jsonl.
  *
  * Add levels from the command line:
  *   node tools/bank.js --kind=solid --size=8 --count=200
  *   node tools/bank.js --kind=clear --size=10 --mirrors=4 --count=50 --workers=4
  *
- * Each run continues from what is already in the bank (new seeds, duplicates
- * skipped), so it can be run again and again to grow the bank.
+ * Kinds are listed in tools/kinds.js. Each run continues from what is already
+ * in the bank (new seeds, duplicates skipped), so it can be run again and
+ * again to grow the bank.
+ *
+ * Speed: one pool of long-lived workers (one per CPU core) serves every job
+ * at once, one level at a time, so all cores stay busy even when each kind
+ * only needs a few levels. Results are written as soon as they arrive.
  */
 'use strict';
 const fs = require('fs');
@@ -17,9 +23,8 @@ const { Worker } = require('worker_threads');
 
 const BANK_DIR = path.join(__dirname, '..', 'levels-bank');
 
-function bankFile(kind, size, mirrors) {
-  return path.join(BANK_DIR, `${kind}-${String(size).padStart(2, '0')}-m${mirrors}.jsonl`);
-}
+const keyOf = (kind, size, mirrors) => `${kind}-${String(size).padStart(2, '0')}-m${mirrors}`;
+const bankFile = (kind, size, mirrors) => path.join(BANK_DIR, `${keyOf(kind, size, mirrors)}.jsonl`);
 
 function readBank(kind, size, mirrors) {
   const file = bankFile(kind, size, mirrors);
@@ -27,54 +32,101 @@ function readBank(kind, size, mirrors) {
   return fs.readFileSync(file, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l));
 }
 
-/** How hard a banked level is, for ordering levels within a group. */
-function difficulty(entry) {
-  return entry.partial * 40 + Math.log2(1 + entry.states) * 3 + entry.rounds * 4 + entry.lines - entry.initialFree * 2;
+function hash(text) {
+  let h = 2166136261;
+  for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 16777619);
+  return h >>> 0;
 }
 
-function runWorker(data) {
-  return new Promise((resolve, reject) => {
-    const w = new Worker(path.join(__dirname, 'bank-worker.js'), { workerData: data });
-    w.once('message', resolve);
-    w.once('error', reject);
-  });
-}
-
-/** Adds `count` new levels of one kind to the bank. Returns the whole bank for that kind. */
-async function grow(kind, size, mirrors, count, { workers = os.cpus().length, log = true } = {}) {
-  if (size > 20) throw new Error('Boards are limited to 20x20');
+/**
+ * Makes `count` more levels for every job [{ kind, size, mirrors, count }],
+ * all in parallel. Returns a Map of job key -> whole bank for that key.
+ */
+async function fill(jobs, { workers = os.cpus().length, log = true } = {}) {
   fs.mkdirSync(BANK_DIR, { recursive: true });
-  const existing = readBank(kind, size, mirrors);
-  const seen = new Set(existing.map((e) => e.level));
+  const state = jobs.filter((j) => j.count > 0).map((j) => {
+    if (j.size > 20) throw new Error('Boards are limited to 20x20');
+    const existing = readBank(j.kind, j.size, j.mirrors);
+    return {
+      ...j,
+      key: keyOf(j.kind, j.size, j.mirrors),
+      seen: new Set(existing.map((e) => e.level)),
+      have: existing.length,
+      left: j.count, // still to find
+      running: 0,
+      seq: existing.length * 1000, // seeds continue from the bank's size
+      started: Date.now(),
+    };
+  });
   const t0 = Date.now();
-  let added = 0;
-  // Seeds depend on how big the bank already is, so every run finds new levels.
-  let round = existing.length;
-  while (added < count) {
-    const want = count - added;
-    const per = Math.ceil(want / workers);
-    const batches = await Promise.all(Array.from({ length: Math.min(workers, want) }, (_, w) => runWorker({
-      kind, size, mirrors, count: per, maxTries: per * 400,
-      seed: (size * 1000003 + mirrors * 7919 + (kind === 'clear' ? 104729 : 0) + (round + w) * 2654435761) >>> 0,
-    })));
-    round += workers;
-    const fresh = [];
-    for (const e of batches.flat()) {
-      if (seen.has(e.level) || added + fresh.length >= count) continue;
-      seen.add(e.level);
-      fresh.push(e);
+  const total = state.reduce((s, j) => s + j.left, 0);
+  if (total === 0) return collect(jobs);
+
+  await new Promise((resolve, reject) => {
+    const pool = [];
+    let done = 0;
+    let finished = false;
+    const next = () => {
+      // The job with the most work still unclaimed goes first.
+      let best = null;
+      for (const j of state) if (j.left - j.running > 0 && (!best || j.left - j.running > best.left - best.running)) best = j;
+      return best;
+    };
+    const assign = (w) => {
+      const j = next();
+      if (!j) {
+        w.idle = true;
+        if (pool.every((p) => p.idle) && !finished) {
+          finished = true;
+          pool.forEach((p) => p.terminate());
+          resolve();
+        }
+        return;
+      }
+      j.running++;
+      w.idle = false;
+      w.job = j;
+      w.postMessage({ id: j.key, kind: j.kind, size: j.size, mirrors: j.mirrors, seed: (hash(j.key) ^ Math.imul(++j.seq, 2654435761)) >>> 0 });
+    };
+    for (let i = 0; i < Math.min(workers, total); i++) {
+      const w = new Worker(path.join(__dirname, 'gen-worker.js'));
+      w.on('message', ({ entry }) => {
+        const j = w.job;
+        j.running--;
+        if (entry && !j.seen.has(entry.level) && j.left > 0) {
+          j.seen.add(entry.level);
+          j.left--;
+          j.have++;
+          done++;
+          fs.appendFileSync(bankFile(j.kind, j.size, j.mirrors), JSON.stringify(entry) + '\n');
+          if (log && j.left === 0) {
+            const secs = (Date.now() - j.started) / 1000;
+            console.log(`  ${j.key}: +${j.count} in ${secs.toFixed(0)}s, ${j.have} in bank  [${done}/${total} overall, ${((Date.now() - t0) / 1000).toFixed(0)}s]`);
+          }
+        }
+        assign(w);
+      });
+      w.on('error', reject);
+      pool.push(w);
+      assign(w);
     }
-    if (fresh.length) fs.appendFileSync(bankFile(kind, size, mirrors), fresh.map((e) => JSON.stringify(e)).join('\n') + '\n');
-    added += fresh.length;
-  }
-  if (log) {
-    const secs = (Date.now() - t0) / 1000;
-    console.log(`  ${kind} ${size}x${size}, ${mirrors} reflectors: +${added} (${(added / Math.max(secs, 0.001)).toFixed(1)} levels/s), ${existing.length + added} in bank`);
-  }
-  return readBank(kind, size, mirrors);
+  });
+  if (log) console.log(`  made ${total} levels in ${((Date.now() - t0) / 1000).toFixed(0)}s on ${Math.min(workers, total)} workers`);
+  return collect(jobs);
 }
 
-module.exports = { readBank, grow, difficulty, bankFile };
+function collect(jobs) {
+  const out = new Map();
+  for (const j of jobs) out.set(`${j.kind}:${j.size}:${j.mirrors}`, readBank(j.kind, j.size, j.mirrors));
+  return out;
+}
+
+/** Adds `count` new levels of one kind. Returns the whole bank for that kind. */
+async function grow(kind, size, mirrors, count, opts) {
+  return (await fill([{ kind, size, mirrors, count }], opts)).get(`${kind}:${size}:${mirrors}`);
+}
+
+module.exports = { readBank, fill, grow, bankFile };
 
 if (require.main === module) {
   const arg = (name, def) => {
@@ -82,7 +134,7 @@ if (require.main === module) {
     return a ? a.split('=')[1] : def;
   };
   const kind = arg('kind', 'solid');
-  if (!['solid', 'clear'].includes(kind)) throw new Error('--kind must be solid or clear');
+  if (!require('./kinds.js')[kind]) throw new Error(`Unknown kind ${kind}; see tools/kinds.js`);
   grow(kind, Number(arg('size', 6)), Number(arg('mirrors', 0)), Number(arg('count', 10)), { workers: Number(arg('workers', os.cpus().length)) })
     .catch((e) => { console.error(e); process.exit(1); });
 }

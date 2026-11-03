@@ -455,8 +455,12 @@ function makeSeeThrough(n, rng, { mirrors: mirrorCount = 0, layouts = 12, pairs 
     if (solvableWithWholeExits(n, arrows, mirrors)) return null;
     const result = solve(n, arrows, { mirrors, maxStates });
     if (!result.solvable) return null;
+    // Proof that the see-through parts are needed: with them solid, the
+    // solver must finish its search and find no solution. If it runs out of
+    // room it doesn't know, so the board is rejected.
     const solidOnly = arrows.map((a) => ({ ...a, clear: [] }));
-    if (solve(n, solidOnly, { mirrors, maxStates }).solvable) return null;
+    const without = solve(n, solidOnly, { mirrors, maxStates: maxStates * 20 });
+    if (without.solvable || without.gaveUp) return null;
     return { size: n, arrows, mirrors, par: result.par, partial: result.partialMoves, states: result.states };
   };
 
