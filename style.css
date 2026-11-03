@@ -1,15 +1,15 @@
 :root {
-  --bg: #f4f1ea;
+  --bg: #eef0f6;
   --surface: #ffffff;
   --text: #24212b;
   --muted: #6d6878;
-  --border: #e2ddd2;
-  --dot: #d5cfc2;
+  --border: #dde0ea;
+  --dot: #c9cdd9;
   --accent: #5b5bd6;
   --accent-text: #ffffff;
   --danger: #e5484d;
   --heart: #e5484d;
-  --heart-empty: #d9d4ca;
+  --heart-empty: #d3d6e0;
 
   /* Line colours (also read by the canvas) */
   --c1: #5b5bd6;
@@ -51,6 +51,29 @@
   }
 }
 
+:root[data-theme="dark"] {
+  --bg: #18171d;
+  --surface: #222129;
+  --text: #eeedf2;
+  --muted: #a09cab;
+  --border: #34323d;
+  --dot: #3b3945;
+  --accent: #8282ff;
+  --accent-text: #111016;
+  --heart-empty: #3b3945;
+  --c1: #8282ff;
+  --c2: #ff6369;
+  --c3: #2bc3a9;
+  --c4: #ff8b3e;
+  --c5: #b47ff0;
+  --c6: #4cabff;
+  --c7: #f06ab8;
+  --c8: #65c97a;
+  --c9: #e6b84a;
+  --c10: #9c88ff;
+  color-scheme: dark;
+}
+
 * { box-sizing: border-box; }
 
 html, body {
@@ -73,7 +96,9 @@ body {
 #menu {
   align-items: center;
   justify-content: center;
-  padding: 24px 16px;
+  padding-block: 24px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
 }
 
 .menu-card {
@@ -163,7 +188,9 @@ h1 {
 #game {
   flex-direction: column;
   align-items: center;
-  padding: 12px 16px 20px;
+  padding-block: 12px 20px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
   gap: 12px;
 }
 

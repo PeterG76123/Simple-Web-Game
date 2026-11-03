@@ -49,6 +49,7 @@
   }
   readColors();
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', readColors);
+  new MutationObserver(readColors).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 
   // ---------- Game state ----------
   let state = null;
