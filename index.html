@@ -25,6 +25,8 @@
       <button id="playBtn" class="btn primary big">Play</button>
 
       <h2 class="section-label">Levels</h2>
+      <div id="groupTabs" class="group-tabs" role="tablist" aria-label="Level groups"></div>
+      <p id="groupNote" class="group-note" hidden></p>
       <div id="levelGrid" class="level-grid"></div>
 
       <details class="how">
@@ -35,6 +37,7 @@
           <li>You can stop partway, and drag a line back again, but never past where it started.</li>
           <li>Solid parts block each other. Dashed parts are see-through, so other lines can pass through them.</li>
           <li>Slide every line off the board to finish the level. Every level can be solved.</li>
+          <li>Finish 10 levels in a group to unlock the next group.</li>
         </ul>
       </details>
     </div>
@@ -71,7 +74,8 @@
     </div>
   </div>
 
-  <script src="levels.js"></script>
+  <script src="rules.js"></script>
+  <script src="levels-data.js"></script>
   <script src="game.js"></script>
 </body>
 </html>

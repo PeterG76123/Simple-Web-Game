@@ -4,7 +4,12 @@ A puzzle game for the browser. The board is a tangle of lines, each with an arro
 
 Solid parts of lines block each other. Some lines have dashed, see-through sections that other lines can pass through. Sometimes you have to slide a line only partway, so its see-through gap lines up and another line can get out. If you slide one too far, drag it back. Lines can go back as far as where they started, but no further. There's also **Undo**.
 
-There are 10 levels. Levels 1–5 use solid lines only, and levels 6–10 teach see-through sections. After each level you see how close you came to the fewest possible moves.
+There are two groups of 25 levels, and each group starts easy and gets harder:
+
+- **Group 1: Solid lines.** Boards grow from 4×4 to 10×10.
+- **Group 2: See-through lines.** Five short tutorials, then boards from 6×6 to 10×10 that need more and more partial slides.
+
+Levels unlock one at a time within a group. Finish 10 levels in Group 1 to unlock Group 2. After each level you see how close you came to the fewest possible moves.
 
 ## Play
 
@@ -21,13 +26,15 @@ python3 -m http.server 8000
 
 - `index.html`: front screen, game screen and dialogs
 - `style.css`: layout and light/dark themes
-- `levels.js`: the rules, the level generator, the hand-built levels and the solver
-- `game.js`: dragging, drawing, undo and menus
-- `tools/check-levels.js`: solves every level to prove it can be done (`node tools/check-levels.js --show` also prints each board)
+- `rules.js`: how lines move and block each other, plus the solver
+- `levels-data.js`: all 50 levels (generated; don't edit by hand)
+- `game.js`: dragging, drawing, undo, groups and menus
+- `tools/build-levels.js`: generates `levels-data.js` (`node tools/build-levels.js`, takes about 10 minutes)
+- `tools/check-levels.js`: re-solves every level to prove it can be done (`node tools/check-levels.js`, add `--show` to print each board)
 
 ## How the levels are guaranteed to work
 
-- **Levels 1–5** are generated from fixed seeds. Lines are placed one at a time, and each is only placed where its path out is empty, so removing them in reverse order always works.
-- **Levels 6–10** are hand-built. A solver tries every possible sequence of slides, including partial ones and slides back, to confirm each level can be solved and to find the fewest moves. For levels 7–10 it also confirms that sliding lines straight out can't solve the level: you have to use a partial slide.
-
-The game runs the same solver when it loads, and refuses to start if a hand-built level can't be solved.
+- **Group 1** levels are built so lines can always be slid straight out in reverse order of placement.
+- **Group 2** starts with five hand-built tutorials. The generated levels after them are random boards that the solver has proven can be solved. Each one also needs at least one partial slide, and can't be solved if its see-through parts were solid, so the see-through parts always matter.
+- The solver searches every combination of partial slides, forward and back. It always takes free lines straight off, which never hurts, and from that it works out the fewest moves for each level.
+- Seeds are fixed, so the build always produces the same levels.

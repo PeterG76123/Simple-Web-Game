@@ -1,8 +1,9 @@
 (function () {
   'use strict';
 
-  const { DIRS, LEVELS, buildLine, reach, reachBack } = window.ArrowLevels;
-  const STORAGE_KEY = 'arrow-escape-progress';
+  const { DIRS, buildLine, reach, reachBack } = window.ArrowRules;
+  const { groups: GROUPS, unlockAfter: UNLOCK_AFTER } = window.ArrowLevelData;
+  const STORAGE_KEY = 'arrow-escape-progress-v2';
 
   const SETTLE_SPEED = 14; // cells per second when snapping to a cell
   const EXIT_SPEED_START = 10;
@@ -14,17 +15,23 @@
   const TAP_MAX_MS = 300;
   const TAP_MAX_MOVE = 0.2; // in cells
 
+  // Hints shown under the board, per group, for the first few levels.
   const HINTS = [
-    'Drag a line the way its arrow points to slide it off the board, or double-tap it to send it straight out.',
-    'Lines can’t pass through each other. Clear the way first.',
-    'Stuck? Drag a line back the way it came, or use Undo.',
-    'You can stop a line partway, and drag it back as far as where it started.',
-    'Big board, same rules. Work out which lines are free first.',
-    'Dashed parts of a line are see-through. Other lines can slide right through them.',
-    'A line can’t get out? Slide another one partway so its see-through gap lines up.',
-    'The gap only lines up in one spot. Slide too far and it closes again, so drag it back.',
-    'Two gaps to line up this time.',
-    'See-through parts can also slide over other lines.',
+    [
+      'Drag a line the way its arrow points to slide it off the board, or double-tap it to send it straight out.',
+      'Lines can’t pass through each other. Clear the way first.',
+      'Stuck? Drag a line back the way it came, or use Undo.',
+      'You can stop a line partway, and drag it back as far as where it started.',
+      'Work out which lines are free first.',
+    ],
+    [
+      'Dashed parts of a line are see-through. Other lines can slide right through them.',
+      'A line can’t get out? Slide another one partway so its see-through gap lines up.',
+      'The gap only lines up in one spot. Slide too far and it closes again, so drag it back.',
+      'Two gaps to line up this time.',
+      'See-through parts can also slide over other lines.',
+      'From here on, it’s up to you to spot which gaps to use.',
+    ],
   ];
 
   // ---------- DOM ----------
@@ -36,6 +43,7 @@
   const overlay = $('overlay');
 
   // ---------- Progress (saved per browser, optional) ----------
+  // progress.completed holds "group-level" keys, e.g. "0-4" (both counted from 0).
   function loadProgress() {
     try {
       const data = JSON.parse(localStorage.getItem(STORAGE_KEY));
@@ -47,8 +55,10 @@
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(progress)); } catch (e) { /* ignore */ }
   }
   const progress = loadProgress();
-  const isCompleted = (i) => progress.completed.includes(i);
-  const isUnlocked = (i) => i === 0 || isCompleted(i - 1);
+  const isCompleted = (g, i) => progress.completed.includes(`${g}-${i}`);
+  const completedIn = (g) => GROUPS[g].levels.filter((_, i) => isCompleted(g, i)).length;
+  const isGroupUnlocked = (g) => g === 0 || completedIn(g - 1) >= UNLOCK_AFTER;
+  const isUnlocked = (g, i) => isGroupUnlocked(g) && (i === 0 || isCompleted(g, i - 1));
 
   // ---------- Theme colours for the canvas ----------
   let colors = {};
@@ -70,10 +80,10 @@
   let drag = null;
   let lastTap = null; // { id, time } of the last quick tap, for double-tap
 
-  function startLevel(index) {
-    const level = LEVELS[index];
+  function startLevel(group, index) {
+    const level = GROUPS[group].levels[index];
     const n = level.size;
-    const lines = level.arrows.map((a, id) => Object.assign(buildLine(n, a), {
+    const lines = level.lines.map((a, id) => Object.assign(buildLine(n, a), {
       id,
       colorIndex: (id * 3) % 10,
       rest: 0, // where the line sits (-1 once it has left)
@@ -83,12 +93,12 @@
       flash: 0,
     }));
 
-    state = { index, n, lines, history: [], finished: false };
+    state = { group, index, n, lines, history: [], finished: false };
     drag = null;
     lastTap = null;
 
-    $('levelLabel').textContent = `Level ${index + 1} of ${LEVELS.length}`;
-    $('hint').textContent = HINTS[index] || '';
+    $('levelLabel').textContent = `Group ${group + 1} · Level ${index + 1}`;
+    $('hint').textContent = (HINTS[group] || [])[index] || '';
     updateHud();
     hideDialog();
     showScreen('game');
@@ -273,10 +283,13 @@
 
     if (!busy && !state.finished && state.lines.every((l) => l.mode === 'gone')) {
       state.finished = true;
-      if (!isCompleted(state.index)) {
-        progress.completed.push(state.index);
+      const next = state.group + 1;
+      state.unlockedGroup = next < GROUPS.length && !isGroupUnlocked(next) ? next : -1;
+      if (!isCompleted(state.group, state.index)) {
+        progress.completed.push(`${state.group}-${state.index}`);
         saveProgress();
       }
+      if (state.unlockedGroup >= 0 && !isGroupUnlocked(state.unlockedGroup)) state.unlockedGroup = -1;
       updateHud();
       setTimeout(showWinDialog, 250);
     }
@@ -448,23 +461,31 @@
   function hideDialog() { overlay.hidden = true; }
 
   function showWinDialog() {
-    const i = state.index;
+    const { group, index } = state;
+    const levels = GROUPS[group].levels;
     const moves = state.history.length;
-    const par = LEVELS[i].par;
-    const detail = moves <= par
+    const par = levels[index].par;
+    let detail = moves <= par
       ? `Solved in ${moves} moves. That’s the best possible!`
       : `Solved in ${moves} moves. It can be done in ${par}.`;
-    if (i + 1 < LEVELS.length) {
-      showDialog('Level complete!', detail, [
-        { label: 'Next level', primary: true, action: () => startLevel(i + 1) },
-        { label: 'Play again', action: () => startLevel(i) },
-        { label: 'Menu', action: goToMenu },
-      ]);
+    const nextGroup = group + 1 < GROUPS.length && isGroupUnlocked(group + 1) ? group + 1 : -1;
+    const startNextGroup = { label: `Start Group ${nextGroup + 1}`, action: () => startLevel(nextGroup, 0) };
+
+    if (state.unlockedGroup >= 0) detail += ` You’ve unlocked Group ${state.unlockedGroup + 1}: ${GROUPS[state.unlockedGroup].name}.`;
+
+    if (index + 1 < levels.length) {
+      const buttons = [{ label: 'Next level', primary: true, action: () => startLevel(group, index + 1) }];
+      if (state.unlockedGroup >= 0) buttons.push(startNextGroup);
+      buttons.push({ label: 'Play again', action: () => startLevel(group, index) });
+      buttons.push({ label: 'Menu', action: goToMenu });
+      showDialog(state.unlockedGroup >= 0 ? 'New group unlocked!' : 'Level complete!', detail, buttons);
     } else {
-      showDialog('You beat every level!', `${detail} You untangled them all.`, [
-        { label: 'Back to menu', primary: true, action: goToMenu },
-        { label: 'Play again', action: () => startLevel(i) },
-      ]);
+      const buttons = [];
+      if (nextGroup >= 0) buttons.push({ ...startNextGroup, primary: true });
+      buttons.push({ label: 'Back to menu', primary: nextGroup < 0, action: goToMenu });
+      buttons.push({ label: 'Play again', action: () => startLevel(group, index) });
+      const last = group + 1 >= GROUPS.length;
+      showDialog(`Group ${group + 1} complete!`, `${detail} ${last ? 'You untangled every level.' : ''}`.trim(), buttons);
     }
   }
 
@@ -475,36 +496,79 @@
 
   function goToMenu() {
     hideDialog();
+    if (state) menuGroup = state.group;
     renderMenu();
     showScreen('menu');
   }
 
+  let menuGroup = 0;
+
+  /** The next level to play: the first unfinished level in the newest unlocked group. */
+  function nextLevel() {
+    for (let gi = GROUPS.length - 1; gi >= 0; gi--) {
+      if (!isGroupUnlocked(gi)) continue;
+      const i = GROUPS[gi].levels.findIndex((_, li) => !isCompleted(gi, li));
+      if (i >= 0) return { group: gi, index: i };
+    }
+    return null;
+  }
+
   function renderMenu() {
+    const tabs = $('groupTabs');
+    tabs.innerHTML = '';
+    GROUPS.forEach((grp, gi) => {
+      const b = document.createElement('button');
+      const unlocked = isGroupUnlocked(gi);
+      b.className = 'group-tab';
+      b.id = `groupTab${gi}`;
+      b.setAttribute('role', 'tab');
+      b.setAttribute('aria-selected', String(gi === menuGroup));
+      b.innerHTML = `<span class="group-title">Group ${gi + 1}</span>` +
+        `<span class="group-sub">${grp.name}</span>` +
+        `<span class="group-count${unlocked ? '' : ' locked'}">${unlocked ? `${completedIn(gi)} / ${grp.levels.length} done` : 'Locked'}</span>`;
+      b.addEventListener('click', () => { menuGroup = gi; renderMenu(); });
+      tabs.appendChild(b);
+    });
+
+    const unlocked = isGroupUnlocked(menuGroup);
+    const note = $('groupNote');
+    if (unlocked) {
+      note.hidden = true;
+    } else {
+      const prev = menuGroup - 1;
+      const left = UNLOCK_AFTER - completedIn(prev);
+      note.hidden = false;
+      note.textContent = `Finish ${left} more ${left === 1 ? 'level' : 'levels'} in Group ${prev + 1} to unlock this group.`;
+    }
+
     const grid = $('levelGrid');
     grid.innerHTML = '';
-    LEVELS.forEach((level, i) => {
+    GROUPS[menuGroup].levels.forEach((level, i) => {
       const b = document.createElement('button');
       b.className = 'level-btn';
-      const unlocked = isUnlocked(i);
-      b.disabled = !unlocked;
-      if (isCompleted(i)) b.classList.add('done');
-      const sub = isCompleted(i) ? 'Done' : unlocked ? `${level.size}×${level.size}` : 'Locked';
+      const open = isUnlocked(menuGroup, i);
+      const done = isCompleted(menuGroup, i);
+      b.disabled = !open;
+      if (done) b.classList.add('done');
+      const sub = done ? 'Done' : open ? `${level.size}×${level.size}` : 'Locked';
       b.innerHTML = `<span>${i + 1}</span><span class="sub">${sub}</span>`;
-      b.setAttribute('aria-label', `Level ${i + 1}, ${sub}`);
-      b.addEventListener('click', () => startLevel(i));
+      b.setAttribute('aria-label', `Group ${menuGroup + 1}, level ${i + 1}, ${sub}`);
+      const gi = menuGroup;
+      b.addEventListener('click', () => startLevel(gi, i));
       grid.appendChild(b);
     });
 
-    const next = LEVELS.findIndex((_, i) => !isCompleted(i));
-    $('playBtn').textContent = progress.completed.length === 0 ? 'Play' : next === -1 ? 'Play again' : `Continue: Level ${next + 1}`;
+    const next = nextLevel();
+    $('playBtn').textContent = progress.completed.length === 0 ? 'Play'
+      : next ? `Continue: Group ${next.group + 1}, Level ${next.index + 1}` : 'Play again';
   }
 
   $('playBtn').addEventListener('click', () => {
-    const next = LEVELS.findIndex((_, i) => !isCompleted(i));
-    startLevel(next === -1 ? 0 : next);
+    const next = nextLevel() || { group: 0, index: 0 };
+    startLevel(next.group, next.index);
   });
   $('menuBtn').addEventListener('click', goToMenu);
-  $('restartBtn').addEventListener('click', () => startLevel(state.index));
+  $('restartBtn').addEventListener('click', () => startLevel(state.group, state.index));
   $('undoBtn').addEventListener('click', undo);
   document.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'z' && screens.game.classList.contains('active')) {
@@ -518,6 +582,7 @@
   canvas.addEventListener('pointercancel', onPointerUp);
   new ResizeObserver(resizeCanvas).observe(boardWrap);
 
+  menuGroup = (nextLevel() || { group: 0 }).group;
   renderMenu();
   requestAnimationFrame(frame);
 })();
