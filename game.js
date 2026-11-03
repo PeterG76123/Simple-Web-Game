@@ -1,7 +1,7 @@
 (function () {
   'use strict';
 
-  const { DIRS, buildLine, mirrorMap, reach, reachBack, solve, decodeLevel } = window.ArrowRules;
+  const { DIRS, buildLine, mirrorMap, reach, reachBack, solve, decodeLevel, makeWorld, anyMap, turnMirror, canTurn } = window.ArrowRules;
   const { unlockAfter: UNLOCK_AFTER } = window.ArrowLevelData;
   // Older level files had one list of groups and no difficulty settings.
   const TIERS = window.ArrowLevelData.tiers || [{ name: 'Easy', groups: window.ArrowLevelData.groups }];
@@ -56,6 +56,20 @@
       'Reflectors work with see-through parts too.',
       'Some lines bounce off more than one reflector on the way out.',
     ],
+    [
+      'Tap a reflector to turn it a quarter turn. Some lines can only get out once a reflector is turned.',
+      'Each tap turns it a little further. Watch where each line would bounce.',
+      'A reflector can’t turn while a line is on it, or while a line that went through it is still on the board.',
+      'Sometimes a reflector has to be turned more than once as you go.',
+      'Plan the order: turn, slide, then turn again.',
+    ],
+    [
+      'Gates block lines. A gate opens while any line sits on a plate of the same colour.',
+      'Slide a line partway onto a plate to hold its gate open, then send another line through.',
+      'A gate can’t close on a line that’s inside it.',
+      'Some colours have more than one gate. One plate opens them all.',
+      'Think about which line should leave last.',
+    ],
   ];
 
   // ---------- DOM ----------
@@ -98,6 +112,9 @@
       dot: v('--dot'),
       mirror: v('--mirror'),
       mirrorEdge: v('--mirror-edge'),
+      turnable: v('--accent'),
+      gates: [v('--gate0'), v('--gate1'), v('--gate2')],
+      surface: v('--surface'),
       danger: v('--danger'),
       lines: Array.from({ length: 10 }, (_, i) => v(`--c${i + 1}`)),
     };
@@ -113,8 +130,9 @@
   function startLevel(group, index) {
     const level = levelAt(group, index);
     const n = level.size;
-    const mirrors = level.mirrors || [];
+    const mirrors = (level.mirrors || []).map((m) => m.slice());
     const map = mirrorMap(n, mirrors);
+    const world = makeWorld(n, level.gates || [], level.plates || []);
     const lines = level.lines.map((a, id) => Object.assign(buildLine(n, a, map), {
       id,
       colorIndex: (id * 3) % 10,
@@ -124,9 +142,16 @@
       speed: 0,
       flash: 0,
     }));
+    lines.world = world; // gates and plates, used by the movement checks
 
     state = {
       tier, group, index, n, lines, mirrors, history: [], finished: false,
+      rotatable: !!level.rotatable,
+      gates: level.gates || [],
+      plates: level.plates || [],
+      mirrorAnim: [], // per reflector: { from, to, start } angles while turning
+      mirrorFlash: [], // per reflector: 0-1, flashes when it can't turn
+      gateFlash: new Map(), // gate cell -> 0-1, flashes when it blocks a line
       rating: (groupsNow()[group].ratings || [])[index],
       // Tips are for learning the game, so only on Easy.
       levelHint: tier === 0 ? (HINTS[group] || [])[index] || '' : '',
@@ -168,6 +193,7 @@
 
   function clearHint() {
     state.hint = null;
+    delete canvas.dataset.hintTurn;
     delete canvas.dataset.hintLine;
     delete canvas.dataset.hintTo;
     $('hint').textContent = state.levelHint;
@@ -179,7 +205,10 @@
     if (!state || state.finished || drag) return;
     if (state.lines.every((l) => l.rest < 0)) return;
     const level = levelAt(state.group, state.index);
-    const result = solve(state.n, level.lines, { mirrors: state.mirrors, start: restOffsets(), maxStates: 150000 });
+    const result = solve(state.n, level.lines, {
+      mirrors: state.mirrors, rotatable: state.rotatable, gates: state.gates, plates: state.plates,
+      start: restOffsets(), maxStates: 150000,
+    });
     state.hintsUsed++;
     const moves = state.history.length;
     if (!result.solvable) {
@@ -190,6 +219,12 @@
       return;
     }
     const move = result.path[0];
+    if (move.turn !== undefined) {
+      state.hint = { id: -1, turn: move.turn, start: performance.now(), moves };
+      canvas.dataset.hintTurn = String(move.turn);
+      setHintText(`Tap the flashing reflector to turn it.${result.par > 1 ? ` You can finish in ${result.par} moves.` : ''}`);
+      return;
+    }
     const line = state.lines[move.line];
     let text;
     if (move.to === -1) {
@@ -229,13 +264,57 @@
     return fallback;
   }
 
+  // ---------- Turning reflectors ----------
+  const ANGLE = [0, 1, 3, 2]; // quarter turns from the up-left shape, per shape index
+  const shapeIndex = (a, b) => [[0, 3], [0, 1], [2, 3], [2, 1]].findIndex(([p, q]) => (p === a && q === b) || (p === b && q === a));
+
+  /** Rebuild every line's path after a reflector turns (where lines are now doesn't change). */
+  function rebuildLines() {
+    const level = levelAt(state.group, state.index);
+    const map = mirrorMap(state.n, state.mirrors);
+    state.lines.forEach((l, id) => {
+      const geo = buildLine(state.n, level.lines[id], map);
+      Object.assign(l, geo);
+      delete l.gateInfo;
+    });
+  }
+
+  function animateTurn(k, from, to) {
+    state.mirrorAnim[k] = { from, to, start: performance.now() };
+  }
+
+  function turnAt(k) {
+    const m = state.mirrors[k];
+    const busy = state.lines.some((l) => l.mode !== 'idle' && l.mode !== 'gone');
+    if (busy || !canTurn(state.n, state.lines, restOffsets(), m)) {
+      // A line is on it, or has gone through it: it can't turn.
+      state.mirrorFlash[k] = 1;
+      if (navigator.vibrate) navigator.vibrate(30);
+      return;
+    }
+    const before = state.mirrors;
+    state.mirrors = turnMirror(state.mirrors, k);
+    const a = ANGLE[shapeIndex(m[2], m[3])];
+    animateTurn(k, a, a + 1);
+    rebuildLines();
+    state.history.push({ turn: k, mirrors: before });
+    updateHud();
+  }
+
   function onPointerDown(evt) {
     if (!state || state.finished || drag) return;
     const { px, py, cell, margin } = boardPoint(evt);
     const x = Math.floor((px - margin) / cell);
     const y = Math.floor((py - margin) / cell);
     const line = lineAt(x, y);
-    if (!line) return;
+    if (!line) {
+      const k = state.rotatable ? state.mirrors.findIndex(([mx, my]) => mx === x && my === y) : -1;
+      if (k >= 0) {
+        evt.preventDefault();
+        turnAt(k);
+      }
+      return;
+    }
     evt.preventDefault();
     canvas.setPointerCapture(evt.pointerId);
     const offsets = restOffsets();
@@ -273,8 +352,14 @@
     const wanted = drag.wanted;
     line.offset = Math.max(back.min, Math.min(wanted, limit));
     let blockerId = -1;
-    if (!r.exit && wanted > r.max + BLOCK_PUSH) blockerId = r.blocker;
-    if (back.blocker !== -1 && wanted < back.min - BLOCK_PUSH) blockerId = back.blocker;
+    if (!r.exit && wanted > r.max + BLOCK_PUSH) {
+      blockerId = r.blocker;
+      if (r.gate >= 0) flashGate(r.gate);
+    }
+    if (wanted < back.min - BLOCK_PUSH) {
+      if (back.blocker !== -1) blockerId = back.blocker;
+      if (back.gate >= 0) flashGate(back.gate);
+    }
     const blocker = state.lines[blockerId];
     if (blocker && blocker.flash < 0.4) {
       blocker.flash = 1;
@@ -313,6 +398,13 @@
     updateHud();
   }
 
+  function flashGate(cell) {
+    if ((state.gateFlash.get(cell) || 0) < 0.4) {
+      state.gateFlash.set(cell, 1);
+      if (navigator.vibrate) navigator.vibrate(30);
+    }
+  }
+
   /** Tap: slide all the way off if nothing is in the way, otherwise bump and spring back. */
   function sendOut(line, r) {
     if (r.exit) {
@@ -325,6 +417,7 @@
       line.mode = 'bump';
       line.bumpTarget = r.max + BUMP_OVERLAP;
       line.blocker = r.blocker;
+      line.blockGate = r.gate;
     }
   }
 
@@ -332,6 +425,15 @@
     if (!state || state.finished || drag) return;
     const last = state.history.pop();
     if (!last) return;
+    if (last.turn !== undefined) {
+      const m = state.mirrors[last.turn];
+      const a = ANGLE[shapeIndex(m[2], m[3])];
+      state.mirrors = last.mirrors;
+      animateTurn(last.turn, a, a - 1);
+      rebuildLines();
+      updateHud();
+      return;
+    }
     const line = state.lines[last.id];
     if (line.mode === 'gone' || line.mode === 'exit') line.offset = Math.min(line.offset, line.exitAt);
     line.rest = last.from;
@@ -353,6 +455,8 @@
   }
 
   function update(dt) {
+    state.mirrorFlash = state.mirrorFlash.map((f) => Math.max(0, (f || 0) - dt * 2.2));
+    for (const [c, f] of state.gateFlash) state.gateFlash.set(c, Math.max(0, f - dt * 2.2));
     let busy = !!drag;
     for (const l of state.lines) {
       if (l.flash > 0) l.flash = Math.max(0, l.flash - dt * 2.2);
@@ -372,6 +476,7 @@
         if (l.offset >= l.bumpTarget) {
           l.offset = l.bumpTarget;
           l.mode = 'settle'; // springs back to where it was; not counted as a move
+          if (l.blockGate >= 0) flashGate(l.blockGate);
           const blocker = state.lines[l.blocker];
           if (blocker) blocker.flash = 1;
           if (navigator.vibrate) navigator.vibrate(30);
@@ -449,30 +554,136 @@
       }
     }
 
+    // Plates and gates sit under the lines. A gate is open while a plate of
+    // its colour is covered or a line is inside it.
+    if (state.gates.length) {
+      const any = anyMap(state.n, state.lines, restOffsets());
+      const covered = new Set(state.plates.filter(([x, y]) => any[y * state.n + x] > 0).map(([, , c]) => c));
+      const box = (x, y, inset) => [margin + x * cell + cell * inset, margin + y * cell + cell * inset, cell * (1 - 2 * inset)];
+      const roundRect = (x, y, w, r) => {
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.arcTo(x + w, y, x + w, y + w, r);
+        ctx.arcTo(x + w, y + w, x, y + w, r);
+        ctx.arcTo(x, y + w, x, y, r);
+        ctx.arcTo(x, y, x + w, y, r);
+        ctx.closePath();
+      };
+      // Plates: round pads, brighter while something is on them.
+      for (const [px, py, c] of state.plates) {
+        ctx.fillStyle = colors.gates[c];
+        ctx.globalAlpha = covered.has(c) ? 0.5 : 0.2;
+        ctx.beginPath();
+        ctx.arc(center(px), center(py), cell * 0.4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.strokeStyle = colors.gates[c];
+        ctx.lineWidth = cell * 0.07;
+        ctx.stroke();
+      }
+      for (const [gx, gy, c] of state.gates) {
+        const cellIndex = gy * state.n + gx;
+        const open = covered.has(c) || any[cellIndex] > 0;
+        const flash = state.gateFlash.get(cellIndex) || 0;
+        const color = flash > 0 ? mix(colors.gates[c], colors.danger, Math.min(1, flash * 1.3)) : colors.gates[c];
+        const [bx, by, w] = box(gx, gy, 0.06);
+        if (open) {
+          // Open: a dashed outline with faint bars, so lines can be seen passing through.
+          ctx.strokeStyle = color;
+          ctx.lineWidth = cell * 0.06;
+          ctx.setLineDash([cell * 0.12, cell * 0.08]);
+          roundRect(bx, by, w, w * 0.15);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.globalAlpha = 0.35;
+          ctx.lineWidth = cell * 0.05;
+          ctx.lineCap = 'round';
+          for (const f of [0.3, 0.5, 0.7]) {
+            ctx.beginPath();
+            ctx.moveTo(bx + w * f, by + w * 0.2);
+            ctx.lineTo(bx + w * f, by + w * 0.8);
+            ctx.stroke();
+          }
+          ctx.globalAlpha = 1;
+        } else {
+          // Shut: a solid block with bars.
+          ctx.fillStyle = color;
+          roundRect(bx, by, w, w * 0.15);
+          ctx.fill();
+          ctx.strokeStyle = colors.surface;
+          ctx.lineWidth = cell * 0.07;
+          ctx.lineCap = 'round';
+          for (const f of [0.3, 0.5, 0.7]) {
+            ctx.beginPath();
+            ctx.moveTo(bx + w * f, by + w * 0.2);
+            ctx.lineTo(bx + w * f, by + w * 0.8);
+            ctx.stroke();
+          }
+        }
+      }
+    }
+
     // Reflectors: a triangle filling half the cell, with its slanted side
-    // facing the two open sides.
+    // facing the two open sides. Drawn from the up-left shape, turned by a
+    // number of quarter turns (animated while a reflector is turning).
     const half = cell * 0.4;
-    for (const [mx, my, a, b] of state.mirrors) {
-      const [c1, c2] = [0, 1, 2, 3].filter((d) => d !== a && d !== b);
-      const cx = center(mx) + half * (DIRS[c1][0] + DIRS[c2][0]);
-      const cy = center(my) + half * (DIRS[c1][1] + DIRS[c2][1]);
-      const p1 = [cx - 2 * half * DIRS[c1][0], cy - 2 * half * DIRS[c1][1]];
-      const p2 = [cx - 2 * half * DIRS[c2][0], cy - 2 * half * DIRS[c2][1]];
-      ctx.fillStyle = colors.mirror;
+    const now = performance.now();
+    state.mirrors.forEach(([mx, my, a, b], k) => {
+      let quarter = ANGLE[shapeIndex(a, b)];
+      const anim = state.mirrorAnim[k];
+      if (anim) {
+        const t = Math.min(1, (now - anim.start) / 160);
+        if (t >= 1) state.mirrorAnim[k] = null;
+        else quarter = anim.from + (anim.to - anim.from) * (1 - (1 - t) * (1 - t));
+      }
+      const flash = state.mirrorFlash[k] || 0;
+      const hinted = state.hint && state.hint.turn === k;
+      ctx.save();
+      ctx.translate(center(mx), center(my));
+      if (hinted) {
+        // Pulse behind a reflector the hint says to turn.
+        const pulse = 0.5 + 0.5 * Math.sin((now - state.hint.start) / 1000 * 7);
+        ctx.fillStyle = colors.turnable;
+        ctx.globalAlpha = 0.15 + 0.3 * pulse;
+        ctx.beginPath();
+        ctx.arc(0, 0, cell * 0.55, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+      ctx.rotate((quarter * Math.PI) / 2);
+      // Up-left shape: corner at bottom-right, slanted side from top-right to bottom-left.
+      ctx.fillStyle = flash > 0 ? mix(colors.mirror, colors.danger, Math.min(1, flash)) : colors.mirror;
       ctx.beginPath();
-      ctx.moveTo(cx, cy);
-      ctx.lineTo(p1[0], p1[1]);
-      ctx.lineTo(p2[0], p2[1]);
+      ctx.moveTo(half, half);
+      ctx.lineTo(half, -half);
+      ctx.lineTo(-half, half);
       ctx.closePath();
       ctx.fill();
-      ctx.strokeStyle = colors.mirrorEdge;
+      ctx.strokeStyle = state.rotatable ? colors.turnable : colors.mirrorEdge;
       ctx.lineWidth = cell * 0.07;
       ctx.lineCap = 'round';
       ctx.beginPath();
-      ctx.moveTo(p1[0], p1[1]);
-      ctx.lineTo(p2[0], p2[1]);
+      ctx.moveTo(half, -half);
+      ctx.lineTo(-half, half);
       ctx.stroke();
-    }
+      if (state.rotatable) {
+        // A small turning arrow in the open half marks reflectors you can tap.
+        ctx.lineWidth = cell * 0.05;
+        ctx.beginPath();
+        ctx.arc(-cell * 0.12, -cell * 0.12, cell * 0.14, Math.PI * 0.9, Math.PI * 2.1);
+        ctx.stroke();
+        const ex = -cell * 0.12 + cell * 0.14 * Math.cos(Math.PI * 2.1);
+        const ey = -cell * 0.12 + cell * 0.14 * Math.sin(Math.PI * 2.1);
+        ctx.fillStyle = colors.turnable;
+        ctx.beginPath();
+        ctx.moveTo(ex + cell * 0.07, ey - cell * 0.02);
+        ctx.lineTo(ex - cell * 0.03, ey + cell * 0.07);
+        ctx.lineTo(ex - cell * 0.05, ey - cell * 0.06);
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.restore();
+    });
 
     const visible = state.lines.filter((l) => l.mode !== 'gone');
     // Moving lines are drawn on top.

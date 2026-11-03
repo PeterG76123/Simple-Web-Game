@@ -6,7 +6,7 @@
  */
 'use strict';
 const { mulberry32, shuffle, pathCover, repair, makeSolid } = require('./fullgen.js');
-const { DIRS, inBounds, solve, solveWorld, turnMirror } = globalThis.ArrowRules;
+const { DIRS, inBounds, solve, solveWorld, turnMirror, tracePath, mirrorMap } = globalThis.ArrowRules;
 
 /**
  * Rotating reflectors. Make a solvable board with every reflector set right,
@@ -22,11 +22,19 @@ function makeRotate(n, rng, { mirrors: count = 2, minTurns = Math.max(1, Math.fl
     let start = base.mirrors.map((m) => m.slice());
     const picks = shuffle(base.mirrors.map((_, i) => i), rng).slice(0, 1 + ((rng() * count) | 0));
     for (const k of picks) {
-      const away = 1 + ((rng() * 3) | 0); // the player needs (4 - away) taps... or another route
+      const away = 1 + ((rng() * 3) | 0); // turned 1-3 steps away from where it works
       for (let r = 0; r < away; r++) start = turnMirror(start, k);
     }
-    // Must not be solvable as it stands, without turning anything.
-    if (solve(n, base.arrows, { mirrors: start, maxStates }).solvable) continue;
+    // Must not be solvable as it stands, without turning anything. Quick
+    // proof: some line's way out runs into a flat side (or loops), so it can
+    // never leave unless a reflector turns. Otherwise the search must finish
+    // and find nothing.
+    const map = mirrorMap(n, start);
+    const stuck = base.arrows.some((a) => !tracePath(n, a.cells[0][0], a.cells[0][1], a.dir, map).escapes);
+    if (!stuck) {
+      const still = solve(n, base.arrows, { mirrors: start, maxStates: maxStates * 10 });
+      if (still.solvable || still.gaveUp) continue;
+    }
     // Fewest turns needed (slides are free in this count).
     const fewestTurns = solveWorld(n, base.arrows, { mirrors: start, rotatable: true, maxStates, turnCost: 1, slideCost: 0 });
     if (!fewestTurns.solvable || fewestTurns.cost < minTurns) continue;
@@ -58,7 +66,9 @@ function makeRotate(n, rng, { mirrors: count = 2, minTurns = Math.max(1, Math.fl
 function makeGates(n, rng, { mirrors: colours = 1, tries = 30, maxStates = 20000 } = {}) {
   // Gates: away from the edge and from each other.
   const gates = [];
-  const perColour = n >= 9 ? 2 : 1;
+  // Two gates per colour on mid-size boards; on the biggest boards one each
+  // (six gates that must all be in use make solvable boards very rare).
+  const perColour = n >= 9 && n <= 14 ? 2 : 1;
   for (let c = 0; c < colours; c++) {
     for (let k = 0; k < perColour; k++) {
       for (let attempt = 0; attempt < 100; attempt++) {
@@ -103,6 +113,7 @@ function makeGates(n, rng, { mirrors: colours = 1, tries = 30, maxStates = 20000
 
   const lineCells = [];
   arrows.forEach((a) => a.cells.forEach(([x, y]) => lineCells.push([x, y])));
+  const throughGate = arrows.some((a) => tracePath(n, a.cells[0][0], a.cells[0][1], a.dir, null).cells.some(([x, y]) => gateCells.has(y * n + x)));
   for (let t = 0; t < tries; t++) {
     const plates = [];
     const used = new Set();
@@ -112,8 +123,13 @@ function makeGates(n, rng, { mirrors: colours = 1, tries = 30, maxStates = 20000
       used.add(cell[1] * n + cell[0]);
       plates.push([cell[0], cell[1], c]);
     }
-    // Shut gates (no plates) must make it impossible: the gates matter.
-    if (solveWorld(n, arrows, { gates, plates: [], maxStates }).solvable) continue;
+    // Shut gates must make it impossible: the gates matter. Quick proof: a
+    // line whose way out goes through a gate can never leave while the gates
+    // stay shut. Otherwise the search must finish and find nothing.
+    if (!throughGate) {
+      const shut = solveWorld(n, arrows, { gates, plates: [], maxStates: maxStates * 10 });
+      if (shut.solvable || shut.gaveUp) continue;
+    }
     const best = solveWorld(n, arrows, { gates, plates, maxStates });
     if (!best.solvable) continue;
     return {

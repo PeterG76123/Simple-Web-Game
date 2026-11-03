@@ -7,6 +7,9 @@
   --dot: #c9cdd9;
   --mirror: #b9bfd3;
   --mirror-edge: #2e3245;
+  --gate0: #e5484d;
+  --gate1: #0090ff;
+  --gate2: #d9a400;
   --accent: #5b5bd6;
   --accent-text: #ffffff;
   --danger: #e5484d;
@@ -36,6 +39,9 @@
     --dot: #3b3945;
     --mirror: #4a4858;
     --mirror-edge: #e6e4ef;
+    --gate0: #ff6369;
+    --gate1: #4cabff;
+    --gate2: #f5c542;
     --accent: #8282ff;
     --accent-text: #111016;
     --c1: #8282ff;
@@ -61,6 +67,9 @@
   --dot: #3b3945;
   --mirror: #4a4858;
   --mirror-edge: #e6e4ef;
+  --gate0: #ff6369;
+  --gate1: #4cabff;
+  --gate2: #f5c542;
   --accent: #8282ff;
   --accent-text: #111016;
   --c1: #8282ff;
@@ -138,8 +147,7 @@ h1 {
 
 .group-tabs {
   display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(0, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
   margin-bottom: 12px;
 }
@@ -170,6 +178,8 @@ h1 {
 [data-group="0"] { --group: var(--c1); }
 [data-group="1"] { --group: var(--c3); }
 [data-group="2"] { --group: var(--c4); }
+[data-group="3"] { --group: var(--c5); }
+[data-group="4"] { --group: var(--c7); }
 
 .group-tab {
   font: inherit;

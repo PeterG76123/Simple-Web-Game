@@ -19,6 +19,10 @@
  *   size       bigger boards are harder to read.
  *   bounce     lines whose way out bends off a reflector: paths are harder to
  *              follow by eye.
+ *   turns      fewest reflector turns needed (rotating reflectors): each one
+ *              is a decision about which way every bounce should go.
+ *   gates      gates to manage (gates and plates): each one adds an ordering
+ *              problem.
  */
 'use strict';
 require('../rules.js');
@@ -41,6 +45,8 @@ function features(entry) {
     initialFree: Math.max(1, entry.initialFree || 1),
     mirrors: level.mirrors.length,
     bounce,
+    turns: entry.turns || 0,
+    gates: level.gates ? level.gates.length : 0,
   };
 }
 
@@ -52,7 +58,9 @@ function rawScore(f) {
     1.5 * (f.lines / f.initialFree) +
     0.12 * f.lines +
     0.25 * f.size +
-    0.4 * f.bounce
+    0.4 * f.bounce +
+    5 * f.turns +
+    2 * f.gates
   );
 }
 

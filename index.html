@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Arrow Escape</title>
   <meta name="description" content="A puzzle game: drag each tangled line off the board the way its arrow points, using see-through gaps to get past other lines." />
-  <link rel="stylesheet" href="style.css?v=70767b9f" />
+  <link rel="stylesheet" href="style.css?v=0d9bff20" />
 </head>
 <body>
   <!-- Front screen -->
@@ -39,6 +39,8 @@
           <li>You can stop partway, and drag a line back again, but never past where it started.</li>
           <li>Solid parts block each other. Dashed parts are see-through, so other lines can pass through them.</li>
           <li>Triangles are reflectors. A line that hits the slanted side turns 90° and keeps going. The flat sides block.</li>
+          <li>Reflectors marked with a turning arrow can be tapped to turn them a quarter turn.</li>
+          <li>Coloured gates block lines. A gate opens while a line sits on a plate of the same colour.</li>
           <li>Slide every line off the board to finish the level. Every level can be solved.</li>
           <li>Stuck? Press Hint and the next best move flashes.</li>
           <li>Finish 10 levels in a group to unlock the next group.</li>
@@ -81,8 +83,8 @@
     </div>
   </div>
 
-  <script src="rules.js?v=3dcf7ecc"></script>
+  <script src="rules.js?v=3aa985f8"></script>
   <script src="levels-data.js?v=d0e7d689"></script>
-  <script src="game.js?v=3c2381a5"></script>
+  <script src="game.js?v=f388f12b"></script>
 </body>
 </html>

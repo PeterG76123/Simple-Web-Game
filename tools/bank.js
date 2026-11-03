@@ -67,9 +67,13 @@ async function fill(jobs, { workers = os.cpus().length, log = true } = {}) {
     let done = 0;
     let finished = false;
     const next = () => {
-      // The job with the most work still unclaimed goes first.
+      // The job with the most work still unclaimed goes first. When every
+      // remaining level is already being worked on, spare workers race on
+      // the same jobs (first answer wins), so no core sits idle at the end.
       let best = null;
       for (const j of state) if (j.left - j.running > 0 && (!best || j.left - j.running > best.left - best.running)) best = j;
+      if (best) return best;
+      for (const j of state) if (j.left > 0 && (!best || j.running / j.left < best.running / best.left)) best = j;
       return best;
     };
     const assign = (w) => {
@@ -88,7 +92,7 @@ async function fill(jobs, { workers = os.cpus().length, log = true } = {}) {
       w.job = j;
       w.postMessage({ id: j.key, kind: j.kind, size: j.size, mirrors: j.mirrors, seed: (hash(j.key) ^ Math.imul(++j.seq, 2654435761)) >>> 0 });
     };
-    for (let i = 0; i < Math.min(workers, total); i++) {
+    for (let i = 0; i < workers; i++) {
       const w = new Worker(path.join(__dirname, 'gen-worker.js'));
       w.on('message', ({ entry }) => {
         const j = w.job;
@@ -111,7 +115,7 @@ async function fill(jobs, { workers = os.cpus().length, log = true } = {}) {
       assign(w);
     }
   });
-  if (log) console.log(`  made ${total} levels in ${((Date.now() - t0) / 1000).toFixed(0)}s on ${Math.min(workers, total)} workers`);
+  if (log) console.log(`  made ${total} levels in ${((Date.now() - t0) / 1000).toFixed(0)}s on ${workers} workers`);
   return collect(jobs);
 }
 

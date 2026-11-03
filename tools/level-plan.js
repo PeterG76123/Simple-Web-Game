@@ -7,6 +7,10 @@
  * Each slot: [board size, kind, reflectors]
  *   kind 'solid': solid lines only, cleared by sliding lines straight out
  *   kind 'clear': has see-through sections and needs at least one partial slide
+ *   kind 'rotate': reflectors you can turn; can't be solved without turning
+ *                  some, and needs more turns as reflectors are added
+ *   kind 'gates': coloured gates opened by matching plates; can't be solved
+ *                 with the gates shut
  *
  * Every level fills the whole board, with lines of 3 squares or more.
  * `pool` is how many candidates per slot the bank should hold to choose from.
@@ -15,6 +19,8 @@
 
 const s = (n, m = 0) => [n, 'solid', m];
 const c = (n, m = 0) => [n, 'clear', m];
+const r = (n, m) => [n, 'rotate', m]; // rotating reflectors: m reflectors
+const g = (n, m) => [n, 'gates', m]; // gates and plates: m colours
 const range = (from, to) => Array.from({ length: to - from + 1 }, (_, i) => from + i);
 const twice = (sizes) => sizes.flatMap((n) => [n, n]);
 
@@ -43,6 +49,22 @@ module.exports = {
             c(10, 4), s(10, 6), c(10, 4), s(10, 6), c(10, 4),
           ],
         },
+        {
+          name: 'Turning reflectors',
+          slots: [
+            r(5, 1), r(5, 1), r(5, 1), r(6, 2), r(6, 2), r(6, 2), r(6, 2), r(7, 2), r(7, 3), r(7, 3),
+            r(7, 3), r(8, 3), r(8, 3), r(8, 4), r(8, 4), r(9, 4), r(9, 4), r(9, 4), r(9, 5), r(9, 5),
+            r(10, 5), r(10, 5), r(10, 6), r(10, 6), r(10, 6),
+          ],
+        },
+        {
+          name: 'Gates and plates',
+          slots: [
+            g(5, 1), g(5, 1), g(5, 1), g(6, 1), g(6, 1), g(6, 1), g(6, 2), g(7, 1), g(7, 2), g(7, 2),
+            g(7, 2), g(8, 2), g(8, 2), g(8, 2), g(8, 2), g(9, 2), g(9, 2), g(9, 2), g(9, 3), g(9, 3),
+            g(10, 3), g(10, 3), g(10, 3), g(10, 3), g(10, 3),
+          ],
+        },
       ],
     },
     {
@@ -61,6 +83,8 @@ module.exports = {
             return [s(n, m), c(n, Math.min(m, 5))];
           }),
         },
+        { name: 'Turning reflectors', slots: twice(range(11, 20)).map((n) => r(n, 4 + Math.floor((n - 11) / 4))) },
+        { name: 'Gates and plates', slots: twice(range(11, 20)).map((n) => g(n, n <= 14 ? 2 : 3)) },
       ],
     },
   ],

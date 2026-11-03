@@ -9,6 +9,7 @@
  */
 'use strict';
 const { makeSolid, makeSeeThrough } = require('./fullgen.js');
+const { makeRotate, makeGates } = require('./makers.js');
 const { encodeLevel } = globalThis.ArrowRules;
 
 function entryFor(size, level) {
@@ -31,4 +32,8 @@ const wrap = (maker) => (size, rng, opts) => {
 module.exports = {
   solid: wrap(makeSolid),
   clear: wrap(makeSeeThrough),
+  // Rotating reflectors; "mirrors" is the number of reflectors.
+  rotate: wrap(makeRotate),
+  // Gates and pressure plates; "mirrors" is the number of gate colours.
+  gates: wrap(makeGates),
 };
