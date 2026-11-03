@@ -1,6 +1,7 @@
-// Checks every level in levels-data.js: it can be solved, its par (fewest
-// moves) is right, Group 1 has no see-through parts, Group 2 levels after the
-// first need their see-through parts, and Group 3 levels have reflectors that
+// Checks every level in levels-data.js, for every difficulty setting: board
+// sizes are within the setting's range (from tools/level-plan.js), ratings run
+// from easiest to hardest, it can be solved, its par (fewest moves) is right,
+// Group 1 has no see-through parts, Group 2 levels need their see-through parts, and Group 3 levels have reflectors that
 // are all on some line's way out (and need see-through parts when they have them).
 // Every level must fill the whole board, with every line 3 squares or longer.
 // Run with: node tools/check-levels.js        (add --show to print boards)
@@ -8,26 +9,33 @@
 require('../rules.js');
 require('../levels-data.js');
 const { solve, buildLine, mirrorMap, tracePath, decodeLevel } = globalThis.ArrowRules;
-const { groups } = globalThis.ArrowLevelData;
+const plan = require('./level-plan.js');
+const { tiers } = globalThis.ArrowLevelData;
 
 let ok = true;
 const fail = (msg) => { ok = false; console.log(`  FAIL: ${msg}`); };
 
-groups.forEach((g, gi) => {
-  console.log(`Group ${gi + 1}: ${g.name} (${g.levels.length} levels)`);
+tiers.forEach((t, ti) => {
+const { minSize, maxSize } = plan.tiers[ti];
+t.groups.forEach((g, gi) => {
+  console.log(`${t.name}, Group ${gi + 1}: ${g.name} (${g.levels.length} levels)`);
+  const ratings = g.ratings || [];
+  if (ratings.length !== g.levels.length) fail(`${t.name} ${g.name}: ${ratings.length} ratings for ${g.levels.length} levels`);
+  ratings.forEach((r, i) => { if (i && r < ratings[i - 1]) fail(`${t.name} ${g.name}: level ${i + 1} is rated easier than level ${i}`); });
   g.levels.forEach((raw, i) => {
     const level = typeof raw === 'string' ? decodeLevel(raw) : raw;
     const n = level.size;
-    const name = `${gi + 1}-${i + 1}`;
+    const name = `${t.name[0]}${gi + 1}-${i + 1}`;
     const hasClear = level.lines.some((l) => l.clear.length > 0);
     const mirrors = level.mirrors || [];
     const result = solve(n, level.lines, { maxStates: 400000, mirrors });
     console.log(`  ${name.padStart(5)}  ${n}x${n}  ${String(level.lines.length).padStart(2)} lines  par ${String(level.par).padStart(2)}  ` +
       (result.solvable ? `solved in ${result.par}` : 'NOT SOLVED') +
-      (mirrors.length ? `  ${mirrors.length} reflectors${hasClear ? ', see-through' : ''}` : ''));
+      (mirrors.length ? `  ${mirrors.length} reflectors${hasClear ? ', see-through' : ''}` : '') +
+      (ratings[i] !== undefined ? `  rated ${ratings[i].toFixed(1)}` : ''));
     if (!result.solvable) fail(`${name} cannot be solved`);
     else if (result.par !== level.par) fail(`${name} par is ${result.par}, data says ${level.par}`);
-    if (n > 10) fail(`${name} is bigger than 10x10`);
+    if (n < minSize || n > maxSize) fail(`${name} is ${n}x${n}, outside ${minSize}-${maxSize}`);
     const covered = new Set(mirrors.map(([x, y]) => y * n + x));
     level.lines.forEach((l) => l.cells.forEach(([x, y]) => {
       if (covered.has(y * n + x)) fail(`${name}: two things on square ${x},${y}`);
@@ -38,7 +46,8 @@ groups.forEach((g, gi) => {
     if (short) fail(`${name}: ${short} lines shorter than 3 squares`);
     if (gi === 0 && hasClear) fail(`${name} has see-through parts`);
     if (gi < 2 && mirrors.length) fail(`${name} has reflectors`);
-    if ((gi === 1 && i > 0) || (gi === 2 && hasClear)) {
+    if (gi === 1 && !hasClear) fail(`${name} has no see-through parts`);
+    if (gi === 1 || (gi === 2 && hasClear)) {
       const solidOnly = level.lines.map((l) => ({ ...l, clear: [] }));
       if (solve(n, solidOnly, { maxStates: 400000, mirrors }).solvable) fail(`${name} can be solved without its see-through parts`);
     }
@@ -64,6 +73,7 @@ groups.forEach((g, gi) => {
       console.log(grid.map((r) => '        ' + r.join('')).join('\n'));
     }
   });
+});
 });
 console.log(ok ? 'All levels OK' : 'Some levels failed');
 process.exit(ok ? 0 : 1);

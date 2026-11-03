@@ -2,15 +2,22 @@
   'use strict';
 
   const { DIRS, buildLine, mirrorMap, reach, reachBack, solve, decodeLevel } = window.ArrowRules;
-  const { groups: GROUPS, unlockAfter: UNLOCK_AFTER } = window.ArrowLevelData;
+  const { unlockAfter: UNLOCK_AFTER } = window.ArrowLevelData;
+  // Older level files had one list of groups and no difficulty settings.
+  const TIERS = window.ArrowLevelData.tiers || [{ name: 'Easy', groups: window.ArrowLevelData.groups }];
   const STORAGE_KEY = 'arrow-escape-progress-v2';
+
+  // The difficulty setting (Easy, Medium, ...) being shown or played. Groups
+  // and levels below always mean those of this setting.
+  let tier = 0;
+  const groupsNow = () => TIERS[tier].groups;
 
   // Levels are stored compactly (see rules.js) and decoded when first needed.
   const decoded = new Map();
   function levelAt(group, index) {
-    const key = `${group}-${index}`;
+    const key = `${tier}-${group}-${index}`;
     if (!decoded.has(key)) {
-      const raw = GROUPS[group].levels[index];
+      const raw = groupsNow()[group].levels[index];
       decoded.set(key, typeof raw === 'string' ? decodeLevel(raw) : raw);
     }
     return decoded.get(key);
@@ -61,11 +68,16 @@
   const overlay = $('overlay');
 
   // ---------- Progress (saved per browser, optional) ----------
-  // progress.completed holds "group-level" keys, e.g. "0-4" (both counted from 0).
+  // progress.completed holds "setting-group-level" keys, e.g. "0-2-4" (all
+  // counted from 0). Older saves used "group-level" for Easy; those are read
+  // as Easy.
   function loadProgress() {
     try {
       const data = JSON.parse(localStorage.getItem(STORAGE_KEY));
-      if (data && Array.isArray(data.completed)) return data;
+      if (data && Array.isArray(data.completed)) {
+        data.completed = data.completed.map((k) => (k.split('-').length === 2 ? `0-${k}` : k));
+        return data;
+      }
     } catch (e) { /* storage unavailable: play without saving */ }
     return { completed: [] };
   }
@@ -73,8 +85,8 @@
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(progress)); } catch (e) { /* ignore */ }
   }
   const progress = loadProgress();
-  const isCompleted = (g, i) => progress.completed.includes(`${g}-${i}`);
-  const completedIn = (g) => GROUPS[g].levels.filter((_, i) => isCompleted(g, i)).length;
+  const isCompleted = (g, i) => progress.completed.includes(`${tier}-${g}-${i}`);
+  const completedIn = (g) => groupsNow()[g].levels.filter((_, i) => isCompleted(g, i)).length;
   const isGroupUnlocked = (g) => g === 0 || completedIn(g - 1) >= UNLOCK_AFTER;
   const isUnlocked = (g, i) => isGroupUnlocked(g) && (i === 0 || isCompleted(g, i - 1));
 
@@ -116,8 +128,10 @@
     }));
 
     state = {
-      group, index, n, lines, mirrors, history: [], finished: false,
-      levelHint: (HINTS[group] || [])[index] || '',
+      tier, group, index, n, lines, mirrors, history: [], finished: false,
+      rating: (groupsNow()[group].ratings || [])[index],
+      // Tips are for learning the game, so only on Easy.
+      levelHint: tier === 0 ? (HINTS[group] || [])[index] || '' : '',
       hint: null, // { id, to, start, moves } while a hint is showing
       hintsUsed: 0, // counted so hints can be tied to ads later
     };
@@ -139,7 +153,8 @@
 
   function updateHud() {
     const moves = state.history.length;
-    $('moves').textContent = moves === 1 ? '1 move' : `${moves} moves`;
+    const rating = state.rating !== undefined ? ` · ${state.rating.toFixed(1)}/10` : '';
+    $('moves').textContent = `${TIERS[state.tier].name}${rating} · ${moves === 1 ? '1 move' : `${moves} moves`}`;
     const left = state.lines.filter((l) => l.rest >= 0).length;
     $('remaining').textContent = left === 1 ? '1 line left' : `${left} lines left`;
     $('undoBtn').disabled = moves === 0 || state.finished;
@@ -380,9 +395,9 @@
     if (!busy && !state.finished && state.lines.every((l) => l.mode === 'gone')) {
       state.finished = true;
       const next = state.group + 1;
-      state.unlockedGroup = next < GROUPS.length && !isGroupUnlocked(next) ? next : -1;
+      state.unlockedGroup = next < groupsNow().length && !isGroupUnlocked(next) ? next : -1;
       if (!isCompleted(state.group, state.index)) {
-        progress.completed.push(`${state.group}-${state.index}`);
+        progress.completed.push(`${tier}-${state.group}-${state.index}`);
         saveProgress();
       }
       if (state.unlockedGroup >= 0 && !isGroupUnlocked(state.unlockedGroup)) state.unlockedGroup = -1;
@@ -618,16 +633,16 @@
 
   function showWinDialog() {
     const { group, index } = state;
-    const levels = GROUPS[group].levels;
+    const levels = groupsNow()[group].levels;
     const moves = state.history.length;
     const par = levelAt(group, index).par;
     let detail = moves <= par
       ? `Solved in ${moves} moves. That’s the best possible!`
       : `Solved in ${moves} moves. It can be done in ${par}.`;
-    const nextGroup = group + 1 < GROUPS.length && isGroupUnlocked(group + 1) ? group + 1 : -1;
+    const nextGroup = group + 1 < groupsNow().length && isGroupUnlocked(group + 1) ? group + 1 : -1;
     const startNextGroup = { label: `Start Group ${nextGroup + 1}`, action: () => startLevel(nextGroup, 0) };
 
-    if (state.unlockedGroup >= 0) detail += ` You’ve unlocked Group ${state.unlockedGroup + 1}: ${GROUPS[state.unlockedGroup].name}.`;
+    if (state.unlockedGroup >= 0) detail += ` You’ve unlocked Group ${state.unlockedGroup + 1}: ${groupsNow()[state.unlockedGroup].name}.`;
 
     if (index + 1 < levels.length) {
       const buttons = [{ label: 'Next level', primary: true, action: () => startLevel(group, index + 1) }];
@@ -640,7 +655,7 @@
       if (nextGroup >= 0) buttons.push({ ...startNextGroup, primary: true });
       buttons.push({ label: 'Back to menu', primary: nextGroup < 0, action: goToMenu });
       buttons.push({ label: 'Play again', action: () => startLevel(group, index) });
-      const last = group + 1 >= GROUPS.length;
+      const last = group + 1 >= groupsNow().length;
       showDialog(`Group ${group + 1} complete!`, `${detail} ${last ? 'You untangled every level.' : ''}`.trim(), buttons);
     }
   }
@@ -652,7 +667,10 @@
 
   function goToMenu() {
     hideDialog();
-    if (state) menuGroup = state.group;
+    if (state) {
+      tier = state.tier;
+      menuGroup = state.group;
+    }
     renderMenu();
     showScreen('menu');
   }
@@ -661,21 +679,41 @@
 
   /** The next level to play: the first unfinished level in the newest unlocked group. */
   function nextLevel() {
-    for (let gi = GROUPS.length - 1; gi >= 0; gi--) {
+    for (let gi = groupsNow().length - 1; gi >= 0; gi--) {
       if (!isGroupUnlocked(gi)) continue;
-      const i = GROUPS[gi].levels.findIndex((_, li) => !isCompleted(gi, li));
+      const i = groupsNow()[gi].levels.findIndex((_, li) => !isCompleted(gi, li));
       if (i >= 0) return { group: gi, index: i };
     }
     return null;
   }
 
   function renderMenu() {
+    const tierTabs = $('tierTabs');
+    tierTabs.innerHTML = '';
+    TIERS.forEach((t, ti) => {
+      const b = document.createElement('button');
+      b.className = 'tier-tab';
+      b.id = `tierTab${ti}`;
+      b.setAttribute('role', 'tab');
+      b.setAttribute('aria-selected', String(ti === tier));
+      const sizes = t.groups.flatMap((grp, gi) => grp.levels.map((_, li) => (tier === ti ? levelAt(gi, li).size : 0))).filter(Boolean);
+      b.textContent = t.name;
+      b.title = sizes.length ? `Boards up to ${Math.max(...sizes)}×${Math.max(...sizes)}` : t.name;
+      b.addEventListener('click', () => {
+        tier = ti;
+        menuGroup = (nextLevel() || { group: 0 }).group;
+        renderMenu();
+      });
+      tierTabs.appendChild(b);
+    });
+
     const tabs = $('groupTabs');
     tabs.innerHTML = '';
-    GROUPS.forEach((grp, gi) => {
+    groupsNow().forEach((grp, gi) => {
       const b = document.createElement('button');
       const unlocked = isGroupUnlocked(gi);
       b.className = 'group-tab';
+      b.dataset.group = String(gi);
       b.id = `groupTab${gi}`;
       b.setAttribute('role', 'tab');
       b.setAttribute('aria-selected', String(gi === menuGroup));
@@ -699,7 +737,8 @@
 
     const grid = $('levelGrid');
     grid.innerHTML = '';
-    GROUPS[menuGroup].levels.forEach((_, i) => {
+    grid.dataset.group = String(menuGroup); // each group's buttons have their own colour
+    groupsNow()[menuGroup].levels.forEach((_, i) => {
       const level = levelAt(menuGroup, i);
       const b = document.createElement('button');
       b.className = 'level-btn';
@@ -709,7 +748,9 @@
       if (done) b.classList.add('done');
       const sub = done ? 'Done' : open ? `${level.size}×${level.size}` : 'Locked';
       b.innerHTML = `<span>${i + 1}</span><span class="sub">${sub}</span>`;
-      b.setAttribute('aria-label', `Group ${menuGroup + 1}, level ${i + 1}, ${sub}`);
+      const rating = (groupsNow()[menuGroup].ratings || [])[i];
+      b.setAttribute('aria-label', `Group ${menuGroup + 1}, level ${i + 1}, ${sub}${rating !== undefined ? `, difficulty ${rating} of 10` : ''}`);
+      if (rating !== undefined) b.title = `Difficulty ${rating}/10`;
       const gi = menuGroup;
       b.addEventListener('click', () => startLevel(gi, i));
       grid.appendChild(b);

@@ -1,9 +1,14 @@
 /*
  * Builds levels-data.js from tools/level-plan.js and the level bank.
  *
- * For each kind of slot (size, kind, reflectors) the bank is topped up so it
- * holds at least three times as many levels as the plan uses, then levels are
- * picked spread across the bank's difficulty range, easiest first.
+ * For each difficulty setting and group:
+ *  1. Top up the bank so each kind of slot (size, kind, reflectors) has
+ *     `pool` candidates per slot.
+ *  2. Rate every candidate on the difficulty scale (tools/difficulty.js),
+ *     scaled within this setting and group.
+ *  3. Fill each slot with a candidate spread across that slot kind's ratings.
+ *  4. Rate the chosen levels again, scaled across just this group (so each
+ *     group runs from 1.0 to 10.0), and order it from lowest to highest.
  *
  * Run with: node tools/build-levels.js
  */
@@ -11,57 +16,72 @@
 const fs = require('fs');
 const path = require('path');
 const plan = require('./level-plan.js');
-const { readBank, grow, difficulty } = require('./bank.js');
-
-const POOL_FACTOR = 3;
+const { readBank, grow } = require('./bank.js');
+const { scale } = require('./difficulty.js');
 
 async function main() {
   const t0 = Date.now();
-  // How many of each kind of slot the plan uses.
-  const needed = new Map();
-  for (const g of plan.groups) {
-    for (const [size, kind, mirrors] of g.slots) {
-      if (size > plan.maxSize) throw new Error(`${g.name}: ${size}x${size} is bigger than ${plan.maxSize}x${plan.maxSize}`);
-      const key = `${kind}:${size}:${mirrors}`;
-      needed.set(key, (needed.get(key) || 0) + 1);
+  const tiers = [];
+  for (const tier of plan.tiers) {
+    const groups = [];
+    for (const g of tier.groups) {
+      const needed = new Map();
+      for (const [size, kind, mirrors] of g.slots) {
+        if (size < tier.minSize || size > tier.maxSize) throw new Error(`${tier.name} ${g.name}: ${size}x${size} is outside ${tier.minSize}-${tier.maxSize}`);
+        const key = `${kind}:${size}:${mirrors}`;
+        needed.set(key, (needed.get(key) || 0) + 1);
+      }
+      console.log(`${tier.name}, ${g.name}:`);
+      const pools = new Map();
+      for (const [key, count] of needed) {
+        const [kind, size, mirrors] = [key.split(':')[0], Number(key.split(':')[1]), Number(key.split(':')[2])];
+        let bank = readBank(kind, size, mirrors);
+        const want = count * tier.pool;
+        if (bank.length < want) bank = await grow(kind, size, mirrors, want - bank.length);
+        pools.set(key, bank);
+      }
+      // One difficulty scale for the whole group, over every candidate.
+      const rate = scale([...pools.values()].flat());
+      const used = new Map();
+      const picked = [];
+      for (const [size, kind, mirrors] of g.slots) {
+        const key = `${kind}:${size}:${mirrors}`;
+        const pool = pools.get(key).map((e) => ({ e, r: rate(e) })).sort((a, b) => a.r - b.r);
+        const total = needed.get(key);
+        const k = used.get(key) || 0;
+        used.set(key, k + 1);
+        // The k-th of `total` slots of this kind takes from the k-th slice of
+        // the pool's ratings, so a group gets a spread from easy to hard.
+        picked.push(pool[Math.min(pool.length - 1, Math.floor(((k + 0.5) / total) * pool.length))]);
+      }
+      // Final ratings: the same scale, stretched over this group's own levels,
+      // so every group runs from 1.0 (its easiest) to 10.0 (its hardest).
+      const final = scale(picked.map((p) => p.e));
+      picked.forEach((p) => { p.r = final(p.e); });
+      picked.sort((a, b) => a.r - b.r);
+      groups.push({ name: g.name, levels: picked.map((p) => p.e.level), ratings: picked.map((p) => p.r) });
+      console.log(`  ratings: ${picked.map((p) => p.r.toFixed(1)).join(' ')}`);
     }
+    tiers.push({ name: tier.name, groups });
   }
-
-  console.log('Topping up the level bank:');
-  const pools = new Map();
-  for (const [key, count] of needed) {
-    const [kind, size, mirrors] = [key.split(':')[0], Number(key.split(':')[1]), Number(key.split(':')[2])];
-    let bank = readBank(kind, size, mirrors);
-    const want = count * POOL_FACTOR;
-    if (bank.length < want) bank = await grow(kind, size, mirrors, want - bank.length);
-    pools.set(key, bank.slice().sort((a, b) => difficulty(a) - difficulty(b)));
-  }
-
-  const used = new Map();
-  const groups = plan.groups.map((g) => {
-    const levels = g.slots.map(([size, kind, mirrors]) => {
-      const key = `${kind}:${size}:${mirrors}`;
-      const pool = pools.get(key);
-      const total = needed.get(key);
-      const k = used.get(key) || 0;
-      used.set(key, k + 1);
-      // Spread picks over the pool: the i-th of `total` slots takes from the
-      // i-th slice of the difficulty range, so later slots are harder.
-      return pool[Math.min(pool.length - 1, Math.floor(((k + 0.5) / total) * pool.length))].level;
-    });
-    return { name: g.name, levels };
-  });
 
   const out = [
     '// Generated by tools/build-levels.js from tools/level-plan.js and levels-bank/. Do not edit by hand.',
     '// Levels use the compact format described in rules.js (ArrowRules.decodeLevel).',
+    '// ratings: difficulty from 1.0 to 10.0, scaled within each setting and group (tools/difficulty.js).',
     '(function (root) {',
     '  root.ArrowLevelData = {',
     `    unlockAfter: ${plan.unlockAfter},`,
-    '    groups: [',
-    ...groups.flatMap((g) => [
-      `      { name: ${JSON.stringify(g.name)}, levels: [`,
-      ...g.levels.map((l) => `        ${JSON.stringify(l)},`),
+    '    tiers: [',
+    ...tiers.flatMap((t) => [
+      `      { name: ${JSON.stringify(t.name)}, groups: [`,
+      ...t.groups.flatMap((g) => [
+        `        { name: ${JSON.stringify(g.name)},`,
+        `          ratings: ${JSON.stringify(g.ratings)},`,
+        '          levels: [',
+        ...g.levels.map((l) => `            ${JSON.stringify(l)},`),
+        '          ] },',
+      ]),
       '      ] },',
     ]),
     '    ],',
@@ -70,7 +90,7 @@ async function main() {
     '',
   ];
   fs.writeFileSync(path.join(__dirname, '..', 'levels-data.js'), out.join('\n'));
-  console.log(`Wrote levels-data.js: ${groups.map((g) => `${g.name} (${g.levels.length})`).join(', ')} in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
+  console.log(`Wrote levels-data.js in ${((Date.now() - t0) / 1000).toFixed(0)}s`);
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });
