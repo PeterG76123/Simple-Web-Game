@@ -202,8 +202,20 @@
 
   /** Works out the best next move from where the lines are now, and flashes that line. */
   function showHint() {
-    if (!state || state.finished || drag) return;
+    if (!state || state.finished || drag || state.thinking) return;
     if (state.lines.every((l) => l.rest < 0)) return;
+    // Big boards can take a moment: say so, and let the message show first.
+    state.thinking = true;
+    setHintText('Working out the best move…');
+    const asked = state;
+    setTimeout(() => {
+      asked.thinking = false;
+      if (state !== asked || state.finished || drag) return;
+      computeHint();
+    }, 30);
+  }
+
+  function computeHint() {
     const level = levelAt(state.group, state.index);
     const result = solve(state.n, level.lines, {
       mirrors: state.mirrors, rotatable: state.rotatable, gates: state.gates, plates: state.plates,

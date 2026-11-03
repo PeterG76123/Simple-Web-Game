@@ -1,6 +1,9 @@
-{"level":"7|7|32RRDLLL,51RDDDDD,60LLLDLUL,00DDRU,04DDRUUUL,34DLU,56UULDDLL||G220G411P660P351","lines":7,"partial":0,"rounds":0,"initialFree":0,"states":1,"gates":2}
-{"level":"7|9|24UUU,11UR,34UUURRULL,60DDDDDD,52LDD,00DDD,04DDRUUU,26RUR,53DDDL||G250G121P400P341","lines":9,"partial":0,"rounds":0,"initialFree":0,"states":1,"gates":2}
-{"level":"7|8|12DRUUULL,35RURD,40LDRDRDLLU,65UUUUULD,15URR,26LLUUUUU,66LLL||G110G251P640P441","lines":7,"partial":1,"rounds":0,"initialFree":0,"states":2,"gates":2}
-{"level":"7|9|13DLUU,44RU,00DRURR,33RUUR,21RDLDDDDR,40RRD,55DRUUUUL,35RD,15DLU||G120G341P350P421","lines":9,"partial":0,"rounds":0,"initialFree":0,"states":1,"gates":2}
-{"level":"7|10|24UUURRURRD,52DRU,30LLDLU,12DLU,05URD,34UURDD,55URD,06RRR,66LLUL||G250G511P310P101","lines":9,"partial":1,"rounds":0,"initialFree":0,"states":3,"gates":2}
-{"level":"7|8|23RUU,41UL,03URULUR,22UU,60LDRDLDL,63DDLULL,06UURRDDLU,36URDRR||G130G421P210P311","lines":8,"partial":0,"rounds":0,"initialFree":0,"states":1,"gates":2}
+{"level":"7|7|32RRDLLL,51RDDDDD,60LLLDLUL,00DDRU,04DDRUUUL,34DLU,56UULDDLL||G220G411P660P351","lines":7,"partial":0,"rounds":0,"initialFree":0,"states":15,"gates":2}
+{"level":"7|9|24UUU,11UR,34UUURRULL,60DDDDDD,52LDD,00DDD,04DDRUUU,26RUR,53DDDL||G250G121P400P341","lines":9,"partial":0,"rounds":0,"initialFree":0,"states":11,"gates":2}
+{"level":"7|8|12DRUUULL,35RURD,40LDRDRDLLU,65UUUUULD,15URR,26LLUUUUU,66LLL||G110G251P640P441","lines":7,"partial":1,"rounds":0,"initialFree":0,"states":42,"gates":2}
+{"level":"7|9|13DLUU,44RU,00DRURR,33RUUR,21RDLDDDDR,40RRD,55DRUUUUL,35RD,15DLU||G120G341P350P421","lines":9,"partial":0,"rounds":0,"initialFree":0,"states":18,"gates":2}
+{"level":"7|10|24UUURRURRD,52DRU,30LLDLU,12DLU,05URD,34UURDD,55URD,06RRR,66LLUL||G250G511P310P101","lines":9,"partial":1,"rounds":0,"initialFree":0,"states":42,"gates":2}
+{"level":"7|8|23RUU,41UL,03URULUR,22UU,60LDRDLDL,63DDLULL,06UURRDDLU,36URDRR||G130G421P210P311","lines":8,"partial":0,"rounds":0,"initialFree":0,"states":8,"gates":2}
+{"level":"7|8|41URRD,22DRDRU,02RULURRRDD,04UR,51DDRU,64DDLUU,26UULDDLU,36RUL||G420G211P640P041","lines":8,"partial":0,"rounds":0,"initialFree":0,"states":18,"gates":2}
+{"level":"7|9|33RUUUL,54RU,20DRDLL,53URUULD,13DLUUUURD,24RDRDL,66ULD,06RRULL||G230G441P330P411","lines":8,"partial":1,"rounds":0,"initialFree":0,"states":8,"gates":2}
+{"level":"7|11|43RR,22DDR,00RD,51DLLUR,01DRDDLU,20RRRRDD,15LDR,54LD,26URDR,64DDLU||G330G211P050P241","lines":10,"partial":1,"rounds":0,"initialFree":0,"states":21,"gates":2}

@@ -4,3 +4,6 @@
 {"level":"7|11|25DLUUURU,12LUR,00RRD,51DRUUL,42UULD,63LLDDDLUUU,64DDLU,06UUU|540240323|R","lines":8,"partial":0,"rounds":4,"initialFree":4,"states":41,"turns":3}
 {"level":"7|11|21URD,53URUU,41URD,42LDD,06UUU,35RUR,16UURD,26RRRRUUU,02UURD,12DR|220552430|R","lines":10,"partial":0,"rounds":5,"initialFree":2,"states":10,"turns":1}
 {"level":"7|11|54RUU,41URRDLDDL,00DD,10RRDD,14LUR,34ULUULD,35LDRRU,16LUR,66LUR|443423240|R","lines":9,"partial":0,"rounds":4,"initialFree":2,"states":16,"turns":2}
+{"level":"7|15|23DDDR,51RDD,31URRR,02UURR,11DRRRR,33RD,14ULD,64LU,06URD,35RDRURD|210412341|R","lines":10,"partial":0,"rounds":8,"initialFree":2,"states":226,"turns":5}
+{"level":"7|10|11ULDDR,36LLLUUUR,30LD,60DLULDDLU,66ULUU,33LDDL,52RDD,56LUULD|143430221|R","lines":8,"partial":0,"rounds":4,"initialFree":2,"states":28,"turns":2}
+{"level":"7|11|41DDRRUL,44LULL,55RU,21DRU,60DL,11ULDDDD,50LLL,45DRR,05DRUURDDR|121540352|R","lines":9,"partial":0,"rounds":6,"initialFree":1,"states":28,"turns":2}

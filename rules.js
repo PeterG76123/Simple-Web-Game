@@ -275,7 +275,7 @@
    * Taking a line off never blocks another, so this is always safe.
    * Returns the ids removed, in order.
    */
-  function clearFree(n, lines, offsets, occ) {
+  function clearFree(n, lines, offsets, occ, canTake) {
     // One map shared by every line (solid parts never overlap), updated as
     // lines leave, instead of rebuilding it for each line checked.
     occ = occ || solidMap(n, lines, offsets, -1);
@@ -287,7 +287,7 @@
     while (changed) {
       changed = false;
       for (let id = 0; id < lines.length; id++) {
-        if (offsets[id] < 0 || !reach(n, lines, offsets, id, occ, any).exit) continue;
+        if (offsets[id] < 0 || (canTake && !canTake(id, offsets)) || !reach(n, lines, offsets, id, occ, any).exit) continue;
         const line = lines[id];
         for (let j = 0; j < line.len; j++) {
           const [x, y] = line.track[offsets[id] + j];
@@ -426,8 +426,21 @@
     const shapeKey = (ms) => ms.map((m) => shapeOf(m[2], m[3])).join('');
     const startMs = (startMirrors || mirrors).map((m) => m.slice());
     const offsets0 = from ? from.slice() : arrows.map(() => 0);
-    const remaining = offsets0.filter((o) => o >= 0).length;
-    const firstExits = clearFree(n, linesFor(startMs), offsets0);
+    // Taking a free line off is always safe without gates. With gates it is
+    // only safe if the line isn't on a plate or inside a gate (leaving could
+    // close a gate); otherwise leaving is a move like any other.
+    const special = world ? new Set([...world.gateAt.keys(), ...[].concat(...world.platesOf.values())]) : null;
+    const safeToTake = (lines) => (id, offsets) => {
+      if (!special) return true;
+      const line = lines[id];
+      for (let j = 0; j < line.len; j++) {
+        const [x, y] = line.track[offsets[id] + j];
+        if (inBounds(n, x, y) && special.has(y * n + x)) return false;
+      }
+      return true;
+    };
+    const take = (lines, o) => clearFree(n, lines, o, undefined, special ? safeToTake(lines) : undefined);
+    const firstExits = take(linesFor(startMs), offsets0);
     const keyOf = (o, ms) => o.join(',') + '|' + shapeKey(ms);
 
     // 0-1 / small-integer cost search with buckets (costs are 0 or 1).
@@ -453,16 +466,18 @@
             path.unshift(...step);
           }
           const partial = path.filter((p) => p.to !== undefined && p.to >= 0).length;
-          return { solvable: true, par: remaining + node.moves, turns: node.turns, partialMoves: partial, path, states: best.size, cost };
+          return { solvable: true, par: path.length, turns: node.turns, partialMoves: partial, path, states: best.size, cost };
         }
         const lines = linesFor(ms);
         const occ = solidMap(n, lines, offsets, -1);
         const any = world ? anyMap(n, lines, offsets) : undefined;
-        const push = (o2, ms2, move, isTurn) => {
+        // Every line leaves exactly once however it happens, so leaving costs
+        // nothing extra in the search; only slides and turns are counted.
+        const push = (o2, ms2, move, isTurn, isExit) => {
           const lines2 = isTurn ? linesFor(ms2) : lines;
-          const exits = clearFree(n, lines2, o2);
+          const exits = take(lines2, o2);
           const k2 = keyOf(o2, ms2);
-          const c2 = cost + (isTurn ? turnCost : slideCost);
+          const c2 = cost + (isExit ? 0 : isTurn ? turnCost : slideCost);
           const old = best.get(k2);
           if (old && old.cost <= c2) return;
           best.set(k2, { cost: c2, prev: key, move, exits, o: o2, ms: ms2, turns: node.turns + (isTurn ? 1 : 0), moves: node.moves + 1 });
@@ -470,13 +485,20 @@
         };
         for (let id = 0; id < lines.length; id++) {
           if (offsets[id] < 0) continue;
-          const hi = reach(n, lines, offsets, id, occ, any).max;
+          const r = reach(n, lines, offsets, id, occ, any);
           const lo = reachBack(n, lines, offsets, id, occ, any).min;
+          const hi = r.exit ? Math.min(r.max, lines[id].exitAt - 1) : r.max;
           for (let s2 = lo; s2 <= hi; s2++) {
             if (s2 === offsets[id]) continue;
             const o2 = offsets.slice();
             o2[id] = s2;
             push(o2, ms, { line: id, to: s2 }, false);
+          }
+          if (r.exit) {
+            // A line that wasn't safe to take off automatically leaves as a move.
+            const o2 = offsets.slice();
+            o2[id] = -1;
+            push(o2, ms, { line: id, to: -1 }, false, true);
           }
         }
         if (rotatable && !noTurns) {
