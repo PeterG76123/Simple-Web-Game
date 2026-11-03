@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Arrow Escape</title>
+  <meta name="description" content="A puzzle game: tap the arrows to slide each tangled line off the board, but only when its path is clear." />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- Front screen -->
+  <section id="menu" class="screen active" aria-label="Main menu">
+    <div class="menu-card">
+      <div class="logo" aria-hidden="true">
+        <svg viewBox="0 0 120 60" width="120" height="60">
+          <path d="M10 45 H40 V15 H75" fill="none" stroke="var(--c1)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M75 3 L92 15 L75 27 Z" fill="var(--c1)"/>
+          <path d="M22 25 V48 H92" fill="none" stroke="var(--c3)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M92 36 L109 48 L92 60 Z" fill="var(--c3)"/>
+        </svg>
+      </div>
+      <h1>Arrow Escape</h1>
+      <p class="tagline">Untangle the lines, one arrow at a time.</p>
+
+      <button id="playBtn" class="btn primary big">Play</button>
+
+      <h2 class="section-label">Levels</h2>
+      <div id="levelGrid" class="level-grid"></div>
+
+      <details class="how">
+        <summary>How to play</summary>
+        <ul>
+          <li>Tap a line to send it sliding off the board in the direction its arrow points.</li>
+          <li>A line can only escape if nothing is in its way, all the way to the edge.</li>
+          <li>If another line is in the way, it bumps into it and you lose a life. You get 3 lives per level.</li>
+          <li>Clear every line to finish the level. Every level can be solved.</li>
+        </ul>
+      </details>
+    </div>
+  </section>
+
+  <!-- Game screen -->
+  <section id="game" class="screen" aria-label="Game">
+    <header class="hud">
+      <button id="menuBtn" class="btn ghost" aria-label="Back to menu">&#8592; Menu</button>
+      <div class="hud-center">
+        <div id="levelLabel" class="level-label">Level 1</div>
+        <div id="lives" class="lives" aria-label="Lives"></div>
+      </div>
+      <button id="restartBtn" class="btn ghost" aria-label="Restart level">&#8635; Restart</button>
+    </header>
+
+    <div id="boardWrap" class="board-wrap">
+      <canvas id="board"></canvas>
+    </div>
+
+    <p id="remaining" class="remaining"></p>
+  </section>
+
+  <!-- Win / lose dialog -->
+  <div id="overlay" class="overlay" hidden>
+    <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dialogTitle">
+      <h2 id="dialogTitle"></h2>
+      <p id="dialogText"></p>
+      <div id="dialogButtons" class="dialog-buttons"></div>
+    </div>
+  </div>
+
+  <script src="levels.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>
