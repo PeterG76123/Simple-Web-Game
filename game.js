@@ -130,6 +130,26 @@
   let state = null;
   let drag = null;
 
+  /**
+   * Groups 4 and 5 bring in more mechanics as they go. The first level in the
+   * group with see-through lines, and the first that combines everything,
+   * say so (the levels are ordered by difficulty, so find them in the data).
+   */
+  function newMechanicTip(group, index) {
+    if (group < 3) return '';
+    const levels = groupsNow()[group].levels.map((_, i) => levelAt(group, i));
+    const hasClear = (l) => l.lines.some((a) => a.clear.length);
+    const firstClear = levels.findIndex(hasClear);
+    const firstAll = group === 4 ? levels.findIndex((l) => hasClear(l) && l.rotatable && l.gates.length) : -1;
+    if (index === firstAll) return 'The final challenge: see-through lines, turning reflectors and gates, all at once.';
+    if (index === firstClear) {
+      return group === 3
+        ? 'See-through lines join in: line up their gaps as well as turning the reflectors.'
+        : 'See-through lines join in: slide one partway to line up its gap, while keeping the right gate open.';
+    }
+    return '';
+  }
+
   function startLevel(group, index) {
     const level = levelAt(group, index);
     const n = level.size;
@@ -157,7 +177,7 @@
       gateFlash: new Map(), // gate cell -> 0-1, flashes when it blocks a line
       rating: (groupsNow()[group].ratings || [])[index],
       // Tips are for learning the game, so only on Easy.
-      levelHint: tier === 0 ? (HINTS[group] || [])[index] || '' : '',
+      levelHint: tier === 0 ? (HINTS[group] || [])[index] || newMechanicTip(group, index) : '',
       hint: null, // { id, to, start, moves } while a hint is showing
       hintsUsed: 0, // counted so hints can be tied to ads later
     };

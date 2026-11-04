@@ -10,6 +10,19 @@ require('../rules.js');
 require('../levels-data.js');
 const { solve, buildLine, mirrorMap, tracePath, decodeLevel } = globalThis.ArrowRules;
 const plan = require('./level-plan.js');
+const { playPath, pathFromText } = globalThis.ArrowRules;
+// Bank entries by level text: big mixed levels store a known solution there.
+const bankEntries = new Map();
+{
+  const fs = require('fs');
+  const dir = require('path').join(__dirname, '..', 'levels-bank');
+  for (const f of fs.existsSync(dir) ? fs.readdirSync(dir) : []) {
+    for (const row of fs.readFileSync(require('path').join(dir, f), 'utf8').split('\n').filter(Boolean)) {
+      const e = JSON.parse(row);
+      bankEntries.set(e.level, e);
+    }
+  }
+}
 const { tiers } = globalThis.ArrowLevelData;
 
 let ok = true;
@@ -35,8 +48,21 @@ t.groups.forEach((g, gi) => {
     // Big turning-reflector boards: if the full search runs out of room, use
     // the same turns-and-exits-only search the generator used.
     if (result.gaveUp && level.rotatable) result = solve(n, level.lines, { maxStates: 400000, ...world, slides: false });
+    // Big mixed levels: if the search can't finish, replay the known
+    // solution saved in the bank by the game's rules.
+    let replayed = null;
+    if (!result.solvable && result.gaveUp) {
+      const entry = bankEntries.get(raw);
+      if (entry && entry.solution) {
+        const path = pathFromText(entry.solution);
+        if (playPath(n, level.lines, world, path)) {
+          replayed = path;
+          result = { solvable: true, par: path.length, partialMoves: path.filter((p) => p.to !== undefined && p.to >= 0).length, replayed: true };
+        }
+      }
+    }
     console.log(`  ${name.padStart(5)}  ${n}x${n}  ${String(level.lines.length).padStart(2)} lines  par ${String(level.par).padStart(2)}  ` +
-      (result.solvable ? `solved in ${result.par}` : 'NOT SOLVED') +
+      (result.solvable ? `solved in ${result.par}${result.replayed ? ' (replayed known solution)' : ''}` : 'NOT SOLVED') +
       (mirrors.length ? `  ${mirrors.length} ${level.rotatable ? 'turnable ' : ''}reflectors${hasClear ? ', see-through' : ''}` : '') +
       (gates.length ? `  ${gates.length} gates` : '') +
       (ratings[i] !== undefined ? `  rated ${ratings[i].toFixed(1)}` : ''));
@@ -53,9 +79,12 @@ t.groups.forEach((g, gi) => {
     const short = level.lines.filter((l) => l.cells.length < 3).length;
     if (short) fail(`${name}: ${short} lines shorter than 3 squares`);
     if (gi === 0 && hasClear) fail(`${name} has see-through parts`);
-    if ((gi < 2 || gi === 4) && mirrors.length) fail(`${name} has reflectors`);
+    if (gi < 2 && mirrors.length) fail(`${name} has reflectors`);
     if (gi !== 4 && gates.length) fail(`${name} has gates`);
-    if (gi !== 3 && level.rotatable) fail(`${name} has turnable reflectors`);
+    if (gi < 3 && level.rotatable) fail(`${name} has turnable reflectors`);
+    // Groups 4 and 5: see-through parts, when present, must be used: the best
+    // solution (or the replayed one) needs a partial slide.
+    if (gi >= 3 && hasClear && result.solvable && result.partialMoves < 1) fail(`${name} has see-through parts but no partial slide is needed`);
     if (gi === 1 && !hasClear) fail(`${name} has no see-through parts`);
     if (gi === 1 || (gi === 2 && hasClear)) {
       const solidOnly = level.lines.map((l) => ({ ...l, clear: [] }));
@@ -73,23 +102,40 @@ t.groups.forEach((g, gi) => {
     if (gi === 3) {
       // Turning reflectors: every reflector turns, and turning is needed.
       if (!level.rotatable || !mirrors.length) fail(`${name} has no turnable reflectors`);
-      const still = solve(n, level.lines, { maxStates: 400000, mirrors });
-      if (still.solvable) fail(`${name} can be solved without turning a reflector`);
-      if (still.gaveUp) {
-        const map = mirrorMap(n, mirrors);
-        if (level.lines.every((l) => tracePath(n, l.cells[0][0], l.cells[0][1], l.dir, map).escapes)) fail(`${name}: couldn't prove turning is needed`);
+      // Quick proof first: some line runs into a flat side (or loops), so it
+      // can never leave without a turn. Otherwise the search must finish.
+      const map = mirrorMap(n, mirrors);
+      if (level.lines.every((l) => tracePath(n, l.cells[0][0], l.cells[0][1], l.dir, map).escapes)) {
+        const still = solve(n, level.lines, { maxStates: 400000, mirrors });
+        if (still.solvable) fail(`${name} can be solved without turning a reflector`);
+        else if (still.gaveUp) fail(`${name}: couldn't prove turning is needed`);
       }
-      if (hasClear) fail(`${name} has see-through parts`);
     }
     if (gi === 4) {
       // Gates and plates: the gates matter.
       if (!gates.length || !plates.length) fail(`${name} has no gates or plates`);
-      const throughGate = level.lines.some((l) => tracePath(n, l.cells[0][0], l.cells[0][1], l.dir, null).cells.some(([x, y]) => gates.some(([gx, gy]) => gx === x && gy === y)));
+      // Quick proof: some line's way out reaches a gate before any reflector
+      // (turning can't steer it away), so with gates shut it can't leave.
+      const mirrorCells = new Set(mirrors.map(([x, y]) => y * n + x));
+      const map = mirrorMap(n, mirrors);
+      const throughGate = level.lines.some((l) => {
+        for (const [x, y] of tracePath(n, l.cells[0][0], l.cells[0][1], l.dir, map).cells) {
+          if (mirrorCells.has(y * n + x)) return false;
+          if (gates.some(([gx, gy]) => gx === x && gy === y)) return true;
+        }
+        return false;
+      });
       if (!throughGate) {
-        const shut = solve(n, level.lines, { maxStates: 400000, gates, plates: [] });
+        const shut = solve(n, level.lines, { maxStates: 400000, mirrors, rotatable: level.rotatable, gates, plates: [] });
         if (shut.solvable || shut.gaveUp) fail(`${name} doesn't need its gates`);
       }
-      if (hasClear) fail(`${name} has see-through parts`);
+      if (level.rotatable) {
+        const map2 = mirrorMap(n, mirrors);
+        if (level.lines.every((l) => tracePath(n, l.cells[0][0], l.cells[0][1], l.dir, map2).escapes)) {
+          const still = solve(n, level.lines, { maxStates: 400000, mirrors, gates, plates });
+          if (still.solvable || still.gaveUp) fail(`${name}: couldn't prove turning is needed`);
+        }
+      }
     }
 
     if (process.argv.includes('--show')) {
