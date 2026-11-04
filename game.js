@@ -296,6 +296,7 @@
     showScreen('game');
     pointers.clear();
     pinch = null;
+    pan = null;
     $('zoomControls').hidden = n < 9;
     resetView();
     resizeCanvas();
@@ -551,6 +552,9 @@
   const view = { scale: 1, x: 0, y: 0 };
   const pointers = new Map(); // pointerId -> { x, y } for every finger down
   let pinch = null; // { dist, midX, midY, scale, x, y } while two fingers are down
+  // One finger pressed on an empty square while zoomed in moves the view
+  // (pressing on an eel always moves the eel instead).
+  let pan = null; // { id, x, y, viewX, viewY } while panning
 
   const boardSize = () => canvas.width / (window.devicePixelRatio || 1);
   // Zoom in until about six squares fill the board (at least 2x).
@@ -697,6 +701,7 @@
       evt.preventDefault();
       canvas.setPointerCapture(evt.pointerId);
       cancelDrag();
+      pan = null;
       startPinch();
       return;
     }
@@ -710,6 +715,11 @@
       if (k >= 0) {
         evt.preventDefault();
         turnAt(k);
+      } else if (view.scale > 1.001) {
+        // An empty square while zoomed in: drag to look around the board.
+        evt.preventDefault();
+        pan = { id: evt.pointerId, x: evt.clientX, y: evt.clientY, viewX: view.x, viewY: view.y };
+        canvas.classList.add('panning');
       }
       return;
     }
@@ -729,6 +739,12 @@
     if (pointers.has(evt.pointerId)) pointers.set(evt.pointerId, { x: evt.clientX, y: evt.clientY });
     if (pinch && pointers.size >= 2) {
       movePinch();
+      return;
+    }
+    if (pan && evt.pointerId === pan.id) {
+      view.x = pan.viewX + (evt.clientX - pan.x);
+      view.y = pan.viewY + (evt.clientY - pan.y);
+      clampView();
       return;
     }
     if (!drag || evt.pointerId !== drag.pointerId) return;
@@ -781,6 +797,11 @@
       // The pinch ends when a finger lifts; the other finger does nothing
       // until it lifts too.
       if (pointers.size < 2) pinch = pointers.size ? { ended: true } : null;
+      return;
+    }
+    if (pan && evt.pointerId === pan.id) {
+      pan = null;
+      canvas.classList.remove('panning');
       return;
     }
     if (!drag || evt.pointerId !== drag.pointerId) return;

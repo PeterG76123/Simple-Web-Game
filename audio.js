@@ -397,18 +397,29 @@
       });
       for (let i = 0; i < 10; i++) bubble(rand(0, 0.9), rand(600, 1400), 0.08);
     },
+    // A startled creature darts away: a quick watery swish and a few bubbles,
+    // deeper and longer for bigger creatures.
+    flee: ({ size = 120 } = {}) => {
+      const big = Math.max(0.4, Math.min(3, size / 150));
+      const pitch = 1 / Math.sqrt(big);
+      const len = 0.28 * Math.sqrt(big);
+      noise({ dur: len, vol: 0.17, f0: 1500 * pitch, f1: 380 * pitch, q: 1.3, verb: 0.25 });
+      noise({ dur: len * 0.7, vol: 0.1, f0: 900 * pitch, f1: 260 * pitch, q: 1.1, at: len * 0.45, verb: 0.25 });
+      tone({ f0: 210 * pitch, f1: 85 * pitch, dur: 0.12, vol: 0.1 });
+      for (let i = 0; i < 3; i++) bubble(0.04 + i * rand(0.05, 0.08), rand(700, 1300) * pitch, 0.08);
+    },
     // Any button.
     click: () => tone({ f0: 900, f1: 1300, dur: 0.05, vol: 0.07, verb: 0.1 }),
   };
 
   const lastPlayed = {};
-  function play(name) {
+  function play(name, options) {
     if (!ctx || ctx.state !== 'running' || !Settings.get('sfx') || !SOUNDS[name]) return;
     // The same sound twice in a few milliseconds just sounds like a glitch.
     const now = ctx.currentTime;
     if (lastPlayed[name] && now - lastPlayed[name] < 0.05) return;
     lastPlayed[name] = now;
-    SOUNDS[name]();
+    SOUNDS[name](options);
   }
 
   // A soft click for every button press.

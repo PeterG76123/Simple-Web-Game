@@ -134,7 +134,64 @@
     }
     const anim = el.animate(frames, { duration: duration * rand(0.85, 1.15), easing: 'linear' });
     anim.onfinish = () => { el.remove(); alive--; };
+    el._swim = anim;
+    el._kind = name;
   }
+
+  // ---------- Tap a creature and it darts away ----------
+  /** Startled: a quick zig-zag dash away from the finger and off the screen. */
+  function scare(el, tapX, tapY) {
+    if (el.classList.contains('scared')) return;
+    el.classList.add('scared');
+    const box = layer.getBoundingClientRect();
+    const r = el.getBoundingClientRect();
+    const x0 = r.left - box.left, y0 = r.top - box.top; // where it is now
+    let dx = r.left + r.width / 2 - tapX, dy = r.top + r.height / 2 - tapY;
+    let d = Math.hypot(dx, dy);
+    if (d < 1) { const a = rand(0, Math.PI * 2); dx = Math.cos(a); dy = Math.sin(a); d = 1; }
+    dx /= d; dy /= d;
+    if (el._kind === 'jelly') {
+      // Jellyfish can only push themselves along, so they dart mostly upwards.
+      dy = -Math.abs(dy) - 0.8;
+      d = Math.hypot(dx, dy); dx /= d; dy /= d;
+    } else {
+      el.querySelector('.facing').style.transform = `scaleX(${dx < 0 ? -1 : 1})`;
+    }
+    const far = Math.max(layer.clientWidth, layer.clientHeight) + Math.max(r.width, r.height) + 40;
+    const zig = Math.max(14, Math.min(60, Math.min(r.width, r.height) * 0.5));
+    const sideX = -dy, sideY = dx;
+    const frames = [{ transform: `translate(${x0}px, ${y0}px)` }];
+    const steps = 7;
+    for (let i = 1; i <= steps; i++) {
+      const t = i / steps;
+      const along = far * Math.pow(t, 1.25);
+      // Erratic: jinks from side to side, wildest at the start.
+      const jink = i < steps ? (i % 2 ? 1 : -1) * zig * rand(0.5, 1.2) * (1.2 - t) : 0;
+      frames.push({ transform: `translate(${x0 + dx * along + sideX * jink}px, ${y0 + dy * along + sideY * jink}px)` });
+    }
+    // A school scatters as it flees.
+    el.querySelectorAll('.member').forEach((m) => {
+      m.style.setProperty('--sx', `${rand(-70, 70)}%`);
+      m.style.setProperty('--sy', `${rand(-90, 90)}%`);
+    });
+    if (el._swim) { el._swim.onfinish = null; el._swim.cancel(); }
+    const dash = el.animate(frames, { duration: rand(1700, 2200) * (el._kind === 'whale' ? 1.6 : 1), easing: 'cubic-bezier(0.3, 0.55, 0.55, 1)' });
+    dash.onfinish = () => { el.remove(); alive--; };
+    el._swim = dash;
+    if (window.ArrowAudio) window.ArrowAudio.play('flee', { size: Math.max(r.width, r.height) });
+  }
+
+  // A tap on the open water (not on a button, the board or a dialog) startles
+  // the creature under it.
+  document.addEventListener('pointerdown', (e) => {
+    if (!wanted() || !e.target.closest || e.target.closest('button, a, input, label, canvas, .overlay, summary')) return;
+    const hit = [...layer.querySelectorAll('.creature:not(.scared)')].reverse().find((el) => {
+      const r = el.getBoundingClientRect();
+      const mx = r.width * 0.12, my = r.height * 0.12;
+      return e.clientX >= r.left + mx && e.clientX <= r.right - mx && e.clientY >= r.top + my && e.clientY <= r.bottom - my;
+    });
+    if (hit) scare(hit, e.clientX, e.clientY);
+  });
 
   // Turned off: the creatures there now fade away.
   if (Settings) Settings.onChange((name, on) => {
