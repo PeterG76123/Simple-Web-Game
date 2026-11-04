@@ -53,13 +53,19 @@ t.groups.forEach((g, gi) => {
     const plates = level.plates || [];
     const world = { mirrors, rotatable: level.rotatable, gates, plates };
     let result = solve(n, level.lines, { maxStates: 400000, ...world });
-    // Big turning-reflector boards: if the full search runs out of room, use
-    // the same turns-and-exits-only search the generator used.
-    if (result.gaveUp && level.rotatable) result = solve(n, level.lines, { maxStates: 400000, ...world, slides: false });
-    // Big mixed levels: if the search can't finish, replay the known
-    // solution saved in the bank by the game's rules.
+    const fullGaveUp = !!result.gaveUp;
+    // Big turning-reflector boards: if the full search runs out of room, try
+    // turns and lines leaving only. A solution found there is real (and, on
+    // a level with see-through parts, means they aren't needed: flagged
+    // below); finding nothing there proves nothing.
+    if (fullGaveUp && level.rotatable) {
+      const quick = solve(n, level.lines, { maxStates: 400000, ...world, slides: false });
+      if (quick.solvable) result = quick;
+    }
+    // Big mixed levels: if the full search couldn't finish, replay the known
+    // solution saved with the level by the game's rules.
     let replayed = null;
-    if (!result.solvable && result.gaveUp) {
+    if (!result.solvable && fullGaveUp) {
       const entry = bankEntries.get(raw);
       const saved = (g.solutions || [])[i] || (entry && entry.solution);
       if (saved) {
