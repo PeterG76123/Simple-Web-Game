@@ -254,7 +254,8 @@ h1 {
   border: 1.5px solid color-mix(in srgb, var(--group, var(--accent)) 55%, transparent);
   background:
     radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.55) 0 6%, transparent 18%),
-    radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--group, var(--accent)) 6%, transparent) 40%, color-mix(in srgb, var(--group, var(--accent)) 22%, transparent) 100%);
+    radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--group, var(--accent)) 6%, transparent) 40%, color-mix(in srgb, var(--group, var(--accent)) 22%, transparent) 100%),
+    #04152c; /* solid, so sea life doesn't show through the bubbles */
   color: var(--group, var(--text));
   font-family: var(--font-display);
   font-size: 1.3rem;
@@ -270,7 +271,7 @@ h1 {
 .level-btn .sub { font-family: var(--font-body); font-size: 0.6rem; font-weight: 700; color: var(--muted); }
 .level-btn:hover:not(:disabled) { box-shadow: 0 0 16px color-mix(in srgb, var(--group, var(--accent)) 55%, transparent); }
 .level-btn:active:not(:disabled) { transform: scale(0.9); }
-.level-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.level-btn:disabled { filter: brightness(0.45) saturate(0.5); cursor: not-allowed; }
 .level-btn.done {
   background:
     radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.7) 0 6%, transparent 18%),
