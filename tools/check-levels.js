@@ -28,9 +28,17 @@ const { tiers } = globalThis.ArrowLevelData;
 let ok = true;
 const fail = (msg) => { ok = false; console.log(`  FAIL: ${msg}`); };
 
+// Optional filters, so groups can be checked in parallel:
+//   node tools/check-levels.js --tier=2 --group=3   (both counted from 0)
+const only = (name) => { const a = process.argv.find((x) => x.startsWith(`--${name}=`)); return a ? Number(a.split('=')[1]) : null; };
+const onlyTier = only('tier');
+const onlyGroup = only('group');
+
 tiers.forEach((t, ti) => {
+if (onlyTier !== null && ti !== onlyTier) return;
 const { minSize, maxSize } = plan.tiers[ti];
 t.groups.forEach((g, gi) => {
+  if (onlyGroup !== null && gi !== onlyGroup) return;
   console.log(`${t.name}, Group ${gi + 1}: ${g.name} (${g.levels.length} levels)`);
   const ratings = g.ratings || [];
   if (ratings.length !== g.levels.length) fail(`${t.name} ${g.name}: ${ratings.length} ratings for ${g.levels.length} levels`);
