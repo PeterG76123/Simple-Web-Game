@@ -101,6 +101,49 @@
   function saveProgress() {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(progress)); } catch (e) { /* ignore */ }
   }
+
+  // ---------- Levels in progress ----------
+  // Where every line (and reflector) is on levels you've started but not
+  // finished, with the undo history, so leaving and coming back loses nothing.
+  const IN_PLAY_KEY = 'arrow-escape-in-play-v1';
+  let inPlay = {};
+  try { inPlay = JSON.parse(localStorage.getItem(IN_PLAY_KEY)) || {}; } catch (e) { inPlay = {}; }
+  const levelKey = (t, g, i) => `${t}-${g}-${i}`;
+  // A short fingerprint of a level, so a save is never applied to a level
+  // that has since been replaced by a new version of the game.
+  function levelSig(t, g, i) {
+    const text = TIERS[t].groups[g].levels[i];
+    const str = typeof text === 'string' ? text : JSON.stringify(text);
+    let h = 0;
+    for (let k = 0; k < str.length; k++) h = (h * 31 + str.charCodeAt(k)) | 0;
+    return h;
+  }
+  function savedRun(t, g, i) {
+    const run = inPlay[levelKey(t, g, i)];
+    return run && run.sig === levelSig(t, g, i) ? run : null;
+  }
+  function writeInPlay() {
+    try { localStorage.setItem(IN_PLAY_KEY, JSON.stringify(inPlay)); } catch (e) { /* ignore */ }
+  }
+  function forgetRun(t, g, i) {
+    const key = levelKey(t, g, i);
+    if (inPlay[key]) { delete inPlay[key]; writeInPlay(); }
+  }
+  /** Saves the level being played (or forgets it once it's finished or back at the start). */
+  function rememberRun() {
+    if (!state) return;
+    if (state.finished || state.history.length === 0) { forgetRun(state.tier, state.group, state.index); return; }
+    inPlay[levelKey(state.tier, state.group, state.index)] = {
+      sig: levelSig(state.tier, state.group, state.index),
+      rests: restOffsets(),
+      mirrors: state.rotatable ? state.mirrors : undefined,
+      history: state.history,
+      hints: state.hintsUsed,
+      left: state.lines.filter((l) => l.rest >= 0).length,
+      total: state.lines.length,
+    };
+    writeInPlay();
+  }
   const progress = loadProgress();
   const isCompleted = (g, i) => progress.completed.includes(`${tier}-${g}-${i}`);
   const completedIn = (g) => groupsNow()[g].levels.filter((_, i) => isCompleted(g, i)).length;
@@ -154,7 +197,8 @@
     return '';
   }
 
-  function startLevel(group, index) {
+  /** Opens a level, carrying on where you left it unless `fresh` is set. */
+  function startLevel(group, index, { fresh = false } = {}) {
     const level = levelAt(group, index);
     const n = level.size;
     const mirrors = (level.mirrors || []).map((m) => m.slice());
@@ -187,6 +231,23 @@
     };
     drag = null;
 
+    // Carry on from where this level was left, if it was.
+    if (fresh) forgetRun(tier, group, index);
+    const run = fresh ? null : savedRun(tier, group, index);
+    if (run && run.rests.length === lines.length) {
+      if (run.mirrors) {
+        state.mirrors = run.mirrors.map((m) => m.slice());
+        rebuildLines();
+      }
+      lines.forEach((l, i) => {
+        l.rest = run.rests[i];
+        if (l.rest < 0) { l.mode = 'gone'; l.offset = l.exitAt + 1; } else l.offset = l.rest;
+      });
+      state.history = run.history;
+      state.hintsUsed = run.hints || 0;
+    }
+
+    screens.game.dataset.group = String(group);
     $('levelLabel').textContent = `${groupTitle(group)} · ${index + 1}`;
     $('levelLabel').title = `${groupTitle(group)}, level ${index + 1}`;
     $('hint').textContent = state.levelHint;
@@ -215,6 +276,7 @@
     $('hintBtn').disabled = state.finished || left === 0;
     // Any move (or undo) makes the current hint out of date.
     if (state.hint && state.hint.moves !== moves) clearHint();
+    rememberRun();
   }
 
   // ---------- Hints ----------
@@ -735,6 +797,18 @@
       line.blocker = r.blocker;
       line.blockGate = r.gate;
     }
+  }
+
+  /** Reset button: start the level again, after checking if you've made moves. */
+  function askRestart() {
+    if (!state || drag) return;
+    const again = () => startLevel(state.group, state.index, { fresh: true });
+    if (state.finished || state.history.length === 0) { again(); return; }
+    const moves = state.history.length;
+    showDialog('Start this level again?', `Your ${moves === 1 ? 'move' : `${moves} moves`} on this level will be cleared.`, [
+      { label: 'Keep playing', primary: true, action: hideDialog },
+      { label: 'Reset level', action: again },
+    ]);
   }
 
   function undo() {
@@ -1312,14 +1386,14 @@
     if (index + 1 < levels.length) {
       const buttons = [{ label: 'Next level', primary: true, action: () => startLevel(group, index + 1) }];
       if (state.unlockedGroup >= 0) buttons.push(startNextGroup);
-      buttons.push({ label: 'Play again', action: () => startLevel(group, index) });
+      buttons.push({ label: 'Play again', action: () => startLevel(group, index, { fresh: true }) });
       buttons.push({ label: 'Menu', action: goToMenu });
       showDialog(state.unlockedGroup >= 0 ? 'New group unlocked!' : 'Level complete!', detail, buttons);
     } else {
       const buttons = [];
       if (nextGroup >= 0) buttons.push({ ...startNextGroup, primary: true });
       buttons.push({ label: 'Back to menu', primary: nextGroup < 0, action: goToMenu });
-      buttons.push({ label: 'Play again', action: () => startLevel(group, index) });
+      buttons.push({ label: 'Play again', action: () => startLevel(group, index, { fresh: true }) });
       const last = group + 1 >= groupsNow().length;
       showDialog(`${groupTitle(group)} complete!`, `${detail} ${last ? `You untangled every ${TIERS[tier].name} level.` : ''}`.trim(), buttons);
     }
@@ -1411,10 +1485,17 @@
       const done = isCompleted(menuGroup, i);
       b.disabled = !open;
       if (done) b.classList.add('done');
-      const sub = done ? 'Done' : open ? `${level.size}×${level.size}` : 'Locked';
+      // A level you've started: a ring round the bubble fills with the share of lines cleared.
+      const run = open ? savedRun(tier, menuGroup, i) : null;
+      const pct = run ? Math.round((100 * (run.total - run.left)) / run.total) : 0;
+      if (run) {
+        b.classList.add('partial');
+        b.style.setProperty('--progress', pct);
+      }
+      const sub = done ? 'Done' : run ? `${pct}%` : open ? `${level.size}×${level.size}` : 'Locked';
       b.innerHTML = `<span>${i + 1}</span><span class="sub">${sub}</span>`;
       const rating = (groupsNow()[menuGroup].ratings || [])[i];
-      b.setAttribute('aria-label', `${groupTitle(menuGroup)}, level ${i + 1}, ${sub}${rating !== undefined ? `, difficulty ${rating} of 10` : ''}`);
+      b.setAttribute('aria-label', `${groupTitle(menuGroup)}, level ${i + 1}, ${run ? `in progress, ${pct}% cleared${done ? ', done before' : ''}` : sub}${rating !== undefined ? `, difficulty ${rating} of 10` : ''}`);
       if (rating !== undefined) b.title = `Difficulty ${rating}/10`;
       const gi = menuGroup;
       b.addEventListener('click', () => startLevel(gi, i));
@@ -1431,7 +1512,7 @@
     startLevel(next.group, next.index);
   });
   $('menuBtn').addEventListener('click', goToMenu);
-  $('restartBtn').addEventListener('click', () => startLevel(state.group, state.index));
+  $('restartBtn').addEventListener('click', askRestart);
   $('undoBtn').addEventListener('click', undo);
   $('hintBtn').addEventListener('click', showHint);
   document.addEventListener('keydown', (e) => {

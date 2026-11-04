@@ -281,6 +281,21 @@ h1 {
   box-shadow: 0 0 14px color-mix(in srgb, var(--group, var(--accent)) 55%, transparent);
 }
 .level-btn.done .sub { color: var(--accent-text); opacity: 0.8; }
+/* A level in progress: a glowing ring fills round the bubble with the share of
+   lines cleared, and the bubble shows the percentage. */
+.level-btn { position: relative; }
+.level-btn.partial::after {
+  content: "";
+  position: absolute;
+  inset: -5px;
+  border-radius: 50%;
+  background: conic-gradient(var(--group, var(--accent)) calc(var(--progress, 0) * 1%), rgba(160, 230, 255, 0.12) 0);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3.5px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3.5px));
+  filter: drop-shadow(0 0 4px var(--group, var(--accent)));
+  pointer-events: none;
+}
+.level-btn.partial:not(.done) .sub { color: var(--group, var(--accent)); font-size: 0.68rem; }
 
 .how {
   margin-top: 28px;
@@ -326,45 +341,68 @@ h1 {
 .btn:disabled:active { transform: none; }
 
 /* ---------- Game ---------- */
+/* The game fills the screen exactly: title, then the board centred in all the
+   space that's left, then the hint and the big buttons. */
 #game {
   flex-direction: column;
   align-items: center;
-  padding-block: 12px 20px;
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+  padding-top: max(12px, env(safe-area-inset-top, 0px));
+  padding-bottom: max(14px, env(safe-area-inset-bottom, 0px));
   padding-left: max(16px, env(safe-area-inset-left, 0px));
   padding-right: max(16px, env(safe-area-inset-right, 0px));
-  gap: 12px;
+  gap: 10px;
 }
 
 .hud {
   width: 100%;
-  max-width: 560px;
-  display: flex;
+  max-width: 640px;
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) 48px;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
+  flex: none;
 }
-.hud .btn { padding: 8px 12px; font-size: 0.95rem; white-space: nowrap; }
 .hud-center { text-align: center; min-width: 0; }
-.level-label, .moves { white-space: nowrap; }
-/* On phones the header buttons show just their icons (labels stay for screen readers). */
-@media (max-width: 480px) {
-  .hud .btn-text { display: none; }
-  .hud .btn { min-width: 40px; }
+.level-label, .moves { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.level-label {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.45rem;
+  color: var(--group, var(--text));
+  text-shadow: 0 0 14px color-mix(in srgb, var(--group, var(--accent)) 45%, transparent);
 }
-.level-label { font-family: var(--font-display); font-weight: 600; font-size: 1.2rem; }
 .moves {
-  margin-top: 1px;
+  margin-top: 2px;
   color: var(--muted);
-  font-size: 0.85rem;
+  font-size: 0.92rem;
   font-variant-numeric: tabular-nums;
 }
-.hud-actions { display: flex; gap: 6px; }
+.hud-gear { width: 48px; height: 48px; padding: 0; }
+
+/* The board (with the line count and hint under it) sits in the middle of
+   whatever space is left, as big as fits. */
+.board-area {
+  --below: 112px; /* room for the line count and the hint under the board */
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  container-type: size;
+}
 
 /* The board: a pool of deep water with a soft glow */
 .board-wrap {
   position: relative;
-  width: 100%;
-  max-width: 560px;
+  width: min(100cqw, calc(100cqh - var(--below)), 680px);
+  flex: none;
   aspect-ratio: 1;
   background:
     radial-gradient(90% 70% at 50% 20%, rgba(60, 160, 230, 0.18), transparent 70%),
@@ -379,18 +417,19 @@ h1 {
 #board:active { cursor: grabbing; }
 
 .board-footer {
-  width: 100%;
-  max-width: 560px;
+  width: min(100cqw, calc(100cqh - var(--below)), 680px);
+  min-height: 40px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  flex: none;
 }
-.remaining { margin: 0; color: var(--muted); font-size: 0.9rem; font-variant-numeric: tabular-nums; }
-.zoom-controls { display: flex; gap: 6px; margin-left: auto; }
+.remaining { margin: 0; color: var(--text); font-family: var(--font-display); font-weight: 600; font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+.zoom-controls { display: flex; gap: 8px; margin-left: auto; }
 .zoom-btn {
-  width: 38px;
-  height: 38px;
+  width: 42px;
+  height: 42px;
   border-radius: 50%;
   border: 1px solid var(--glass-edge);
   background: var(--glass);
@@ -398,19 +437,88 @@ h1 {
   -webkit-backdrop-filter: blur(10px);
   color: var(--text);
   font-family: var(--font-display);
-  font-size: 1.2rem;
+  font-size: 1.25rem;
   font-weight: 600;
   line-height: 1;
   cursor: pointer;
 }
 .zoom-btn:disabled { opacity: 0.3; cursor: default; }
 .zoom-btn:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
-.hint-btn { padding: 8px 20px; }
+
+/* Big buttons along the bottom: an icon with its name under it. */
+.action-bar {
+  width: 100%;
+  max-width: 640px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  flex: none;
+}
+.action-btn {
+  font: inherit;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 74px;
+  padding: 10px 4px;
+  border-radius: 22px;
+  border: 1px solid var(--glass-edge);
+  background: var(--glass);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: var(--text);
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: transform 0.1s, opacity 0.15s, box-shadow 0.2s, background 0.2s;
+}
+.action-btn .action-icon { width: 28px; height: 28px; }
+.action-btn:hover:not(:disabled) { background: var(--glass-strong); }
+.action-btn:active:not(:disabled) { transform: scale(0.94); }
+.action-btn:disabled { opacity: 0.35; cursor: default; }
+.action-btn:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.action-btn.hint-btn {
+  background: linear-gradient(180deg, var(--accent), var(--accent-2));
+  color: var(--accent-text);
+  border-color: transparent;
+  box-shadow: 0 0 18px rgba(94, 242, 255, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+.action-btn.hint-btn:hover:not(:disabled) { box-shadow: 0 0 26px rgba(94, 242, 255, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.6); }
+/* Short screens (a phone on its side): smaller buttons, so the board keeps its room. */
+@media (max-height: 620px) {
+  .action-btn { min-height: 54px; flex-direction: row; gap: 8px; }
+  .level-label { font-size: 1.15rem; }
+  .hint { min-height: 1.5em; }
+  .board-area { --below: 80px; }
+}
+/* A phone on its side: the board takes the full height on the left, with the
+   title and the buttons (two by two) in a column beside it. */
+@media (orientation: landscape) and (max-height: 560px) {
+  #game.active {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
+    grid-template-rows: auto minmax(0, 1fr);
+    column-gap: 18px;
+    row-gap: 12px;
+    align-items: stretch;
+  }
+  #game .hud { grid-column: 2; grid-row: 1; grid-template-columns: minmax(0, 1fr) 44px; }
+  #game .hud-spacer { display: none; }
+  #game .hud-gear { width: 44px; height: 44px; }
+  #game .board-area { grid-column: 1; grid-row: 1 / span 2; --below: 92px; }
+  #game .action-bar { grid-column: 2; grid-row: 2; grid-template-columns: 1fr 1fr; align-content: end; }
+  #game .action-btn { flex-direction: column; min-height: 64px; gap: 2px; }
+  #game .level-label { font-size: 1.1rem; }
+}
 
 .hint {
   margin: 0;
-  max-width: 560px;
-  min-height: 2.8em;
+  width: min(100cqw, max(calc(100cqh - var(--below)), 300px), 680px);
+  min-height: 2.9em;
+  flex: none;
   text-align: center;
   text-wrap: balance;
   line-height: 1.45;
