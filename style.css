@@ -365,8 +365,8 @@ h1 {
   max-width: 560px;
   aspect-ratio: 1;
   background:
-    radial-gradient(90% 70% at 50% 20%, rgba(60, 160, 230, 0.22), transparent 70%),
-    linear-gradient(180deg, #072a52 0%, #041a36 60%, #031127 100%);
+    radial-gradient(90% 70% at 50% 20%, rgba(60, 160, 230, 0.18), transparent 70%),
+    linear-gradient(180deg, rgba(7, 42, 82, 0.3) 0%, rgba(4, 26, 54, 0.3) 60%, rgba(3, 17, 39, 0.35) 100%);
   border: 1px solid var(--glass-edge);
   border-radius: 26px;
   overflow: hidden;
@@ -459,15 +459,16 @@ h1 {
 .sea-life { position: absolute; inset: 0; }
 .creature { position: absolute; left: 0; top: 0; will-change: transform; }
 .creature .facing, .creature svg, .creature .school { width: 100%; height: 100%; display: block; }
-.creature svg { overflow: visible; filter: drop-shadow(0 0 4px currentColor); }
+.creature svg { overflow: visible; filter: drop-shadow(0 0 6px currentColor); }
 .creature svg path, .creature svg ellipse, .creature svg circle {
-  fill: currentColor; fill-opacity: 0.22; stroke: currentColor; stroke-width: 1.6;
+  fill: currentColor; fill-opacity: 0.22; stroke: currentColor; stroke-width: 2.5;
+  vector-effect: non-scaling-stroke;
   stroke-linecap: round; stroke-linejoin: round;
 }
 .creature svg .eye { fill: #fff; fill-opacity: 0.9; stroke: none; }
 .creature svg .shell { fill: none; stroke-opacity: 0.6; }
 .creature .tentacles path, .creature.seahorse path:first-child, .creature .tail, .creature .fin { fill: none; }
-.creature.manta .tail { stroke-width: 1.2; }
+.creature.manta .tail { stroke-width: 2; }
 .creature .school { position: relative; }
 .creature .member { position: absolute; width: 30%; height: 30%; animation: school-drift 3s ease-in-out infinite alternate; }
 .creature .wiggle .tail { transform-origin: 12px 15px; animation: tail-wag 0.5s ease-in-out infinite alternate; }

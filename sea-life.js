@@ -22,13 +22,14 @@
     return list.length ? list : ['#5ef2ff'];
   };
 
-  // Each creature faces right in its own drawing. `w` is its width in px at
-  // depth 1; `speed` is how many seconds it takes to cross a 400px screen.
+  // Each creature faces right in its own drawing. `w` is its width at depth 1
+  // as a share of the screen (for a school, the width of one fish), so whales
+  // dwarf mantas, which dwarf fish. `speed` is seconds to cross the screen once.
   const fish = '<svg viewBox="0 0 60 30" class="wiggle"><path d="M10 15 C18 4 38 3 52 15 C38 27 18 26 10 15Z"/>' +
     '<path class="tail" d="M12 15 L1 5 L4 15 L1 25Z"/><circle class="eye" cx="44" cy="13" r="2"/></svg>';
   const KINDS = {
     school: {
-      w: 26, speed: 9, weight: 4,
+      w: 0.13, speed: 12, weight: 4,
       html: () => {
         const n = 3 + Math.floor(Math.random() * 5);
         let out = '';
@@ -40,14 +41,14 @@
       size: (w) => [w * 3.4, w * 2.6],
     },
     jelly: {
-      w: 34, speed: 30, weight: 3, rises: true,
+      w: 0.26, speed: 38, weight: 3, rises: true,
       html: () => '<svg viewBox="0 0 40 70" class="pulse"><path class="bell" d="M4 24 C4 6 36 6 36 24 C30 21 10 21 4 24Z"/>' +
         '<g class="tentacles"><path d="M10 24 C6 36 14 44 9 58"/><path d="M17 24 C14 38 21 48 16 66"/>' +
         '<path d="M24 24 C27 38 19 48 24 66"/><path d="M31 24 C35 36 27 44 31 58"/></g></svg>',
       size: (w) => [w, w * 1.75],
     },
     turtle: {
-      w: 70, speed: 26, weight: 2,
+      w: 0.6, speed: 32, weight: 2,
       html: () => '<svg viewBox="0 0 90 56"><g class="flipper front"><path d="M56 17 C52 6 42 0 30 1 C38 7 45 13 48 19Z"/></g>' +
         '<g class="flipper back"><path d="M56 39 C52 50 42 56 30 55 C38 49 45 43 48 37Z"/></g>' +
         '<path d="M22 32 C16 38 10 40 6 40 C10 35 14 31 20 29Z"/>' +
@@ -56,20 +57,20 @@
       size: (w) => [w, w * 0.62],
     },
     manta: {
-      w: 90, speed: 22, weight: 2,
+      w: 0.9, speed: 28, weight: 2,
       html: () => '<svg viewBox="0 0 100 50" class="flap"><path d="M88 25 C87 19 80 13 58 1 C56 12 48 20 36 25 C48 30 56 38 58 49 C80 37 87 31 88 25Z"/>' +
         '<path class="fin" d="M87 21 C91 20 94 18 96 16 M87 29 C91 30 94 32 96 34"/>' +
         '<path class="tail" d="M37 25 L4 24"/><circle class="eye" cx="84" cy="20" r="1.5"/><circle class="eye" cx="84" cy="30" r="1.5"/></svg>',
       size: (w) => [w, w * 0.5],
     },
     seahorse: {
-      w: 26, speed: 40, weight: 1,
+      w: 0.15, speed: 45, weight: 1,
       html: () => '<svg viewBox="0 0 40 70" class="bob"><path d="M18 8 C26 4 33 8 32 14 L40 16 L31 19 C34 30 31 40 22 46 C15 51 15 60 21 62 C26 63 27 57 23 56"/>' +
         '<path class="fin" d="M18 26 C12 28 11 36 16 38"/><circle class="eye" cx="25" cy="12" r="1.8"/></svg>',
       size: (w) => [w, w * 1.75],
     },
     whale: {
-      w: 280, speed: 50, weight: 1, far: true,
+      w: 1.8, speed: 60, weight: 1, far: true,
       html: () => '<svg viewBox="0 0 200 70" class="glide"><path d="M16 40 C34 12 118 8 168 28 C184 34 194 32 198 26 C196 40 188 46 174 44 C140 62 62 66 16 40Z"/>' +
         '<path class="tail" d="M20 40 L2 24 L8 40 L2 56Z"/><circle class="eye" cx="170" cy="38" r="2.2"/>' +
         '<path class="fin" d="M120 50 C116 60 106 64 98 64 C104 58 108 54 110 50Z"/></svg>',
@@ -87,16 +88,18 @@
     lastKind = name;
     const kind = KINDS[name];
     // Depth: far creatures are smaller, fainter, slower and a little blurred.
-    const depth = kind.far ? rand(0.9, 1.2) : rand(0.55, 1.15);
-    const [w, h] = kind.size(kind.w * depth);
+    const depth = kind.far ? rand(0.85, 1.15) : rand(0.7, 1.15);
     const vw = window.innerWidth, vh = window.innerHeight;
+    // Measured against the screen, but not absurdly wide on a desktop monitor.
+    const base = Math.min(vw, vh * 0.8);
+    const [w, h] = kind.size(kind.w * depth * base);
     const el = document.createElement('div');
     el.className = `creature ${name}`;
     el.style.width = `${w}px`;
     el.style.height = `${h}px`;
     el.style.color = pick(palette());
-    el.style.opacity = (kind.far ? 0.16 : 0.22 + 0.3 * (depth - 0.55)).toFixed(2);
-    if (depth < 0.75 || kind.far) el.style.filter = `blur(${kind.far ? 1.5 : 0.8}px)`;
+    el.style.opacity = (kind.far ? 0.18 : 0.24 + 0.3 * (depth - 0.7)).toFixed(2);
+    if (depth < 0.85 || kind.far) el.style.filter = `blur(${kind.far ? 2 : 1}px)`;
     const goingLeft = Math.random() < 0.5;
     el.innerHTML = `<div class="facing" style="transform:scaleX(${goingLeft ? -1 : 1})">${kind.html()}</div>`;
     layer.appendChild(el);
@@ -105,7 +108,7 @@
     // A gently wavy path across (or, for jellyfish, up) the screen.
     const frames = [];
     const steps = 8;
-    const sway = rand(10, 30) * depth;
+    const sway = Math.min(40, rand(0.04, 0.12) * h);
     const phase = rand(0, Math.PI * 2);
     let duration;
     if (kind.rises) {
@@ -115,7 +118,7 @@
         const t = i / steps;
         frames.push({ transform: `translate(${x + drift * t + Math.sin(phase + t * 5) * sway}px, ${vh + 20 - t * (vh + h + 40)}px)` });
       }
-      duration = kind.speed * 1000 * (vh / 700) / depth;
+      duration = kind.speed * 1000 * ((vh + h) / vh) / depth;
     } else {
       const y = rand(0.08, 0.85) * vh;
       const climb = rand(-0.12, 0.12) * vh;
@@ -124,7 +127,7 @@
         const t = i / steps;
         frames.push({ transform: `translate(${from + (to - from) * t}px, ${y + climb * t + Math.sin(phase + t * 6) * sway}px)` });
       }
-      duration = kind.speed * 1000 * ((vw + w) / 400) / Math.sqrt(depth);
+      duration = kind.speed * 1000 * ((vw + w) / vw) / Math.sqrt(depth);
     }
     const anim = el.animate(frames, { duration: duration * rand(0.85, 1.15), easing: 'linear' });
     anim.onfinish = () => { el.remove(); alive--; };
