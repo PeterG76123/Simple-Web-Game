@@ -1,7 +1,7 @@
 (function () {
   'use strict';
 
-  const { DIRS, buildLine, mirrorMap, reach, reachBack, solve, decodeLevel, makeWorld, anyMap, turnMirror, canTurn } = window.ArrowRules;
+  const { DIRS, buildLine, mirrorMap, reach, reachBack, solve, decodeLevel, makeWorld, anyMap, turnMirror, canTurn, findTurnWay } = window.ArrowRules;
   const { unlockAfter: UNLOCK_AFTER } = window.ArrowLevelData;
   // Older level files had one list of groups and no difficulty settings.
   const TIERS = window.ArrowLevelData.tiers || [{ name: 'Easy', groups: window.ArrowLevelData.groups }];
@@ -222,15 +222,71 @@
     }, 30);
   }
 
+  /**
+   * A line that can slide out right now, if taking it off can't hurt (no
+   * gates, or it isn't on a plate or inside a gate). Every line has to leave
+   * once, so this is always a correct next move, and needs no search.
+   */
+  function freeLineNow() {
+    const offsets = restOffsets();
+    const n = state.n;
+    const special = new Set([...state.gates, ...state.plates].map(([x, y]) => y * n + x));
+    for (const l of state.lines) {
+      if (l.rest < 0 || l.mode !== 'idle') continue;
+      let onSpecial = false;
+      for (let j = 0; j < l.len && special.size; j++) {
+        const [x, y] = l.track[l.rest + j];
+        if (x >= 0 && y >= 0 && x < n && y < n && special.has(y * n + x)) { onSpecial = true; break; }
+      }
+      if (!onSpecial && reach(n, state.lines, offsets, l.id).exit) return l;
+    }
+    return null;
+  }
+
+  /**
+   * Turning-reflector levels with no free line: look for a reflector that,
+   * turned 1-3 taps, frees a line, and check with a small search that the
+   * level can still be finished from there. Much faster than a full search
+   * on big boards. Returns { k, taps } or null.
+   */
+  function turnThatFrees(level) {
+    if (!state.rotatable) return null;
+    return findTurnWay(state.n, level.lines, { mirrors: state.mirrors, start: restOffsets() });
+  }
+
   function computeHint() {
     const level = levelAt(state.group, state.index);
+    const free = freeLineNow();
+    const turn = free ? null : turnThatFrees(level);
+    if (turn) {
+      const moves = state.history.length;
+      state.hint = { id: -1, turn: turn.k, start: performance.now(), moves };
+      canvas.dataset.hintTurn = String(turn.k);
+      const { cell, margin } = layout(boardSize());
+      const [mx, my] = state.mirrors[turn.k];
+      showPoint(margin + (mx + 0.5) * cell, margin + (my + 0.5) * cell);
+      setHintText(`Tap the flashing reflector to turn it${turn.taps > 1 ? ` (${turn.taps} taps)` : ''}.`);
+      return;
+    }
+    if (free) {
+      const moves = state.history.length;
+      state.hint = { id: free.id, to: -1, start: performance.now(), moves };
+      canvas.dataset.hintLine = String(free.id);
+      canvas.dataset.hintTo = '-1';
+      const { cell, margin } = layout(boardSize());
+      const [hx, hy] = free.track[free.rest + free.len - 1];
+      showPoint(margin + (hx + 0.5) * cell, margin + (hy + 0.5) * cell);
+      setHintText('Slide the flashing line all the way out.');
+      return;
+    }
     const opts = {
       mirrors: state.mirrors, rotatable: state.rotatable, gates: state.gates, plates: state.plates,
       start: restOffsets(), maxStates: 150000,
     };
-    let result = solve(state.n, level.lines, opts);
-    // Big turning-reflector boards: fall back to a search of turns and lines
-    // leaving only, which is much smaller.
+    // Turning-reflector boards: try the full search with a small budget, then
+    // fall back to a search of turns and lines leaving only, which is much
+    // smaller. Big boards would otherwise keep a player waiting.
+    let result = solve(state.n, level.lines, state.rotatable ? { ...opts, maxStates: 15000 } : opts);
     if (result.gaveUp && state.rotatable) result = solve(state.n, level.lines, { ...opts, slides: false });
     state.hintsUsed++;
     const moves = state.history.length;

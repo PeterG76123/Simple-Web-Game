@@ -510,6 +510,7 @@
   function solveWorld(n, arrows, { maxStates = 200000, mirrors = [], rotatable = false, gates = [], plates = [], start: from, startMirrors, turnCost = 1, slideCost = 1, noTurns = false, slides = true } = {}) {
     const world = makeWorld(n, gates, plates);
     const cache = new Map();
+    const lineMemo = new Map();
     const linesFor = (ms) => {
       // Line paths for each reflector arrangement, keeping only the most
       // recently used ones: a big board can visit thousands of arrangements,
@@ -519,7 +520,22 @@
       if (lines) {
         cache.delete(key);
       } else {
-        lines = arrows.map((a) => buildLine(n, a, mirrorMap(n, ms)));
+        // Each line's path only depends on the reflectors it passes, so
+        // reuse a line built earlier when those are the same (most lines
+        // never touch a reflector, so they are built once).
+        const map = mirrorMap(n, ms);
+        lines = arrows.map((a, id) => {
+          const trace = tracePath(n, a.cells[0][0], a.cells[0][1], a.dir, map);
+          let sig = id + ':';
+          for (const [x, y] of trace.cells) { const m = map.get(y * n + x); if (m) sig += `${x},${y},${m[0]}${m[1]};`; }
+          let line = lineMemo.get(sig);
+          if (!line) {
+            line = buildLine(n, a, map);
+            if (lineMemo.size > 20000) lineMemo.clear();
+            lineMemo.set(sig, line);
+          }
+          return line;
+        });
         lines.world = world;
         if (cache.size >= 64) cache.delete(cache.keys().next().value);
       }
@@ -619,6 +635,62 @@
     return { solvable: false, states: best.size };
   }
 
+  /**
+   * Quick way forward for turning-reflector levels (used for hints): a
+   * depth-first search over reflector turns, taking free lines off after
+   * each turn and trying the turns that free the most lines first. It finds
+   * *a* way to clear the board (not the shortest), usually in a fraction of
+   * a second on big boards. Returns { k, taps } for the first reflector to
+   * turn and how many taps, or null if none was found within `maxNodes`.
+   */
+  function findTurnWay(n, arrows, { mirrors, start, maxNodes = 300 }) {
+    const memo = new Map();
+    const linesFor = (ms) => {
+      const map = mirrorMap(n, ms);
+      return arrows.map((a, id) => {
+        const trace = tracePath(n, a.cells[0][0], a.cells[0][1], a.dir, map);
+        let sig = id + ':';
+        for (const [x, y] of trace.cells) { const m = map.get(y * n + x); if (m) sig += `${x},${y},${m[0]}${m[1]};`; }
+        let line = memo.get(sig);
+        if (!line) { line = buildLine(n, a, map); memo.set(sig, line); }
+        return line;
+      });
+    };
+    const seen = new Set();
+    let nodes = 0;
+    const dfs = (ms, offsets) => {
+      if (offsets.every((o) => o < 0)) return [];
+      if (++nodes > maxNodes) return null;
+      const key = offsets.join(',') + '|' + ms.map((m) => shapeOf(m[2], m[3])).join('');
+      if (seen.has(key)) return null;
+      seen.add(key);
+      const lines = linesFor(ms);
+      const options = [];
+      for (let k = 0; k < ms.length; k++) {
+        if (!canTurn(n, lines, offsets, ms[k])) continue;
+        let m2 = ms;
+        for (let taps = 1; taps <= 3; taps++) {
+          m2 = turnMirror(m2, k);
+          const o2 = offsets.slice();
+          const freed = clearFree(n, linesFor(m2), o2).length;
+          options.push({ k, taps, ms: m2, o: o2, freed });
+        }
+      }
+      options.sort((a, b) => b.freed - a.freed || a.taps - b.taps);
+      for (const opt of options) {
+        if (opt.freed === 0 && options[0].freed > 0) break;
+        const rest = dfs(opt.ms, opt.o);
+        if (rest) return [{ k: opt.k, taps: opt.taps }, ...rest];
+        if (nodes > maxNodes) return null;
+      }
+      return null;
+    };
+    const o0 = start.slice();
+    clearFree(n, linesFor(mirrors), o0);
+    const way = dfs(mirrors, o0);
+    return way && way.length ? way[0] : null;
+  }
+
   /** True if the level can be cleared by sliding lines straight out, with no partial slides. */
   function solvableWithWholeExits(n, arrows, mirrors = [], gates = [], plates = []) {
     const map = mirrorMap(n, mirrors);
@@ -693,5 +765,5 @@
     return { size: parseInt(size, 36), par: Number(par), lines, mirrors, rotatable: extraText.includes('R'), gates, plates };
   }
 
-  root.ArrowRules = { encodeLevel, decodeLevel, makeWorld, anyMap, turnMirror, canTurn, solveWorld, DIRS, inBounds, rayCells, mirrorMap, tracePath, buildLine, solidMap, reach, reachBack, clearFree, solve, solvableWithWholeExits };
+  root.ArrowRules = { encodeLevel, decodeLevel, findTurnWay, makeWorld, anyMap, turnMirror, canTurn, solveWorld, DIRS, inBounds, rayCells, mirrorMap, tracePath, buildLine, solidMap, reach, reachBack, clearFree, solve, solvableWithWholeExits };
 })(typeof window !== 'undefined' ? window : globalThis);

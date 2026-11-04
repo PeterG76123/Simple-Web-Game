@@ -528,11 +528,15 @@ function carve(n, arrows, rng, { count, type, minLen = 3, tries = 400 }) {
     const trial = arrows.slice();
     trial[bi] = { ...arrows[bi], cells: arrows[bi].cells.slice(0, -1) };
     if (type === 'mirror') {
-      const m2 = mirrorMap(n, placed.concat([piece]));
+      const all = placed.concat([piece]);
+      const m2 = mirrorMap(n, all);
       const owner = new Int32Array(n * n).fill(-1);
       trial.forEach((b, id) => b.cells.forEach(([cx, cy]) => { owner[cy * n + cx] = id; }));
       const g = fastGreedy(trial.map((b) => orientations(n, b.cells, m2)[0]), owner);
       if (g.stuck.length) continue;
+      // A new reflector can bend a line away from an earlier one: every
+      // reflector must still be on some line's way out.
+      if (unusedMirrors(n, trial, all, m2)) continue;
     }
     arrows = trial;
     placed.push(piece);
