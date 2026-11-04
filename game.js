@@ -15,6 +15,10 @@
   // is shown under it.)
   const GROUP_TITLES = ['Kelp Shallows', 'Jellyfish Bay', 'Crystal Reef', 'Whirlpool', 'Sunken Wreck'];
   const groupTitle = (g) => GROUP_TITLES[g] || `Group ${g + 1}`;
+  // What's new in each group, in the game's own words (shown under the group
+  // cards and when a group unlocks).
+  const GROUP_BLURBS = ['Solid eels', 'See-through eels', 'Eels bounce off pearl reflectors', 'Turn the pearl reflectors', "Anemones open the wreck's gates"];
+  const groupBlurb = (g) => GROUP_BLURBS[g] || groupsNow()[g].name;
 
   // Levels are stored compactly (see rules.js) and decoded when first needed.
   const decoded = new Map();
@@ -255,7 +259,7 @@
     const moves = state.history.length;
     $('moves').textContent = `${TIERS[state.tier].name} · ${moves === 1 ? '1 move' : `${moves} moves`}`;
     const left = state.lines.filter((l) => l.rest >= 0).length;
-    $('remaining').textContent = left === 1 ? '1 line left' : `${left} lines left`;
+    $('remaining').textContent = left === 1 ? '1 eel left' : `${left} eels left`;
     $('undoBtn').disabled = moves === 0 || state.finished;
     $('hintBtn').disabled = state.finished || left === 0;
     // Any move (or undo) makes the current hint out of date.
@@ -408,7 +412,7 @@
       const { cell, margin } = layout(boardSize());
       const [hx, hy] = free.track[free.rest + free.len - 1];
       showPoint(margin + (hx + 0.5) * cell, margin + (hy + 0.5) * cell);
-      setHintText('Slide the flashing line all the way out.');
+      setHintText('Slide the flashing eel all the way out.');
       return;
     }
     const opts = {
@@ -458,11 +462,11 @@
     const line = state.lines[move.line];
     let text;
     if (move.to === -1) {
-      text = 'Slide the flashing line all the way out.';
+      text = 'Slide the flashing eel all the way out.';
     } else {
       const d = move.to - line.rest;
       const k = Math.abs(d);
-      text = `Slide the flashing line ${d > 0 ? 'forward' : 'back'} ${k} ${k === 1 ? 'square' : 'squares'}, until its head reaches the ring.`;
+      text = `Slide the flashing eel ${d > 0 ? 'forward' : 'back'} ${k} ${k === 1 ? 'square' : 'squares'}, until its head reaches the ring.`;
     }
     text += result.par > 1 ? ` You can finish in ${result.par} moves.` : '';
     state.hint = { id: move.line, to: move.to, start: performance.now(), moves };
@@ -1433,7 +1437,7 @@
     const nextGroup = group + 1 < groupsNow().length && isGroupUnlocked(group + 1) ? group + 1 : -1;
     const startNextGroup = { label: `Go to ${groupTitle(nextGroup)}`, action: () => startLevel(nextGroup, 0) };
 
-    if (state.unlockedGroup >= 0) detail += ` You’ve unlocked ${groupTitle(state.unlockedGroup)}: ${groupsNow()[state.unlockedGroup].name.toLowerCase()}.`;
+    if (state.unlockedGroup >= 0) detail += ` You’ve unlocked ${groupTitle(state.unlockedGroup)}: ${groupBlurb(state.unlockedGroup).toLowerCase()}.`;
 
     if (index + 1 < levels.length) {
       const buttons = [{ label: 'Next level', primary: true, action: () => startLevel(group, index + 1) }];
@@ -1512,7 +1516,7 @@
       // The chosen group's mechanic is named once, under the cards.
       b.innerHTML = `<span class="group-title">${groupTitle(gi)}</span>` +
         `<span class="group-count${unlocked ? '' : ' locked'}">${unlocked ? `${completedIn(gi)} / ${grp.levels.length}` : 'Locked'}</span>`;
-      b.setAttribute('aria-label', `${groupTitle(gi)}: ${grp.name}, ${unlocked ? `${completedIn(gi)} of ${grp.levels.length} done` : 'locked'}`);
+      b.setAttribute('aria-label', `${groupTitle(gi)}: ${groupBlurb(gi)}, ${unlocked ? `${completedIn(gi)} of ${grp.levels.length} done` : 'locked'}`);
       b.addEventListener('click', () => { menuGroup = gi; renderMenu(); });
       tabs.appendChild(b);
     });
@@ -1522,7 +1526,7 @@
     note.hidden = false;
     note.dataset.group = String(menuGroup);
     if (unlocked) {
-      note.textContent = groupsNow()[menuGroup].name;
+      note.textContent = groupBlurb(menuGroup);
     } else {
       const prev = menuGroup - 1;
       const left = UNLOCK_AFTER - completedIn(prev);
