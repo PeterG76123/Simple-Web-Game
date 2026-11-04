@@ -5,23 +5,43 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Arrow Escape</title>
   <meta name="description" content="A puzzle game: drag each tangled line off the board the way its arrow points, using see-through gaps to get past other lines." />
-  <link rel="stylesheet" href="style.css?v=3de6c4ae" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;600;700&display=swap" />
+  <link rel="stylesheet" href="style.css?v=d7bdebe6" />
 </head>
 <body>
+  <!-- The ocean: drifting light rays and rising bubbles behind everything. -->
+  <div class="ocean" aria-hidden="true">
+    <span style="--x:6%;--s:8px;--t:16s;--d:-2s"></span>
+    <span style="--x:14%;--s:14px;--t:21s;--d:-9s"></span>
+    <span style="--x:23%;--s:6px;--t:13s;--d:-5s"></span>
+    <span style="--x:35%;--s:10px;--t:18s;--d:-14s"></span>
+    <span style="--x:47%;--s:5px;--t:12s;--d:-1s"></span>
+    <span style="--x:58%;--s:12px;--t:20s;--d:-11s"></span>
+    <span style="--x:66%;--s:7px;--t:15s;--d:-7s"></span>
+    <span style="--x:75%;--s:16px;--t:24s;--d:-3s"></span>
+    <span style="--x:84%;--s:6px;--t:14s;--d:-12s"></span>
+    <span style="--x:92%;--s:11px;--t:19s;--d:-6s"></span>
+  </div>
+
   <!-- Front screen -->
   <section id="menu" class="screen active" aria-label="Main menu">
     <div class="menu-card">
       <div class="logo" aria-hidden="true">
-        <!-- Two lines that never cross: indigo up and along the top, teal down and along the bottom. -->
-        <svg viewBox="0 0 120 64" width="120" height="64">
-          <path d="M10 38 V12 H72" fill="none" stroke="var(--c1)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M72 1 L90 12 L72 23 Z" fill="var(--c1)"/>
-          <path d="M28 30 V52 H90" fill="none" stroke="var(--c3)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M90 41 L108 52 L90 63 Z" fill="var(--c3)"/>
+        <!-- Two glowing eels that never cross: cyan along the top, pink along the bottom. -->
+        <svg viewBox="0 0 132 70" width="150" height="80">
+          <path d="M8 42 C8 22 22 14 40 14 C54 14 60 8 74 12" fill="none" stroke="var(--c1)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" opacity="0.35" transform="translate(0 1)"/>
+          <path d="M8 42 C8 22 22 14 40 14 C54 14 60 8 74 12" fill="none" stroke="var(--c1)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M72 2 L92 12 L72 22 Q76 12 72 2 Z" fill="var(--c1)"/>
+          <circle cx="80" cy="9" r="2.4" fill="#fff"/><circle cx="80.6" cy="9" r="1.1" fill="#021022"/>
+          <path d="M28 34 C28 50 42 58 60 56 C76 54 84 48 98 54" fill="none" stroke="var(--c2)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M96 44 L116 54 L96 64 Q100 54 96 44 Z" fill="var(--c2)"/>
+          <circle cx="104" cy="51" r="2.4" fill="#fff"/><circle cx="104.6" cy="51" r="1.1" fill="#021022"/>
         </svg>
       </div>
       <h1>Arrow Escape</h1>
-      <p class="tagline">Untangle the lines, one arrow at a time.</p>
+      <p class="tagline">Guide the glowing eels out of the deep.</p>
 
       <button id="playBtn" class="btn primary big">Play</button>
 
@@ -92,6 +112,6 @@
 
   <script src="rules.js?v=d637eec1"></script>
   <script src="levels-data.js?v=0b531cdb"></script>
-  <script src="game.js?v=c0eebb65"></script>
+  <script src="game.js?v=f424b73c"></script>
 </body>
 </html>

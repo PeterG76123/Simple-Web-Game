@@ -798,7 +798,8 @@
       }
       if (state.unlockedGroup >= 0 && !isGroupUnlocked(state.unlockedGroup)) state.unlockedGroup = -1;
       updateHud();
-      setTimeout(showWinDialog, 250);
+      burstBubbles();
+      setTimeout(showWinDialog, 450);
     }
   }
 
@@ -855,11 +856,12 @@
     // Zoom and pan: everything below is drawn in board coordinates.
     ctx.setTransform(dpr * view.scale, 0, 0, dpr * view.scale, dpr * view.x, dpr * view.y);
 
+    // Grid points: tiny glints of plankton in the water.
     ctx.fillStyle = colors.dot;
     for (let y = 0; y < state.n; y++) {
       for (let x = 0; x < state.n; x++) {
         ctx.beginPath();
-        ctx.arc(center(x), center(y), cell * 0.07, 0, Math.PI * 2);
+        ctx.arc(center(x), center(y), cell * 0.05, 0, Math.PI * 2);
         ctx.fill();
       }
     }
@@ -879,17 +881,28 @@
         ctx.arcTo(x, y, x + w, y, r);
         ctx.closePath();
       };
-      // Plates: round pads, brighter while something is on them.
+      // Plates: anemones, glowing brighter while something sits on them.
       for (const [px, py, c] of state.plates) {
+        const on = covered.has(c);
+        const cx = center(px);
+        const cy = center(py);
         ctx.fillStyle = colors.gates[c];
-        ctx.globalAlpha = covered.has(c) ? 0.5 : 0.2;
+        ctx.globalAlpha = on ? 0.45 : 0.18;
         ctx.beginPath();
-        ctx.arc(center(px), center(py), cell * 0.4, 0, Math.PI * 2);
+        ctx.arc(cx, cy, cell * 0.3, 0, Math.PI * 2);
         ctx.fill();
-        ctx.globalAlpha = 1;
+        ctx.globalAlpha = on ? 1 : 0.75;
         ctx.strokeStyle = colors.gates[c];
-        ctx.lineWidth = cell * 0.07;
-        ctx.stroke();
+        ctx.lineCap = 'round';
+        ctx.lineWidth = cell * 0.055;
+        for (let k = 0; k < 10; k++) {
+          const a = (k / 10) * Math.PI * 2 + (on ? 0.15 : 0);
+          ctx.beginPath();
+          ctx.moveTo(cx + Math.cos(a) * cell * 0.3, cy + Math.sin(a) * cell * 0.3);
+          ctx.lineTo(cx + Math.cos(a) * cell * 0.45, cy + Math.sin(a) * cell * 0.45);
+          ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
       }
       for (const [gx, gy, c] of state.gates) {
         const cellIndex = gy * state.n + gx;
@@ -962,16 +975,31 @@
       }
       ctx.rotate((quarter * Math.PI) / 2);
       // Up-left shape: corner at bottom-right, slanted side from top-right to bottom-left.
-      ctx.fillStyle = flash > 0 ? mix(colors.mirror, colors.danger, Math.min(1, flash)) : colors.mirror;
+      // Drawn as a crystal shard: a see-through gradient with a bright facet.
+      const crystal = ctx.createLinearGradient(half, half, -half * 0.2, -half * 0.2);
+      const base = flash > 0 ? mix(colors.mirror, colors.danger, Math.min(1, flash)) : colors.mirror;
+      crystal.addColorStop(0, base);
+      crystal.addColorStop(1, 'rgba(255,255,255,0.15)');
+      ctx.globalAlpha = 0.75;
+      ctx.fillStyle = crystal;
       ctx.beginPath();
       ctx.moveTo(half, half);
       ctx.lineTo(half, -half);
       ctx.lineTo(-half, half);
       ctx.closePath();
       ctx.fill();
-      ctx.strokeStyle = state.rotatable ? colors.turnable : colors.mirrorEdge;
-      ctx.lineWidth = cell * 0.07;
+      ctx.globalAlpha = 1;
       ctx.lineCap = 'round';
+      const edge = state.rotatable ? colors.turnable : colors.mirrorEdge;
+      ctx.strokeStyle = edge;
+      ctx.globalAlpha = 0.3;
+      ctx.lineWidth = cell * 0.2;
+      ctx.beginPath();
+      ctx.moveTo(half, -half);
+      ctx.lineTo(-half, half);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+      ctx.lineWidth = cell * 0.07;
       ctx.beginPath();
       ctx.moveTo(half, -half);
       ctx.lineTo(-half, half);
@@ -1074,31 +1102,41 @@
       for (const [from, to] of runs(l, false)) {
         const pts = piece(l, from, to);
         if (!pts) continue;
-        ctx.lineCap = 'butt';
+        // Translucent like a jellyfish: a faint glow with a string of lights.
         ctx.setLineDash([]);
-        ctx.globalAlpha = 0.22;
+        ctx.lineCap = 'round';
         ctx.strokeStyle = color;
+        ctx.globalAlpha = 0.1;
+        ctx.lineWidth = width * 2;
+        stroke(pts);
+        ctx.globalAlpha = 0.22;
         ctx.lineWidth = width;
         stroke(pts);
-        ctx.globalAlpha = 0.9;
-        ctx.lineWidth = width * 0.28;
-        ctx.setLineDash([cell * 0.12, cell * 0.1]);
+        ctx.globalAlpha = 0.95;
+        ctx.lineWidth = width * 0.38;
+        ctx.setLineDash([0.001, cell * 0.2]);
         stroke(pts);
       }
     }
     ctx.setLineDash([]);
     ctx.globalAlpha = 1;
 
-    // Layer 2: solid parts and arrowheads.
+    // Layer 2: solid parts and heads, drawn as glowing eels: a soft glow,
+    // the body, then a pale sheen along the top.
     for (const l of visible) {
       const color = colorOf(l);
+      const bodyWidth = l.mode === 'drag' ? width * 1.15 : width;
+      const solidRuns = runs(l, true).map(([from, to]) => [from, piece(l, from, to)]).filter(([, pts]) => pts);
       ctx.strokeStyle = color;
       ctx.fillStyle = color;
-      ctx.lineWidth = l.mode === 'drag' ? width * 1.15 : width;
+      ctx.lineCap = 'round';
+      ctx.globalAlpha = l.mode === 'drag' ? 0.3 : 0.16;
+      ctx.lineWidth = bodyWidth * 2.4;
+      for (const [, pts] of solidRuns) stroke(pts);
+      ctx.globalAlpha = 1;
+      ctx.lineWidth = bodyWidth;
       ctx.lineCap = 'butt';
-      for (const [from, to] of runs(l, true)) {
-        const pts = piece(l, from, to);
-        if (!pts) continue;
+      for (const [from, pts] of solidRuns) {
         stroke(pts);
         if (from === 0) {
           // Rounded tail end.
@@ -1107,22 +1145,93 @@
           ctx.fill();
         }
       }
+      ctx.strokeStyle = 'rgba(255,255,255,0.42)';
+      ctx.lineWidth = bodyWidth * 0.26;
+      ctx.lineCap = 'round';
+      for (const [, pts] of solidRuns) stroke(pts);
+      ctx.strokeStyle = color;
 
       const [hx, hy] = pathOf(l, l.offset + l.len - 1, l.offset + l.len - 1)[0];
       // The head points the way it is travelling, which changes at reflectors.
       const hp = Math.max(1, Math.min(l.track.length - 1, Math.ceil(l.offset + l.len - 1 - 1e-6)));
       const dx = l.track[hp][0] - l.track[hp - 1][0];
       const dy = l.track[hp][1] - l.track[hp - 1][1];
+      // Eel head: a rounded arrowhead (it still shows which way the line
+      // goes) with a glow and an eye.
       const tip = cell * 0.42;
-      const back = cell * 0.02;
+      const back = cell * 0.04;
       const wing = cell * 0.27;
+      const head = () => {
+        ctx.beginPath();
+        ctx.moveTo(hx + dx * tip, hy + dy * tip);
+        ctx.lineTo(hx - dx * back - dy * wing, hy - dy * back + dx * wing);
+        ctx.quadraticCurveTo(hx - dx * cell * 0.16, hy - dy * cell * 0.16, hx - dx * back + dy * wing, hy - dy * back - dx * wing);
+        ctx.closePath();
+      };
+      ctx.globalAlpha = 0.2;
+      ctx.lineWidth = cell * 0.18;
+      ctx.lineJoin = 'round';
+      head();
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+      head();
+      ctx.fill();
+      const ex = hx + dx * cell * 0.08 - dy * cell * 0.09;
+      const ey = hy + dy * cell * 0.08 + dx * cell * 0.09;
+      ctx.fillStyle = '#ffffff';
       ctx.beginPath();
-      ctx.moveTo(hx + dx * tip, hy + dy * tip);
-      ctx.lineTo(hx - dx * back - dy * wing, hy - dy * back + dx * wing);
-      ctx.lineTo(hx - dx * back + dy * wing, hy - dy * back - dx * wing);
-      ctx.closePath();
+      ctx.arc(ex, ey, cell * 0.065, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#021022';
+      ctx.beginPath();
+      ctx.arc(ex + dx * cell * 0.02, ey + dy * cell * 0.02, cell * 0.032, 0, Math.PI * 2);
+      ctx.fill();
+
+      // A swimming eel leaves a trail of bubbles.
+      if (l.mode === 'exit' && motionOK && Math.random() < 0.6) {
+        bubbles.push({ x: hx - dx * cell * 0.3, y: hy - dy * cell * 0.3, r: cell * (0.05 + Math.random() * 0.08), vx: (Math.random() - 0.5) * cell * 0.4, vy: -cell * (0.6 + Math.random() * 0.8), life: 1 });
+      }
+    }
+
+    drawBubbles(cell);
+  }
+
+  // ---------- Bubbles ----------
+  const motionOK = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let bubbles = [];
+  let lastBubbleTime = performance.now();
+
+  /** A burst of bubbles rising through the whole board (when a level is cleared). */
+  function burstBubbles() {
+    if (!motionOK || !state) return;
+    const size = boardSize();
+    const { cell } = layout(size);
+    for (let k = 0; k < 60; k++) {
+      bubbles.push({ x: Math.random() * size, y: size * (0.5 + Math.random() * 0.6), r: cell * (0.06 + Math.random() * 0.18), vx: (Math.random() - 0.5) * cell, vy: -cell * (2 + Math.random() * 3), life: 1.4 });
+    }
+  }
+
+  function drawBubbles(cell) {
+    const now = performance.now();
+    const dt = Math.min(0.05, (now - lastBubbleTime) / 1000);
+    lastBubbleTime = now;
+    if (!bubbles.length) return;
+    bubbles = bubbles.filter((b) => (b.life -= dt * 0.7) > 0);
+    for (const b of bubbles) {
+      b.x += (b.vx + Math.sin((now / 300) + b.r * 50) * cell * 0.3) * dt;
+      b.y += b.vy * dt;
+      ctx.globalAlpha = Math.min(1, b.life) * 0.8;
+      ctx.strokeStyle = 'rgba(200,245,255,0.9)';
+      ctx.lineWidth = Math.max(1, b.r * 0.18);
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(255,255,255,0.8)';
+      ctx.beginPath();
+      ctx.arc(b.x - b.r * 0.35, b.y - b.r * 0.35, b.r * 0.22, 0, Math.PI * 2);
       ctx.fill();
     }
+    ctx.globalAlpha = 1;
   }
 
   // ---------- Dialogs ----------
