@@ -731,6 +731,11 @@
     drag = {
       line, pointerId: evt.pointerId, startX: px, startY: py, lastX: px, lastY: py,
       cell, reach: r, back, time: performance.now(), moved: 0, wanted: line.rest,
+      clientX: evt.clientX, clientY: evt.clientY,
+      // Zoomed in on an eel that can't move either way: a tap still bumps it,
+      // but moving the finger pans the board instead (boards are packed, so
+      // there's often no empty square to pan from).
+      stuck: view.scale > 1.001 && !r.exit && r.max <= line.rest && back.min >= line.rest,
     };
     line.mode = 'drag';
   }
@@ -751,6 +756,18 @@
     const { px, py } = boardPoint(evt);
     const { line, reach: r, back } = drag;
     drag.moved = Math.max(drag.moved, Math.hypot(px - drag.startX, py - drag.startY) / drag.cell);
+    if (drag.stuck && drag.moved >= TAP_MAX_MOVE) {
+      // A stuck eel: this becomes a pan, from where the finger first pressed.
+      line.offset = line.rest;
+      line.mode = 'idle';
+      pan = { id: drag.pointerId, x: drag.clientX, y: drag.clientY, viewX: view.x, viewY: view.y };
+      drag = null;
+      canvas.classList.add('panning');
+      view.x = pan.viewX + (evt.clientX - pan.x);
+      view.y = pan.viewY + (evt.clientY - pan.y);
+      clampView();
+      return;
+    }
     if (!drag.sounded && drag.moved >= TAP_MAX_MOVE) { drag.sounded = true; sfx('pick'); }
     // Follow the path: project the finger's movement onto the way the head is
     // travelling right now, which changes when the line goes round a reflector.
