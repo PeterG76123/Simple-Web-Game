@@ -1,7 +1,7 @@
 (function () {
   'use strict';
 
-  const { DIRS, buildLine, mirrorMap, reach, reachBack, solve, decodeLevel, makeWorld, anyMap, turnMirror, canTurn, findTurnWay } = window.ArrowRules;
+  const { DIRS, buildLine, mirrorMap, reach, reachBack, solve, decodeLevel, makeWorld, anyMap, turnMirror, canTurn, findTurnWay, twinMap, twinReach } = window.ArrowRules;
   const { unlockAfter: UNLOCK_AFTER } = window.ArrowLevelData;
   // Older level files had one list of groups and no difficulty settings.
   const TIERS = window.ArrowLevelData.tiers || [{ name: 'Easy', groups: window.ArrowLevelData.groups }];
@@ -13,11 +13,11 @@
   const groupsNow = () => TIERS[tier].groups;
   // Each group's place in the sea. (The level data names the mechanic, which
   // is shown under it.)
-  const GROUP_TITLES = ['Kelp Shallows', 'Jellyfish Bay', 'Crystal Reef', 'Whirlpool', 'Sunken Wreck'];
+  const GROUP_TITLES = ['Kelp Shallows', 'Jellyfish Bay', 'Crystal Reef', 'Whirlpool', 'Sunken Wreck', 'Mirror Lagoon'];
   const groupTitle = (g) => GROUP_TITLES[g] || `Group ${g + 1}`;
   // What's new in each group, in the game's own words (shown under the group
   // cards and when a group unlocks).
-  const GROUP_BLURBS = ['Solid eels', 'See-through eels', 'Eels bounce off pearl reflectors', 'Turn the pearl reflectors', "Anemones open the wreck's gates"];
+  const GROUP_BLURBS = ['Solid eels', 'See-through eels', 'Eels bounce off pearl reflectors', 'Turn the pearl reflectors', "Anemones open the wreck's gates", 'Twin eels move together'];
   const groupBlurb = (g) => GROUP_BLURBS[g] || groupsNow()[g].name;
 
   // Levels are stored compactly (see rules.js) and decoded when first needed.
@@ -195,12 +195,21 @@
       flash: 0,
     }));
     lines.world = world; // gates and plates, used by the movement checks
+    // Twin eels share a colour of their own (and are drawn banded): each pair
+    // gets a colour no other eel on the board uses.
+    const twins = level.twins || [];
+    const TWIN_COLOURS = [8, 1, 6]; // sunny yellow, pink, coral
+    const reserved = TWIN_COLOURS.slice(0, twins.length);
+    lines.forEach((l) => { while (reserved.includes(l.colorIndex)) l.colorIndex = (l.colorIndex + 1) % 10; });
+    twins.forEach(([a, b], k) => { lines[a].colorIndex = lines[b].colorIndex = reserved[k]; });
 
     state = {
       tier, group, index, n, lines, mirrors, history: [], finished: false,
       rotatable: !!level.rotatable,
       gates: level.gates || [],
       plates: level.plates || [],
+      twins,
+      twinOf: twinMap(lines.length, twins),
       mirrorAnim: [], // per reflector: { from, to, start } angles while turning
       mirrorFlash: [], // per reflector: 0-1, flashes when it can't turn
       gateFlash: new Map(), // gate cell -> 0-1, flashes when it blocks a line
@@ -254,6 +263,27 @@
   }
 
   const restOffsets = () => state.lines.map((l) => l.rest);
+
+  /** A line's twin while both are on the board (they move together), else null. */
+  function partnerOf(line) {
+    const t = state.twinOf ? state.twinOf[line.id] : -1;
+    if (t < 0 || line.rest < 0) return null;
+    const other = state.lines[t];
+    return other.rest >= 0 && other.mode !== 'exit' && other.mode !== 'gone' ? other : null;
+  }
+
+  /** Moves a line's twin by the same amount the line just moved, and returns its history note. */
+  function moveTwinBy(twin, from, delta) {
+    twin.rest = from + delta;
+    if (twin.rest >= twin.exitAt) {
+      twin.rest = -1;
+      twin.mode = 'exit';
+      twin.speed = EXIT_SPEED_START;
+    } else {
+      twin.mode = 'settle';
+    }
+    return { id: twin.id, from };
+  }
 
   function updateHud() {
     const moves = state.history.length;
@@ -309,7 +339,7 @@
     const n = state.n;
     const special = new Set([...state.gates, ...state.plates].map(([x, y]) => y * n + x));
     for (const l of state.lines) {
-      if (l.rest < 0 || l.mode !== 'idle') continue;
+      if (l.rest < 0 || l.mode !== 'idle' || partnerOf(l)) continue;
       let onSpecial = false;
       for (let j = 0; j < l.len && special.size; j++) {
         const [x, y] = l.track[l.rest + j];
@@ -417,7 +447,7 @@
     }
     const opts = {
       mirrors: state.mirrors, rotatable: state.rotatable, gates: state.gates, plates: state.plates,
-      start: restOffsets(), maxStates: 150000,
+      twins: state.twins, start: restOffsets(), maxStates: 150000,
     };
     // Otherwise search. Big boards and turning reflectors get a smaller budget
     // so a hint never keeps a player waiting; turning boards then try a
@@ -672,8 +702,16 @@
     evt.preventDefault();
     canvas.setPointerCapture(evt.pointerId);
     const offsets = restOffsets();
-    const r = reach(state.n, state.lines, offsets, line.id);
-    const back = reachBack(state.n, state.lines, offsets, line.id);
+    let r = reach(state.n, state.lines, offsets, line.id);
+    let back = reachBack(state.n, state.lines, offsets, line.id);
+    // A twin: both eels slide together, as far as both can go.
+    const twin = partnerOf(line);
+    if (twin) {
+      const t = twinReach(state.n, state.lines, offsets, line.id, twin.id);
+      r = { max: line.rest + t.fwd, exit: t.out[0], blocker: t.blocker, gate: -1 };
+      back = { min: line.rest - t.back, blocker: t.backBlocker, gate: -1 };
+      twin.mode = 'drag';
+    }
     drag = {
       line, pointerId: evt.pointerId, startX: px, startY: py, lastX: px, lastY: py,
       cell, reach: r, back, time: performance.now(), moved: 0, wanted: line.rest,
@@ -682,6 +720,7 @@
       // but moving the finger pans the board instead (boards are packed, so
       // there's often no empty square to pan from).
       stuck: view.scale > 1.001 && !r.exit && r.max <= line.rest && back.min >= line.rest,
+      twin, twinFrom: twin ? twin.rest : 0,
     };
     line.mode = 'drag';
   }
@@ -706,6 +745,7 @@
       // A stuck eel: this becomes a pan, from where the finger first pressed.
       line.offset = line.rest;
       line.mode = 'idle';
+      if (drag.twin) { drag.twin.offset = drag.twin.rest; drag.twin.mode = 'idle'; }
       pan = { id: drag.pointerId, x: drag.clientX, y: drag.clientY, viewX: view.x, viewY: view.y };
       drag = null;
       canvas.classList.add('panning');
@@ -734,6 +774,8 @@
     drag.wanted = Math.max(back.min - 1, Math.min(limit + 1, drag.wanted + pushed));
     const wanted = drag.wanted;
     line.offset = Math.max(back.min, Math.min(wanted, limit));
+    // Its twin follows, square for square.
+    if (drag.twin) drag.twin.offset = drag.twinFrom + (line.offset - line.rest);
     let blockerId = -1;
     let hit = false;
     if (!r.exit && wanted > r.max + BLOCK_PUSH) {
@@ -768,7 +810,7 @@
       return;
     }
     if (!drag || evt.pointerId !== drag.pointerId) return;
-    const { line, reach: r, back } = drag;
+    const { line, reach: r, back, twin, twinFrom } = drag;
     const now = performance.now();
     const isTap = drag.moved < TAP_MAX_MOVE && now - drag.time < TAP_MAX_MS;
     drag = null;
@@ -778,7 +820,8 @@
       // A tap sends the line out (or bumps whatever is in its way); dragging
       // moves it exactly as far as you drag.
       line.offset = line.rest;
-      sendOut(line, r);
+      if (twin) { twin.offset = twin.rest; twin.mode = 'idle'; }
+      sendOut(line, r, twin);
       return;
     }
 
@@ -787,13 +830,20 @@
       line.rest = -1;
       line.mode = 'exit';
       line.speed = EXIT_SPEED_START;
-      state.history.push({ id: line.id, from });
+      const entry = { id: line.id, from };
+      if (twin) entry.twin = moveTwinBy(twin, twinFrom, line.exitAt - from);
+      state.history.push(entry);
       sfx('exit');
     } else {
       const to = Math.min(Math.round(line.offset), r.max, line.exitAt - 1);
       line.rest = Math.max(back.min, to);
       line.mode = 'settle';
-      if (line.rest !== from) { state.history.push({ id: line.id, from }); sfx('slide'); }
+      const entry = { id: line.id, from };
+      if (twin) {
+        entry.twin = moveTwinBy(twin, twinFrom, line.rest - from);
+        if (twin.rest === twinFrom) twin.mode = 'settle';
+      }
+      if (line.rest !== from) { state.history.push(entry); sfx(twin && twin.rest < 0 ? 'exit' : 'slide'); }
     }
     updateHud();
   }
@@ -808,9 +858,12 @@
   }
 
   /** Tap: slide all the way off if nothing is in the way, otherwise bump and spring back. */
-  function sendOut(line, r) {
+  function sendOut(line, r, twin) {
     if (r.exit) {
-      state.history.push({ id: line.id, from: line.rest });
+      const entry = { id: line.id, from: line.rest };
+      // Its twin swims the same distance (and leaves too if that takes it off).
+      if (twin) entry.twin = moveTwinBy(twin, twin.rest, line.exitAt - line.rest);
+      state.history.push(entry);
       line.rest = -1;
       line.mode = 'exit';
       line.speed = EXIT_SPEED_START;
@@ -821,6 +874,9 @@
       line.bumpTarget = r.max + BUMP_OVERLAP;
       line.blocker = r.blocker;
       line.blockGate = r.gate;
+      // A twin bumps along with it.
+      line.bumpTwin = twin || null;
+      if (twin) twin.mode = 'drag';
     }
   }
 
@@ -850,10 +906,12 @@
       updateHud();
       return;
     }
-    const line = state.lines[last.id];
-    if (line.mode === 'gone' || line.mode === 'exit') line.offset = Math.min(line.offset, line.exitAt);
-    line.rest = last.from;
-    line.mode = 'settle';
+    for (const step of [last, last.twin].filter(Boolean)) {
+      const line = state.lines[step.id];
+      if (line.mode === 'gone' || line.mode === 'exit') line.offset = Math.min(line.offset, line.exitAt);
+      line.rest = step.from;
+      line.mode = 'settle';
+    }
     updateHud();
   }
 
@@ -894,9 +952,11 @@
       } else if (l.mode === 'bump') {
         busy = true;
         l.offset += BUMP_SPEED * dt;
+        if (l.bumpTwin) l.bumpTwin.offset = l.bumpTwin.rest + Math.min(l.offset, l.bumpTarget) - l.rest;
         if (l.offset >= l.bumpTarget) {
           l.offset = l.bumpTarget;
           l.mode = 'settle'; // springs back to where it was; not counted as a move
+          if (l.bumpTwin) { l.bumpTwin.mode = 'settle'; l.bumpTwin = null; }
           if (l.blockGate >= 0) flashGate(l.blockGate);
           const blocker = state.lines[l.blocker];
           if (blocker) blocker.flash = 1;
@@ -1240,6 +1300,14 @@
           ctx.fill();
         }
       }
+      if (partnerOf(l)) {
+        // Twins are banded, like sea snakes: dark rings along the body.
+        ctx.strokeStyle = mix(colors.lines[l.colorIndex], '#021022', 0.62);
+        ctx.lineWidth = bodyWidth * 1.02;
+        ctx.setLineDash([cell * 0.13, cell * 0.3]);
+        for (const [, pts] of solidRuns) stroke(pts);
+        ctx.setLineDash([]);
+      }
       ctx.strokeStyle = 'rgba(255,255,255,0.42)';
       ctx.lineWidth = bodyWidth * 0.26;
       ctx.lineCap = 'round';
@@ -1483,6 +1551,8 @@
   }
 
   function renderMenu() {
+    // Not every difficulty has every group (Mirror Lagoon is Easy only so far).
+    menuGroup = Math.max(0, Math.min(menuGroup, groupsNow().length - 1));
     const tierTabs = $('tierTabs');
     tierTabs.innerHTML = '';
     TIERS.forEach((t, ti) => {

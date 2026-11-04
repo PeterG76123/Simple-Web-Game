@@ -240,6 +240,7 @@ h1 {
 [data-group="2"] { --group: var(--c4); }
 [data-group="3"] { --group: var(--c5); }
 [data-group="4"] { --group: var(--c2); }
+[data-group="5"] { --group: var(--c9); }
 
 .group-tabs {
   width: 100%;

@@ -9,7 +9,7 @@
  */
 'use strict';
 const { makeSolid, makeSeeThrough } = require('./fullgen.js');
-const { makeRotate, makeGates, makeCombo } = require('./makers.js');
+const { makeRotate, makeGates, makeCombo, makeTwins } = require('./makers.js');
 const { encodeLevel } = globalThis.ArrowRules;
 
 function entryFor(size, level) {
@@ -43,4 +43,6 @@ module.exports = {
   // Everything: see-through lines, turnable reflectors and gates. "mirrors"
   // is the number of reflectors; gate colours grow with the board.
   combo: wrap((n, rng, { mirrors }) => makeCombo(n, rng, { mirrors, turn: true, colours: n <= 8 ? 1 : n <= 14 ? 2 : 3 })),
+  // Twin eels: pairs of lines that slide together. "mirrors" is the number of pairs.
+  twins: wrap(makeTwins),
 };

@@ -95,13 +95,28 @@
         ['finger', 3, 4, 450], ['tap'], ['move', 1, 6, 650, true], ['wait', 900], ['fade', 450],
       ],
     },
+    // Mirror Lagoon: twins are banded and always move together.
+    {
+      text: 'Banded twins always move together. If one is blocked, neither moves.',
+      n: 5,
+      eels: [
+        { color: 8, len: 3, twin: true, tracks: [row(1, 0, 9)] },
+        { color: 8, len: 2, twin: true, tracks: [row(3, 0, 8)] },
+        { color: 5, len: 3, tracks: [col(3, 2, 10)] },
+      ],
+      steps: [
+        ['wait', 500], ['finger', 1, 1, 600], ['tap'], ['bump', 0, 1.3, 700, { eel: 2 }, 1], ['wait', 400],
+        ['finger', 3, 3, 550], ['tap'], ['move', 2, 8, 700, true], ['wait', 250],
+        ['finger', 1, 1, 550], ['tap'], ['move', 0, 7, 900, true, 1, 7], ['wait', 900], ['fade', 450],
+      ],
+    },
   ];
 
   const easeInOut = (p) => (p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2);
   const easeIn = (p) => p * p;
   // How long each step takes (ms). The steps are:
   //   ['wait', ms]  ['fade', ms]  ['finger', x, y, ms]  ['tap']
-  //   ['move', eel, to, ms, leaving]  ['bump', eel, amount, ms, { eel | gate }]
+  //   ['move', eel, to, ms, leaving, twin, twinTo]  ['bump', eel, amount, ms, { eel | gate }, twin]
   //   ['drag', eel, to, ms, grabbedPart]  ['turn', mirror, ms, eel, newTrack]
   const stepTime = (step) => {
     switch (step[0]) {
@@ -153,19 +168,23 @@
           f.ripple = p < 1 ? p : -1;
           break;
         case 'move': {
-          const [, e, to, , out] = step;
-          s.off[e] += (to - s.off[e]) * (out ? easeIn(p) : easeInOut(p));
+          const [, e, to, , out, twin, twinTo] = step;
+          const q = out ? easeIn(p) : easeInOut(p);
+          s.off[e] += (to - s.off[e]) * q;
+          if (twin !== undefined) s.off[twin] += (twinTo - s.off[twin]) * q;
           break;
         }
         case 'bump': {
-          const [, e, amount, , who] = step;
+          const [, e, amount, , who, twin] = step;
           const q = p < 0.5 ? 1 - Math.pow(1 - p * 2, 2) : 1 - easeIn((p - 0.5) * 2);
           const base = s.off[e];
           s.off[e] = base + amount * q;
+          const twinBase = twin !== undefined ? s.off[twin] : 0;
+          if (twin !== undefined) s.off[twin] = twinBase + amount * q;
           const flash = p > 0.4 ? Math.max(0, 1 - (p - 0.4) / 0.6) : 0;
           if (who && who.eel !== undefined) s.flash[who.eel] = flash;
           if (who && who.gate !== undefined) s.gateFlash[who.gate] = flash;
-          if (p >= 1) s.off[e] = base;
+          if (p >= 1) { s.off[e] = base; if (twin !== undefined) s.off[twin] = twinBase; }
           break;
         }
         case 'drag': {
@@ -331,6 +350,15 @@
           ctx.strokeStyle = color;
           ctx.globalAlpha = s.alpha * 0.16; ctx.lineWidth = cell * 0.62; pathBetween(a, b); ctx.stroke();
           ctx.globalAlpha = s.alpha; ctx.lineWidth = cell * 0.34; pathBetween(a, b); ctx.stroke();
+          if (eel.twin) {
+            // Twins are banded, as in the game.
+            ctx.strokeStyle = 'rgba(2, 16, 34, 0.6)';
+            ctx.lineCap = 'butt';
+            ctx.setLineDash([cell * 0.1, cell * 0.24]);
+            pathBetween(a, b); ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.lineCap = 'round';
+          }
           ctx.strokeStyle = 'rgba(255,255,255,0.4)'; ctx.lineWidth = cell * 0.09; pathBetween(a, b); ctx.stroke();
         } else {
           ctx.strokeStyle = color;

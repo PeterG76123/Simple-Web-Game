@@ -51,7 +51,8 @@ t.groups.forEach((g, gi) => {
     const mirrors = level.mirrors || [];
     const gates = level.gates || [];
     const plates = level.plates || [];
-    const world = { mirrors, rotatable: level.rotatable, gates, plates };
+    const twins = level.twins || [];
+    const world = { mirrors, rotatable: level.rotatable, gates, plates, twins };
     let result = solve(n, level.lines, { maxStates: 400000, ...world });
     const fullGaveUp = !!result.gaveUp;
     // Big turning-reflector boards: if the full search runs out of room, try
@@ -80,6 +81,7 @@ t.groups.forEach((g, gi) => {
       (result.solvable ? `solved in ${result.par}${result.replayed ? ' (replayed known solution)' : ''}` : 'NOT SOLVED') +
       (mirrors.length ? `  ${mirrors.length} ${level.rotatable ? 'turnable ' : ''}reflectors${hasClear ? ', see-through' : ''}` : '') +
       (gates.length ? `  ${gates.length} gates` : '') +
+      (twins.length ? `  ${twins.length} twin pairs` : '') +
       (ratings[i] !== undefined ? `  rated ${ratings[i].toFixed(1)}` : ''));
     if (!result.solvable) fail(`${name} cannot be solved`);
     else if (result.par !== level.par) fail(`${name} par is ${result.par}, data says ${level.par}`);
@@ -96,6 +98,13 @@ t.groups.forEach((g, gi) => {
     if (gi === 0 && hasClear) fail(`${name} has see-through parts`);
     if (gi < 2 && mirrors.length) fail(`${name} has reflectors`);
     if (gi !== 4 && gates.length) fail(`${name} has gates`);
+    if (gi !== 5 && twins.length) fail(`${name} has twin eels`);
+    if (gi === 5 && !twins.length) fail(`${name} has no twin eels`);
+    if (gi === 5) {
+      // The twins must matter: the same board without them takes fewer moves.
+      const alone = solve(n, level.lines, { maxStates: 400000, mirrors });
+      if (alone.solvable && alone.par >= result.par) fail(`${name}: the twins make no difference`);
+    }
     if (gi < 3 && level.rotatable) fail(`${name} has turnable reflectors`);
     // Groups 4 and 5: see-through parts, when present, must be used: the best
     // solution (or the replayed one) needs a partial slide.

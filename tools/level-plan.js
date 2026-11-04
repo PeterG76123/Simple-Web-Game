@@ -11,6 +11,9 @@
  *                  some, and needs more turns as reflectors are added
  *   kind 'gates': coloured gates opened by matching plates; can't be solved
  *                 with the gates shut
+ *   kind 'twins': pairs of twin lines that slide together; the board takes
+ *                 more moves with the twins than without, and the usual way
+ *                 of clearing it no longer works (m = number of pairs)
  *   kind 'rotclear', 'gatesclear', 'combo': the same with see-through lines
  *                 (and, for 'combo', turnable reflectors and gates together),
  *                 each mechanic proven needed (see tools/makers.js)
@@ -31,6 +34,7 @@ const g = (n, m) => [n, 'gates', m]; // gates and plates: m colours
 const rc = (n, m) => [n, 'rotclear', m]; // rotating reflectors + see-through lines: m reflectors
 const gc = (n, m) => [n, 'gatesclear', m]; // gates + see-through lines: m colours
 const all = (n, m) => [n, 'combo', m]; // see-through lines, turnable reflectors and gates: m reflectors
+const tw = (n, m) => [n, 'twins', m]; // twin eels: m pairs
 const range = (from, to) => Array.from({ length: to - from + 1 }, (_, i) => from + i);
 const twice = (sizes) => sizes.flatMap((n) => [n, n]);
 
@@ -74,6 +78,10 @@ module.exports = {
             gc(7, 1), g(8, 2), gc(8, 2), g(8, 2), gc(9, 2), gc(9, 2), g(9, 3), gc(10, 2), gc(10, 3),
             all(8, 2), all(9, 2), all(9, 3), all(10, 3), all(10, 3), all(10, 4),
           ],
+        },
+        {
+          name: 'Twin eels',
+          slots: [tw(5, 1), tw(6, 1), tw(6, 2), tw(7, 2), tw(8, 2)],
         },
       ],
     },

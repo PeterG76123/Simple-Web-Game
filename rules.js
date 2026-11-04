@@ -441,6 +441,7 @@
   }
 
   function solve(n, arrows, opts = {}) {
+    if (opts.twins && opts.twins.length) return solveTwins(n, arrows, opts);
     if (opts.rotatable || opts.gates) return solveWorld(n, arrows, opts);
     const { maxStates = 200000, mirrors = [], start: from } = opts;
     const map = mirrorMap(n, mirrors);
@@ -494,6 +495,189 @@
       depth++;
     }
     return { solvable: false, states: seen.size };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Twin eels
+  // ---------------------------------------------------------------------------
+  //
+  // Twins are pairs of lines that always move together: slide one and its twin
+  // slides the same number of squares along its own track, at the same time.
+  // If either is blocked, neither moves. Once one twin has left the board the
+  // other is an ordinary line again.
+
+  /** Each line's twin (or -1), from pairs [[a, b], ...]. */
+  function twinMap(count, twins = []) {
+    const t = new Array(count).fill(-1);
+    for (const [a, b] of twins) { t[a] = b; t[b] = a; }
+    return t;
+  }
+
+  /** The twin of line `id` if both are still on the board, else -1. */
+  function activeTwin(twin, offsets, id) {
+    const t = twin[id];
+    return t >= 0 && offsets[t] >= 0 && offsets[id] >= 0 ? t : -1;
+  }
+
+  /**
+   * How far twins a and b can slide together from where they are now. Every
+   * step moves both one square; a step is blocked if either would hit another
+   * line's solid part, the other twin, or itself. Sliding forward also stops
+   * the moment either twin is fully off the board (it has left; the other
+   * stays where it got to).
+   * Returns { fwd, back, out: [a leaves, b leaves] at the full forward slide,
+   * blocker (forward), backBlocker }.
+   */
+  function twinReach(n, lines, offsets, a, b, occ) {
+    const la = lines[a], lb = lines[b];
+    occ = (occ || solidMap(n, lines, offsets, -1)).slice();
+    for (const [id, line] of [[a, la], [b, lb]]) {
+      for (let j = 0; j < line.len; j++) {
+        const [x, y] = line.track[offsets[id] + j];
+        if (inBounds(n, x, y) && occ[y * n + x] === id) occ[y * n + x] = -1;
+      }
+    }
+    // Blocked at offsets (sa, sb)? Returns the line hit, or -1.
+    const blockedAt = (sa, sb) => {
+      const hitA = hitAt(n, la, occ, sa, a);
+      if (hitA !== -1) return hitA;
+      const hitB = hitAt(n, lb, occ, sb, b);
+      if (hitB !== -1) return hitB;
+      const cells = new Set();
+      for (let j = 0; j < la.len; j++) {
+        if (!la.solid[j]) continue;
+        const [x, y] = la.track[sa + j];
+        if (inBounds(n, x, y)) cells.add(y * n + x);
+      }
+      for (let j = 0; j < lb.len; j++) {
+        if (!lb.solid[j]) continue;
+        const [x, y] = lb.track[sb + j];
+        if (inBounds(n, x, y) && cells.has(y * n + x)) return b;
+      }
+      return -1;
+    };
+    const sa = offsets[a], sb = offsets[b];
+    let fwd = 0, blocker = -1;
+    for (;;) {
+      const na = sa + fwd + 1, nb = sb + fwd + 1;
+      if (na > la.limit || nb > lb.limit) break;
+      const hit = blockedAt(na, nb);
+      if (hit !== -1) { blocker = hit; break; }
+      fwd++;
+      if (na === la.exitAt || nb === lb.exitAt) break;
+    }
+    let back = 0, backBlocker = -1;
+    while (sa - back - 1 >= 0 && sb - back - 1 >= 0) {
+      const hit = blockedAt(sa - back - 1, sb - back - 1);
+      if (hit !== -1) { backBlocker = hit; break; }
+      back++;
+    }
+    return { fwd, back, out: [sa + fwd === la.exitAt, sb + fwd === lb.exitAt], blocker, backBlocker };
+  }
+
+  /**
+   * Moves twins a and b together by `delta` squares (which must be within
+   * twinReach), in place. A twin that ends fully off the board has left (-1).
+   */
+  function moveTwins(lines, offsets, a, b, delta) {
+    for (const id of [a, b]) {
+      offsets[id] += delta;
+      if (offsets[id] >= lines[id].exitAt) offsets[id] = -1;
+    }
+  }
+
+  /**
+   * Solver for levels with twin eels (and fixed reflectors). Every slide or
+   * exit is one move; a slide of a twin moves both. Lines with no twin on the
+   * board leave as soon as they can (each costs the one move it must cost
+   * anyway). Finds the fewest moves, as par.
+   * Path items are { line, to }: `to` is where that line ends (-1 = it left);
+   * for a twin, its twin moves by the same amount.
+   */
+  function solveTwins(n, arrows, { twins = [], maxStates = 200000, mirrors = [], start: from } = {}) {
+    const map = mirrorMap(n, mirrors);
+    const lines = arrows.map((a) => buildLine(n, a, map));
+    const twin = twinMap(lines.length, twins);
+    // Take off every line that can leave and has no twin on the board.
+    const settle = (o) => {
+      const out = [];
+      let changed = true;
+      while (changed) {
+        changed = false;
+        const occ = solidMap(n, lines, o, -1);
+        for (let id = 0; id < lines.length; id++) {
+          if (o[id] < 0 || activeTwin(twin, o, id) >= 0) continue;
+          if (!reach(n, lines, o, id, occ).exit) continue;
+          o[id] = -1;
+          out.push(id);
+          changed = true;
+          break;
+        }
+      }
+      return out;
+    };
+    const start = from ? from.slice() : lines.map(() => 0);
+    const startExits = settle(start);
+    const startKey = start.join(',');
+    const best = new Map([[startKey, startExits.length]]);
+    const prev = new Map([[startKey, null]]);
+    const buckets = [];
+    buckets[startExits.length] = [startKey];
+    const pathTo = (key) => {
+      const steps = [];
+      for (let s = prev.get(key); s; s = prev.get(s.prev)) steps.unshift(s);
+      const path = startExits.map((id) => ({ line: id, to: -1 }));
+      for (const s of steps) {
+        path.push(s.move);
+        for (const id of s.exits) path.push({ line: id, to: -1 });
+      }
+      return path;
+    };
+    for (let cost = 0; cost < buckets.length; cost++) {
+      for (const key of buckets[cost] || []) {
+        if (best.get(key) !== cost) continue;
+        const o = key.split(',').map(Number);
+        if (o.every((v) => v < 0)) {
+          const path = pathTo(key);
+          return { solvable: true, par: cost, path, partialMoves: path.filter((p) => p.to >= 0).length, states: best.size };
+        }
+        const occ = solidMap(n, lines, o, -1);
+        const tryState = (next, move) => {
+          const exits = settle(next);
+          const k = next.join(',');
+          const c = cost + 1 + exits.length;
+          if (best.has(k) && best.get(k) <= c) return;
+          best.set(k, c);
+          prev.set(k, { prev: key, move, exits });
+          (buckets[c] = buckets[c] || []).push(k);
+        };
+        for (let id = 0; id < lines.length; id++) {
+          if (o[id] < 0) continue;
+          const t = activeTwin(twin, o, id);
+          if (t >= 0) {
+            if (t < id) continue; // each pair once, moved by its first line
+            const r = twinReach(n, lines, o, id, t, occ);
+            for (let d = -r.back; d <= r.fwd; d++) {
+              if (d === 0) continue;
+              const next = o.slice();
+              moveTwins(lines, next, id, t, d);
+              tryState(next, { line: id, to: next[id] });
+            }
+          } else {
+            const hi = reach(n, lines, o, id, occ).max;
+            const lo = reachBack(n, lines, o, id, occ).min;
+            for (let s = lo; s <= hi; s++) {
+              if (s === o[id] || s >= lines[id].exitAt) continue;
+              const next = o.slice();
+              next[id] = s;
+              tryState(next, { line: id, to: s });
+            }
+          }
+        }
+        if (best.size > maxStates) return { solvable: false, gaveUp: true, states: best.size };
+      }
+    }
+    return { solvable: false, states: best.size };
   }
 
   /**
@@ -696,7 +880,7 @@
    * and checks every move is allowed and the board ends up clear. Used to
    * prove a level can be solved without a search. Returns true or false.
    */
-  function playPath(n, arrows, { mirrors = [], rotatable = false, gates = [], plates = [] }, path) {
+  function playPath(n, arrows, { mirrors = [], rotatable = false, gates = [], plates = [], twins = [] }, path) {
     const world = makeWorld(n, gates, plates);
     let ms = mirrors.map((m) => m.slice());
     const build = () => {
@@ -706,6 +890,7 @@
     };
     let lines = build();
     const offsets = arrows.map(() => 0);
+    const twinOf = twinMap(arrows.length, twins);
     for (const step of path) {
       if (step.turn !== undefined) {
         if (!rotatable || !canTurn(n, lines, offsets, ms[step.turn])) return false;
@@ -715,6 +900,16 @@
       }
       const id = step.line;
       if (offsets[id] < 0) return false;
+      const t = activeTwin(twinOf, offsets, id);
+      if (t >= 0) {
+        // A twin: both slide by the same amount.
+        const r = twinReach(n, lines, offsets, id, t);
+        const delta = step.to === -1 ? lines[id].exitAt - offsets[id] : step.to - offsets[id];
+        if (delta === 0 || delta < -r.back || delta > r.fwd) return false;
+        moveTwins(lines, offsets, id, t, delta);
+        if ((step.to === -1) !== (offsets[id] === -1)) return false;
+        continue;
+      }
       const r = reach(n, lines, offsets, id);
       if (step.to === -1) {
         if (!r.exit) return false;
@@ -771,6 +966,8 @@
     let x = extras.rotatable ? 'R' : '';
     for (const [gx, gy, c] of extras.gates || []) x += 'G' + gx.toString(36) + gy.toString(36) + c;
     for (const [px, py, c] of extras.plates || []) x += 'P' + px.toString(36) + py.toString(36) + c;
+    // T a b = lines a and b are twins (two base-36 digits each).
+    for (const [a, b] of extras.twins || []) x += 'T' + a.toString(36).padStart(2, '0') + b.toString(36).padStart(2, '0');
     return `${size.toString(36)}|${par}|${enc.join(',')}|${m}` + (x ? `|${x}` : '');
   }
 
@@ -796,15 +993,19 @@
     }
     const gates = [];
     const plates = [];
+    const twins = [];
     for (let i = 0; i < extraText.length; i++) {
       const ch = extraText[i];
       if (ch === 'G' || ch === 'P') {
         (ch === 'G' ? gates : plates).push([parseInt(extraText[i + 1], 36), parseInt(extraText[i + 2], 36), Number(extraText[i + 3])]);
         i += 3;
+      } else if (ch === 'T') {
+        twins.push([parseInt(extraText.slice(i + 1, i + 3), 36), parseInt(extraText.slice(i + 3, i + 5), 36)]);
+        i += 4;
       }
     }
-    return { size: parseInt(size, 36), par: Number(par), lines, mirrors, rotatable: extraText.includes('R'), gates, plates };
+    return { size: parseInt(size, 36), par: Number(par), lines, mirrors, rotatable: extraText.includes('R'), gates, plates, twins };
   }
 
-  root.ArrowRules = { encodeLevel, decodeLevel, findTurnWay, playPath, pathToText, pathFromText, makeWorld, anyMap, turnMirror, canTurn, solveWorld, DIRS, inBounds, rayCells, mirrorMap, tracePath, buildLine, solidMap, reach, reachBack, clearFree, solve, solvableWithWholeExits };
+  root.ArrowRules = { twinMap, activeTwin, twinReach, moveTwins, solveTwins, encodeLevel, decodeLevel, findTurnWay, playPath, pathToText, pathFromText, makeWorld, anyMap, turnMirror, canTurn, solveWorld, DIRS, inBounds, rayCells, mirrorMap, tracePath, buildLine, solidMap, reach, reachBack, clearFree, solve, solvableWithWholeExits };
 })(typeof window !== 'undefined' ? window : globalThis);
