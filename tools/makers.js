@@ -295,6 +295,9 @@ function makeCombo(n, rng, { mirrors: mirrorCount = 0, colours = 0, turn = false
     // Solvable: the known way must work by the real rules.
     const known = restore.concat(open.path);
     if (!playPath(n, arrows, world, known)) continue;
+    // With turnable reflectors, turning alone must not clear the board, or
+    // the see-through parts wouldn't be needed.
+    if (turn && solveWorld(n, arrows, { ...world, slides: false, maxStates }).solvable) continue;
     // Fewest moves: exact if the search finishes, otherwise the known way's
     // length (saved so the checker can replay it).
     const best = solveWorld(n, arrows, { ...world, maxStates });

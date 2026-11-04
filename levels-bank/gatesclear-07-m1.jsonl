@@ -1,3 +1,3 @@
-{"level":"7|9|10RdrUR,42ruURD,22RDrRDRUU,34LLLUuuU,11ddR,26LluR,46LUl,44dRDRU||G410P250","lines":8,"partial":1,"rounds":0,"initialFree":0,"states":6,"turns":0,"gates":1}
-{"level":"7|10|41ULLLDD,32UL,13RRDD,42rDRUUULD,00DDDD,25ULDlD,45UU,54DRU,66LLlLL||G220P650","lines":9,"partial":1,"rounds":0,"initialFree":0,"states":5,"turns":0,"gates":1}
-{"level":"7|10|20RDdRD,60DLULD,21LLUr,13RUL,05RRULlUU,53DLLU,64UU,06RRRUrD,56URD||G520P100","lines":9,"partial":1,"rounds":0,"initialFree":0,"states":9,"turns":0,"gates":1}
+{"level":"7|9|10RdrUR,42ruURD,22RDrRDRUU,34LLLUuuU,11ddR,26LluR,46LUl,44dRDRU||G410P250","lines":8,"partial":1,"rounds":0,"initialFree":0,"states":6,"turns":0,"gates":1,"solution":"2:x 1:x 7:1 3:x 0:x 4:x 7:x 6:x 5:x","exact":true}
+{"level":"7|10|41ULLLDD,32UL,13RRDD,42rDRUUULD,00DDDD,25ULDlD,45UU,54DRU,66LLlLL||G220P650","lines":9,"partial":1,"rounds":0,"initialFree":0,"states":5,"turns":0,"gates":1,"solution":"4:x 8:x 2:x 5:x 6:x 1:x 3:1 0:x 3:x 7:x","exact":true}
+{"level":"7|10|20RDdRD,60DLULD,21LLUr,13RUL,05RRULlUU,53DLLU,64UU,06RRRUrD,56URD||G520P100","lines":9,"partial":1,"rounds":0,"initialFree":0,"states":9,"turns":0,"gates":1,"solution":"1:x 4:x 5:x 7:x 8:x 3:x 6:x 0:1 2:x 0:x","exact":true}
