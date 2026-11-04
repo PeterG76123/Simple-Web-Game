@@ -1405,90 +1405,80 @@
   const fxCtx = fx.getContext('2d');
   let fxBubbles = [];
   let fxRunning = false;
+  let fxLast = 0;
+  // One light-blue bubble, glow and shine included, drawn once and stamped at
+  // every size (drawing glows live for a hundred bubbles is far too slow).
+  const BUBBLE_PAD = 1.35; // the sprite's half-width, in bubble radii, with room for the glow
+  const bubbleSprite = (() => {
+    const size = 128;
+    const c = document.createElement('canvas');
+    c.width = c.height = size;
+    const g = c.getContext('2d');
+    const r = size / 2 / BUBBLE_PAD;
+    const m = size / 2;
+    const fill = g.createRadialGradient(m - r * 0.3, m - r * 0.3, r * 0.1, m, m, r);
+    fill.addColorStop(0, 'rgba(190, 240, 255, 0.10)');
+    fill.addColorStop(0.8, 'rgba(120, 215, 255, 0.10)');
+    fill.addColorStop(1, 'rgba(150, 230, 255, 0.28)');
+    g.fillStyle = fill;
+    g.beginPath(); g.arc(m, m, r, 0, Math.PI * 2); g.fill();
+    g.shadowColor = 'rgba(140, 225, 255, 0.95)';
+    g.shadowBlur = r * 0.35;
+    g.strokeStyle = 'rgba(205, 245, 255, 0.95)';
+    g.lineWidth = r * 0.11;
+    g.beginPath(); g.arc(m, m, r, 0, Math.PI * 2); g.stroke();
+    g.shadowBlur = 0;
+    g.fillStyle = 'rgba(255, 255, 255, 0.9)';
+    g.beginPath(); g.arc(m - r * 0.36, m - r * 0.38, r * 0.2, 0, Math.PI * 2); g.fill();
+    return c;
+  })();
+
   function burstBubbles() {
     if (!motionOK) return;
-    const dpr = window.devicePixelRatio || 1;
+    // Two device pixels per screen pixel is plenty for soft bubbles.
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
     const w = fx.clientWidth, h = fx.clientHeight;
     fx.width = Math.round(w * dpr);
     fx.height = Math.round(h * dpr);
     fxCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    const tint = colors.lines;
     const unit = Math.min(w, h * 0.6);
-    const count = Math.round(110 * Math.max(0.7, Math.min(1.4, (w * h) / (400 * 860))));
+    const count = Math.round(100 * Math.max(0.7, Math.min(1.3, (w * h) / (400 * 860))));
     for (let k = 0; k < count; k++) {
-      // Mostly small, a few big ones; staggered so they come in waves.
+      // Mostly small, a few big ones, coming in quick waves.
       const big = Math.random() < 0.12;
       const r = unit * (big ? 0.05 + Math.random() * 0.06 : 0.012 + Math.random() * 0.035);
       fxBubbles.push({
         x: Math.random() * w,
-        y: h + r + Math.random() * h * 0.15,
+        y: h + r * BUBBLE_PAD + Math.random() * h * 0.12,
         r,
-        delay: Math.random() * 0.9,
-        speed: h * (0.45 + Math.random() * 0.5) * (big ? 0.8 : 1), // px per second
-        wobble: r * (0.6 + Math.random()) + 6,
+        delay: Math.random() * 0.5,
+        speed: h * (0.85 + Math.random() * 0.6) * (big ? 0.85 : 1), // px per second
+        wobble: r * (0.5 + Math.random() * 0.8) + 5,
         phase: Math.random() * Math.PI * 2,
-        tint: Math.random() < 0.35 ? tint[Math.floor(Math.random() * tint.length)] : null,
         age: 0,
       });
     }
     if (!fxRunning) { fxRunning = true; fxLast = performance.now(); requestAnimationFrame(fxFrame); }
   }
-  let fxLast = 0;
+
   function fxFrame(now) {
-    const dt = Math.min(0.05, (now - fxLast) / 1000);
+    // Real elapsed time, so a slow frame doesn't slow the bubbles down.
+    const dt = Math.min(0.1, (now - fxLast) / 1000);
     fxLast = now;
     const w = fx.clientWidth, h = fx.clientHeight;
     fxCtx.clearRect(0, 0, w, h);
-    fxBubbles = fxBubbles.filter((b) => b.y > -b.r * 2);
+    fxBubbles = fxBubbles.filter((b) => b.y > -b.r * BUBBLE_PAD);
     for (const b of fxBubbles) {
       b.age += dt;
       if (b.age < b.delay) continue;
-      // Rising faster as it goes, swaying side to side.
       const t = b.age - b.delay;
-      b.y -= b.speed * (0.7 + Math.min(0.6, t * 0.5)) * dt;
-      const x = b.x + Math.sin(b.phase + t * 3) * b.wobble;
-      fxCtx.globalAlpha = 0.9;
-      if (b.tint) {
-        fxCtx.fillStyle = b.tint;
-        fxCtx.globalAlpha = 0.16;
-        fxCtx.beginPath(); fxCtx.arc(x, b.y, b.r, 0, Math.PI * 2); fxCtx.fill();
-        fxCtx.globalAlpha = 0.9;
-      }
-      fxCtx.strokeStyle = b.tint || 'rgba(205,245,255,0.95)';
-      fxCtx.lineWidth = Math.max(1.2, b.r * 0.12);
-      fxCtx.shadowColor = b.tint || 'rgba(160,235,255,0.9)';
-      fxCtx.shadowBlur = Math.min(14, b.r * 0.5);
-      fxCtx.beginPath(); fxCtx.arc(x, b.y, b.r, 0, Math.PI * 2); fxCtx.stroke();
-      fxCtx.shadowBlur = 0;
-      fxCtx.fillStyle = 'rgba(255,255,255,0.85)';
-      fxCtx.beginPath(); fxCtx.arc(x - b.r * 0.35, b.y - b.r * 0.38, b.r * 0.2, 0, Math.PI * 2); fxCtx.fill();
+      b.y -= b.speed * (0.8 + Math.min(0.5, t * 0.6)) * dt;
+      const x = b.x + Math.sin(b.phase + t * 4) * b.wobble;
+      const half = b.r * BUBBLE_PAD;
+      fxCtx.drawImage(bubbleSprite, x - half, b.y - half, half * 2, half * 2);
     }
-    fxCtx.globalAlpha = 1;
     if (fxBubbles.length) requestAnimationFrame(fxFrame);
     else { fxRunning = false; fxCtx.clearRect(0, 0, w, h); }
-  }
-
-  function drawBubbles(cell) {
-    const now = performance.now();
-    const dt = Math.min(0.05, (now - lastBubbleTime) / 1000);
-    lastBubbleTime = now;
-    if (!bubbles.length) return;
-    bubbles = bubbles.filter((b) => (b.life -= dt * 0.7) > 0);
-    for (const b of bubbles) {
-      b.x += (b.vx + Math.sin((now / 300) + b.r * 50) * cell * 0.3) * dt;
-      b.y += b.vy * dt;
-      ctx.globalAlpha = Math.min(1, b.life) * 0.8;
-      ctx.strokeStyle = 'rgba(200,245,255,0.9)';
-      ctx.lineWidth = Math.max(1, b.r * 0.18);
-      ctx.beginPath();
-      ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.fillStyle = 'rgba(255,255,255,0.8)';
-      ctx.beginPath();
-      ctx.arc(b.x - b.r * 0.35, b.y - b.r * 0.35, b.r * 0.22, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    ctx.globalAlpha = 1;
   }
 
   // ---------- Dialogs ----------
