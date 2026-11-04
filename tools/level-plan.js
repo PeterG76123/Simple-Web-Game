@@ -87,5 +87,25 @@ module.exports = {
         { name: 'Gates and plates', slots: twice(range(11, 20)).map((n) => g(n, n <= 14 ? 2 : 3)) },
       ],
     },
+    {
+      name: 'Hard',
+      minSize: 21,
+      maxSize: 30,
+      pool: 2,
+      groups: [
+        { name: 'Solid lines', slots: twice(range(21, 30)).map((n) => s(n)) },
+        { name: 'See-through lines', slots: twice(range(21, 30)).map((n) => c(n)) },
+        {
+          name: 'Reflectors',
+          // Alternating solid and see-through, 5 to 9 reflectors.
+          slots: range(21, 30).flatMap((n) => {
+            const m = 5 + Math.floor((n - 21) / 2);
+            return [s(n, m), c(n, Math.min(m, 6))];
+          }),
+        },
+        { name: 'Turning reflectors', slots: twice(range(21, 30)).map((n) => r(n, 6 + Math.floor((n - 21) / 4))) },
+        { name: 'Gates and plates', slots: twice(range(21, 30)).map((n) => g(n, 3)) },
+      ],
+    },
   ],
 };

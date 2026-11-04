@@ -483,6 +483,7 @@
             const exits = clearFree(n, lines, o, movedMap(n, lines[id], occ, id, offsets[id], s));
             const k = o.join(',');
             if (seen.has(k)) continue;
+            if (seen.size > maxStates) return { solvable: false, gaveUp: true, states: seen.size };
             seen.set(k, { prev: key, line: id, to: s, exits });
             next.push(o);
           }
@@ -506,17 +507,24 @@
    * Returns { solvable, par, turns, partialMoves, path, states } where path
    * items are { line, to } or { turn: k }.
    */
-  function solveWorld(n, arrows, { maxStates = 200000, mirrors = [], rotatable = false, gates = [], plates = [], start: from, startMirrors, turnCost = 1, slideCost = 1, noTurns = false } = {}) {
+  function solveWorld(n, arrows, { maxStates = 200000, mirrors = [], rotatable = false, gates = [], plates = [], start: from, startMirrors, turnCost = 1, slideCost = 1, noTurns = false, slides = true } = {}) {
     const world = makeWorld(n, gates, plates);
     const cache = new Map();
     const linesFor = (ms) => {
+      // Line paths for each reflector arrangement, keeping only the most
+      // recently used ones: a big board can visit thousands of arrangements,
+      // and a full copy of every line for each would not fit in memory.
       const key = ms.map((m) => shapeOf(m[2], m[3])).join('');
-      if (!cache.has(key)) {
-        const lines = arrows.map((a) => buildLine(n, a, mirrorMap(n, ms)));
+      let lines = cache.get(key);
+      if (lines) {
+        cache.delete(key);
+      } else {
+        lines = arrows.map((a) => buildLine(n, a, mirrorMap(n, ms)));
         lines.world = world;
-        cache.set(key, lines);
+        if (cache.size >= 64) cache.delete(cache.keys().next().value);
       }
-      return cache.get(key);
+      cache.set(key, lines);
+      return lines;
     };
     const shapeKey = (ms) => ms.map((m) => shapeOf(m[2], m[3])).join('');
     const startMs = (startMirrors || mirrors).map((m) => m.slice());
@@ -534,7 +542,7 @@
       }
       return true;
     };
-    const take = (lines, o) => clearFree(n, lines, o, undefined, special ? safeToTake(lines) : undefined);
+    const take = (lines, o, occ) => clearFree(n, lines, o, occ, special ? safeToTake(lines) : undefined);
     const firstExits = take(linesFor(startMs), offsets0);
     const keyOf = (o, ms) => o.join(',') + '|' + shapeKey(ms);
 
@@ -568,13 +576,14 @@
         const any = world ? anyMap(n, lines, offsets) : undefined;
         // Every line leaves exactly once however it happens, so leaving costs
         // nothing extra in the search; only slides and turns are counted.
-        const push = (o2, ms2, move, isTurn, isExit) => {
+        const push = (o2, ms2, move, isTurn, isExit, occ2) => {
           const lines2 = isTurn ? linesFor(ms2) : lines;
-          const exits = take(lines2, o2);
+          const exits = take(lines2, o2, occ2);
           const k2 = keyOf(o2, ms2);
           const c2 = cost + (isExit ? 0 : isTurn ? turnCost : slideCost);
           const old = best.get(k2);
           if (old && old.cost <= c2) return;
+          if (best.size > maxStates) return;
           best.set(k2, { cost: c2, prev: key, move, exits, o: o2, ms: ms2, turns: node.turns + (isTurn ? 1 : 0), moves: node.moves + 1 });
           (buckets[c2] = buckets[c2] || []).push(k2);
         };
@@ -583,11 +592,13 @@
           const r = reach(n, lines, offsets, id, occ, any);
           const lo = reachBack(n, lines, offsets, id, occ, any).min;
           const hi = r.exit ? Math.min(r.max, lines[id].exitAt - 1) : r.max;
-          for (let s2 = lo; s2 <= hi; s2++) {
+          // With slides: false only turns and lines leaving are searched (a
+          // much smaller search, used on big boards; it can only overcount).
+          for (let s2 = lo; slides && s2 <= hi; s2++) {
             if (s2 === offsets[id]) continue;
             const o2 = offsets.slice();
             o2[id] = s2;
-            push(o2, ms, { line: id, to: s2 }, false);
+            push(o2, ms, { line: id, to: s2 }, false, false, world ? undefined : movedMap(n, lines[id], occ, id, offsets[id], s2));
           }
           if (r.exit) {
             // A line that wasn't safe to take off automatically leaves as a move.

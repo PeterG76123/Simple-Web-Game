@@ -32,14 +32,23 @@ function makeRotate(n, rng, { mirrors: count = 2, minTurns = Math.max(1, Math.fl
     const map = mirrorMap(n, start);
     const stuck = base.arrows.some((a) => !tracePath(n, a.cells[0][0], a.cells[0][1], a.dir, map).escapes);
     if (!stuck) {
+      // On big boards a full proof search is too big for memory: only the
+      // quick proof counts there.
+      if (n > 20) continue;
       const still = solve(n, base.arrows, { mirrors: start, maxStates: maxStates * 10 });
       if (still.solvable || still.gaveUp) continue;
     }
-    // Fewest turns needed (slides are free in this count).
-    const fewestTurns = solveWorld(n, base.arrows, { mirrors: start, rotatable: true, maxStates, turnCost: 1, slideCost: 0 });
+    // Fewest turns needed (slides are free in this count). On big boards the
+    // full search can run out of room; then search turns and lines leaving
+    // only, which is much smaller (and can only overcount).
+    const search = (opts) => {
+      const full = solveWorld(n, base.arrows, { mirrors: start, rotatable: true, maxStates, ...opts });
+      return full.gaveUp ? solveWorld(n, base.arrows, { mirrors: start, rotatable: true, maxStates, slides: false, ...opts }) : full;
+    };
+    const fewestTurns = search({ turnCost: 1, slideCost: 0 });
     if (!fewestTurns.solvable || fewestTurns.cost < minTurns) continue;
     // Fewest moves overall, for the par.
-    const best = solveWorld(n, base.arrows, { mirrors: start, rotatable: true, maxStates });
+    const best = search({});
     if (!best.solvable) continue;
     return {
       arrows: base.arrows,
