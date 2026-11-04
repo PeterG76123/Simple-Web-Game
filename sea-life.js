@@ -91,7 +91,8 @@
     const kind = KINDS[name];
     // Depth: far creatures are smaller, fainter, slower and a little blurred.
     const depth = kind.far ? rand(0.85, 1.15) : rand(0.7, 1.15);
-    const vw = window.innerWidth, vh = window.innerHeight;
+    // The ocean fills the game's screen (a phone-shaped frame on big screens).
+    const vw = ocean.clientWidth || window.innerWidth, vh = ocean.clientHeight || window.innerHeight;
     // Measured against the screen, but not absurdly wide on a desktop monitor.
     const base = Math.min(vw, vh * 0.8);
     const [w, h] = kind.size(kind.w * depth * base);

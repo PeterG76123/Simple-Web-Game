@@ -8,9 +8,12 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;600;700&display=swap" />
-  <link rel="stylesheet" href="style.css?v=b54c176c" />
+  <link rel="stylesheet" href="style.css?v=7f552677" />
 </head>
 <body>
+  <!-- The whole game lives in one phone-shaped screen: full screen on a phone,
+       a phone-sized frame on anything bigger. Nothing scrolls. -->
+  <div id="app" class="app">
   <!-- The ocean: drifting light rays and rising bubbles behind everything. -->
   <div class="ocean" aria-hidden="true">
     <span style="--x:6%;--s:8px;--t:16s;--d:-2s"></span>
@@ -31,7 +34,7 @@
     <div class="menu-card">
       <div class="logo" aria-hidden="true">
         <!-- Two glowing eels that never cross: cyan along the top, pink along the bottom. -->
-        <svg viewBox="0 0 132 70" width="150" height="80">
+        <svg viewBox="0 0 132 70" width="104" height="56">
           <path d="M8 42 C8 22 22 14 40 14 C54 14 60 8 74 12" fill="none" stroke="var(--c1)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" opacity="0.35" transform="translate(0 1)"/>
           <path d="M8 42 C8 22 22 14 40 14 C54 14 60 8 74 12" fill="none" stroke="var(--c1)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
           <path d="M72 2 L92 12 L72 22 Q76 12 72 2 Z" fill="var(--c1)"/>
@@ -44,11 +47,13 @@
       <h1>Eel Escape</h1>
       <p class="tagline">Guide the glowing eels out of the deep.</p>
 
-      <h2 class="section-label">Levels</h2>
       <div id="tierTabs" class="tier-tabs" role="tablist" aria-label="Difficulty"></div>
       <div id="groupTabs" class="group-tabs" role="tablist" aria-label="Level groups"></div>
       <p id="groupNote" class="group-note" hidden></p>
-      <div id="levelGrid" class="level-grid"></div>
+      <!-- The level bubbles grow or shrink to fill the space that's left. -->
+      <div class="level-area">
+        <div id="levelGrid" class="level-grid"></div>
+      </div>
 
     </div>
   </section>
@@ -136,12 +141,14 @@
     </div>
   </div>
 
+  </div>
+
   <script src="settings.js?v=b86c4aea"></script>
   <script src="audio.js?v=5a681982"></script>
   <script src="rules.js?v=662de468"></script>
   <script src="levels-data.js?v=0b531cdb"></script>
   <script src="intro.js?v=5d593108"></script>
-  <script src="sea-life.js?v=0d6e1358"></script>
-  <script src="game.js?v=96b54d90"></script>
+  <script src="sea-life.js?v=6105b8bb"></script>
+  <script src="game.js?v=d391fb59"></script>
 </body>
 </html>

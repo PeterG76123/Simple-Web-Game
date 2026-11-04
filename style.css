@@ -57,23 +57,56 @@
 html, body {
   margin: 0;
   height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 body {
-  background: radial-gradient(120% 80% at 50% -10%, var(--sea) 0%, var(--deep) 45%, var(--abyss) 100%) fixed, var(--abyss);
+  background: #01040b;
   color: var(--text);
   font-family: var(--font-body);
   -webkit-tap-highlight-color: transparent;
-  overflow-x: hidden;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: manipulation;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* The game's one screen. On a phone it is the whole screen; on a bigger
+   screen it is a phone-shaped frame in the middle. Nothing inside scrolls. */
+.app {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: radial-gradient(120% 80% at 50% -10%, var(--sea) 0%, var(--deep) 45%, var(--abyss) 100%), var(--abyss);
+  isolation: isolate;
+  container-type: inline-size; /* so text can size itself to the screen's width */
+}
+@media (min-width: 520px) and (min-height: 620px) {
+  .app {
+    height: min(calc(100vh - 40px), 900px);
+    height: min(calc(100dvh - 40px), 900px);
+    width: auto;
+    aspect-ratio: 9 / 19.5;
+    max-width: calc(100vw - 40px);
+    border-radius: 46px;
+    border: 10px solid #0a1424;
+    box-shadow: 0 0 0 1px rgba(140, 220, 255, 0.18), 0 0 60px rgba(30, 140, 220, 0.25), 0 30px 80px rgba(0, 0, 0, 0.6);
+  }
 }
 
 /* ---------- The ocean behind everything: light rays and rising bubbles ---------- */
 .ocean {
-  position: fixed;
+  position: absolute;
   inset: 0;
   pointer-events: none;
   overflow: hidden;
   z-index: 0;
+  container-type: size;
 }
 .ocean::before {
   /* Shafts of light from the surface, slowly swaying */
@@ -106,35 +139,44 @@ body {
 @keyframes rise-bubble {
   0% { transform: translate(0, 0); opacity: 0; }
   10% { opacity: 0.7; }
-  50% { transform: translate(12px, -55vh); }
-  100% { transform: translate(-8px, -115vh); opacity: 0; }
+  50% { transform: translate(12px, -55cqh); }
+  100% { transform: translate(-8px, -115cqh); opacity: 0; }
 }
 
-.screen { display: none; min-height: 100%; position: relative; z-index: 1; }
+.screen { display: none; height: 100%; position: relative; z-index: 1; overflow: hidden; }
 .screen.active { display: flex; }
 
 /* ---------- Menu ---------- */
 #menu {
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding-block: 24px;
+  padding-top: max(18px, env(safe-area-inset-top, 0px));
+  padding-bottom: max(14px, env(safe-area-inset-bottom, 0px));
   padding-left: max(16px, env(safe-area-inset-left, 0px));
   padding-right: max(16px, env(safe-area-inset-right, 0px));
 }
 
+/* The menu is one column that fills the screen: title, difficulty, groups,
+   and the level bubbles in whatever room is left. */
 .menu-card {
   width: 100%;
   max-width: 440px;
+  height: 100%;
+  min-height: 0;
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
+.menu-card > * { flex: none; }
 
-.logo { margin-bottom: 2px; filter: drop-shadow(0 0 12px rgba(94, 242, 255, 0.45)); }
+.logo { margin-bottom: 0; filter: drop-shadow(0 0 12px rgba(94, 242, 255, 0.45)); }
 .logo svg { overflow: visible; }
 
 h1 {
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: clamp(2.5rem, 11vw, 3.4rem);
+  font-size: clamp(2.1rem, 10vw, 2.7rem);
   line-height: 1;
   margin: 0;
   letter-spacing: 0.01em;
@@ -148,8 +190,8 @@ h1 {
 
 .tagline {
   color: var(--muted);
-  margin: 10px 0 26px;
-  font-size: 1.02rem;
+  margin: 6px 0 16px;
+  font-size: 0.95rem;
 }
 
 .section-label {
@@ -166,7 +208,7 @@ h1 {
   display: inline-flex;
   gap: 4px;
   padding: 4px;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
   border-radius: 999px;
   background: var(--glass);
   border: 1px solid var(--glass-edge);
@@ -200,10 +242,11 @@ h1 {
 [data-group="4"] { --group: var(--c2); }
 
 .group-tabs {
+  width: 100%;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-  margin-bottom: 14px;
+  gap: 8px;
+  margin-bottom: 8px;
 }
 .group-tab {
   font: inherit;
@@ -212,8 +255,9 @@ h1 {
   align-items: center;
   justify-content: center;
   gap: 2px;
-  padding: 10px 8px;
-  border-radius: 18px;
+  min-height: 58px;
+  padding: 6px 6px;
+  border-radius: 16px;
   border: 1px solid var(--glass-edge);
   background: var(--glass);
   backdrop-filter: blur(10px);
@@ -230,27 +274,45 @@ h1 {
   box-shadow: 0 0 0 1px var(--group, var(--accent)), 0 0 18px color-mix(in srgb, var(--group, var(--accent)) 45%, transparent);
   background: color-mix(in srgb, var(--group, var(--accent)) 10%, transparent);
 }
-.group-tab .group-title { font-family: var(--font-display); font-weight: 600; font-size: 1.05rem; color: var(--group, var(--text)); }
+.group-tab .group-title { font-family: var(--font-display); font-weight: 600; font-size: 0.98rem; line-height: 1.15; color: var(--group, var(--text)); }
 .group-tab:focus-visible, .level-btn:focus-visible, .btn:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
-.group-sub { font-size: 0.78rem; color: var(--muted); }
-.group-count { font-size: 0.75rem; font-weight: 700; color: var(--group, var(--accent)); font-variant-numeric: tabular-nums; }
+.group-sub { font-size: 0.72rem; line-height: 1.25; color: var(--muted); }
+.group-count { font-size: 0.78rem; font-weight: 700; color: var(--group, var(--accent)); font-variant-numeric: tabular-nums; }
 .group-count.locked { color: var(--muted); }
 
 .group-note {
-  margin: 0 0 12px;
-  color: var(--muted);
-  font-size: 0.9rem;
+  margin: 0 0 10px;
+  color: var(--group, var(--muted));
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 0.95rem;
+  line-height: 1.3;
 }
 
-/* Level buttons are bubbles */
+/* Level buttons are bubbles, sized so every one fits in the space left. */
+.level-area {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  container-type: size;
+}
 .level-grid {
+  --gap: 10px;
+  --rows: 5;
+  --b: min(calc((100cqw - 4 * var(--gap)) / 5), calc((100cqh - (var(--rows) - 1) * var(--gap) - 8px) / var(--rows)), 76px);
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 12px 10px;
+  grid-template-columns: repeat(5, var(--b));
+  grid-auto-rows: var(--b);
+  gap: var(--gap);
+  justify-content: center;
 }
 .level-btn {
-  aspect-ratio: 1;
-  max-width: 100%;
+  width: var(--b);
+  height: var(--b);
+  padding: 0;
   border-radius: 50%;
   border: 1.5px solid color-mix(in srgb, var(--group, var(--accent)) 55%, transparent);
   background:
@@ -259,8 +321,9 @@ h1 {
     #04152c; /* solid, so sea life doesn't show through the bubbles */
   color: var(--group, var(--text));
   font-family: var(--font-display);
-  font-size: 1.3rem;
+  font-size: calc(var(--b) * 0.32);
   font-weight: 600;
+  line-height: 1.1;
   cursor: pointer;
   display: flex;
   flex-direction: column;
@@ -269,7 +332,7 @@ h1 {
   gap: 0;
   transition: transform 0.15s, box-shadow 0.2s;
 }
-.level-btn .sub { font-family: var(--font-body); font-size: 0.6rem; font-weight: 700; color: var(--muted); }
+.level-btn .sub { font-family: var(--font-body); font-size: max(9px, calc(var(--b) * 0.14)); font-weight: 700; color: var(--muted); }
 .level-btn:hover:not(:disabled) { box-shadow: 0 0 16px color-mix(in srgb, var(--group, var(--accent)) 55%, transparent); }
 .level-btn:active:not(:disabled) { transform: scale(0.9); }
 .level-btn:disabled { filter: brightness(0.45) saturate(0.5); cursor: not-allowed; }
@@ -295,7 +358,7 @@ h1 {
   filter: drop-shadow(0 0 4px var(--group, var(--accent)));
   pointer-events: none;
 }
-.level-btn.partial:not(.done) .sub { color: var(--group, var(--accent)); font-size: 0.68rem; }
+.level-btn.partial:not(.done) .sub { color: var(--group, var(--accent)); font-size: max(10px, calc(var(--b) * 0.16)); }
 
 
 /* ---------- Buttons ---------- */
@@ -334,10 +397,7 @@ h1 {
 #game {
   flex-direction: column;
   align-items: center;
-  height: 100vh;
-  height: 100dvh;
   min-height: 0;
-  overflow: hidden;
   padding-top: max(12px, env(safe-area-inset-top, 0px));
   padding-bottom: max(14px, env(safe-area-inset-bottom, 0px));
   padding-left: max(16px, env(safe-area-inset-left, 0px));
@@ -361,7 +421,7 @@ h1 {
 .level-label {
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 1.45rem;
+  font-size: min(1.45rem, 5.6cqw);
   color: var(--group, var(--text));
   text-shadow: 0 0 14px color-mix(in srgb, var(--group, var(--accent)) 45%, transparent);
 }
@@ -465,7 +525,7 @@ h1 {
   cursor: pointer;
   transition: transform 0.1s, opacity 0.15s, box-shadow 0.2s, background 0.2s;
 }
-.action-btn .action-icon { width: 28px; height: 28px; }
+.action-btn .action-icon { width: 28px; height: 28px; flex: none; }
 .action-btn:hover:not(:disabled) { background: var(--glass-strong); }
 .action-btn:active:not(:disabled) { transform: scale(0.94); }
 .action-btn:disabled { opacity: 0.35; cursor: default; }
@@ -552,7 +612,7 @@ h1 {
 
 /* ---------- Dialog ---------- */
 .overlay {
-  position: fixed;
+  position: absolute;
   inset: 0;
   background: rgba(1, 6, 16, 0.6);
   display: flex;
@@ -587,6 +647,37 @@ h1 {
 @keyframes rise {
   from { transform: translateY(18px) scale(0.97); opacity: 0; }
   to { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+/* A phone on its side: the title, difficulty and groups on the left, the
+   level bubbles on the right. */
+@media (orientation: landscape) and (max-height: 560px) {
+  #menu { padding-top: max(12px, env(safe-area-inset-top, 0px)); padding-bottom: max(10px, env(safe-area-inset-bottom, 0px)); }
+  .menu-card {
+    max-width: 900px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: auto auto auto auto minmax(0, 1fr);
+    column-gap: 24px;
+    justify-items: center;
+    align-content: start;
+  }
+  .menu-card > :not(.level-area) { grid-column: 1; }
+  .menu-card .level-area { grid-column: 2; grid-row: 1 / -1; height: 100%; }
+  #menu .corner-btn { top: 10px; right: auto; left: max(14px, env(safe-area-inset-left, 0px)); }
+}
+
+/* Short screens: the menu drops the logo and tagline to keep the bubbles big. */
+@media (max-height: 720px) {
+  .menu-card .logo, .menu-card .tagline { display: none; }
+  .menu-card h1 { margin: 2px 0 10px; font-size: 1.8rem; }
+  .tier-tabs { margin-bottom: 8px; }
+  .tier-tab { padding: 5px 16px; }
+  .group-tabs { gap: 6px; margin-bottom: 4px; }
+  .group-tab { min-height: 48px; padding: 4px; border-radius: 14px; }
+  .group-tab .group-title { font-size: 0.9rem; }
+  .group-note { margin-bottom: 6px; font-size: 0.88rem; }
+  .level-grid { --gap: 8px; }
 }
 
 /* ---------- Welcome to a group (intro.js) ---------- */

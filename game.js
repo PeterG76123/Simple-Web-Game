@@ -1497,27 +1497,31 @@
       b.id = `groupTab${gi}`;
       b.setAttribute('role', 'tab');
       b.setAttribute('aria-selected', String(gi === menuGroup));
+      // Compact cards (the menu never scrolls): the group's name and progress.
+      // The chosen group's mechanic is named once, under the cards.
       b.innerHTML = `<span class="group-title">${groupTitle(gi)}</span>` +
-        `<span class="group-sub">${grp.name}</span>` +
-        `<span class="group-count${unlocked ? '' : ' locked'}">${unlocked ? `${completedIn(gi)} / ${grp.levels.length} done` : 'Locked'}</span>`;
+        `<span class="group-count${unlocked ? '' : ' locked'}">${unlocked ? `${completedIn(gi)} / ${grp.levels.length}` : 'Locked'}</span>`;
+      b.setAttribute('aria-label', `${groupTitle(gi)}: ${grp.name}, ${unlocked ? `${completedIn(gi)} of ${grp.levels.length} done` : 'locked'}`);
       b.addEventListener('click', () => { menuGroup = gi; renderMenu(); });
       tabs.appendChild(b);
     });
 
     const unlocked = isGroupUnlocked(menuGroup);
     const note = $('groupNote');
+    note.hidden = false;
+    note.dataset.group = String(menuGroup);
     if (unlocked) {
-      note.hidden = true;
+      note.textContent = groupsNow()[menuGroup].name;
     } else {
       const prev = menuGroup - 1;
       const left = UNLOCK_AFTER - completedIn(prev);
-      note.hidden = false;
       note.textContent = `Finish ${left} more ${left === 1 ? 'level' : 'levels'} in ${groupTitle(prev)} to unlock this group.`;
     }
 
     const grid = $('levelGrid');
     grid.innerHTML = '';
     grid.dataset.group = String(menuGroup); // each group's buttons have their own colour
+    grid.style.setProperty('--rows', String(Math.ceil(groupsNow()[menuGroup].levels.length / 5)));
     groupsNow()[menuGroup].levels.forEach((_, i) => {
       const level = levelAt(menuGroup, i);
       const b = document.createElement('button');
