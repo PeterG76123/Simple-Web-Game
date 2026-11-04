@@ -1176,8 +1176,12 @@
       ctx.globalAlpha = 1;
       head();
       ctx.fill();
-      const ex = hx + dx * cell * 0.08 - dy * cell * 0.09;
-      const ey = hy + dy * cell * 0.08 + dx * cell * 0.09;
+      // The eye sits on the upper side of the head (so no eel swims upside
+      // down), and on the right-hand side of the screen for vertical heads.
+      let px = -dy, py = dx;
+      if (py > 0 || (py === 0 && px < 0)) { px = -px; py = -py; }
+      const ex = hx + dx * cell * 0.08 + px * cell * 0.09;
+      const ey = hy + dy * cell * 0.08 + py * cell * 0.09;
       ctx.fillStyle = '#ffffff';
       ctx.beginPath();
       ctx.arc(ex, ey, cell * 0.065, 0, Math.PI * 2);
