@@ -1,5 +1,5 @@
 /*
- * Game rules for Tangled Tides, shared by the game, the level builder and the
+ * Game rules for Eel Escape, shared by the game, the level builder and the
  * level checker.
  *
  *  - A line slides along its own track: forward the way its arrow points (the

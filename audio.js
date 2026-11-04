@@ -139,26 +139,49 @@
     wave.start();
 
     apply();
+    // Whenever sound starts (or starts again), make sure the volumes are right.
+    ctx.onstatechange = () => { if (ctx.state === 'running') apply(); };
     setInterval(schedule, 250);
+  }
+
+  function setLevel(param, value, glide) {
+    // Safari can drop scheduled changes made while sound is still paused,
+    // so set the value outright then, and only glide while it's playing.
+    param.cancelScheduledValues(0);
+    if (ctx.state !== 'running') { param.value = value; return; }
+    const t = ctx.currentTime;
+    param.setValueAtTime(param.value, t);
+    param.linearRampToValueAtTime(value, t + glide);
   }
 
   function apply() {
     if (!ctx) return;
-    const t = ctx.currentTime;
-    musicBus.gain.setTargetAtTime(Settings.get('music') ? loud(Settings.get('musicVol')) * 0.85 : 0, t, 0.5);
-    sfxBus.gain.setTargetAtTime(Settings.get('sfx') ? loud(Settings.get('sfxVol')) : 0, t, 0.03);
+    setLevel(musicBus.gain, Settings.get('music') ? loud(Settings.get('musicVol')) * 0.85 : 0, 1.2);
+    setLevel(sfxBus.gain, Settings.get('sfx') ? loud(Settings.get('sfxVol')) : 0, 0.05);
   }
   Settings.onChange(apply);
 
-  // Start on the first tap or key (browsers block sound before that).
+  // Start on the first tap or key (browsers block sound before that). iPhones
+  // also want a sound started inside the tap itself, so play a silent one.
+  let unlocked = false;
   function unlock() {
     init();
-    if (ctx.state === 'suspended' && !document.hidden) ctx.resume();
+    if (document.hidden) return;
+    // Safari also has an "interrupted" state (after a call, say), so resume
+    // from anything that isn't playing.
+    if (ctx.state !== 'running') ctx.resume().then(apply, () => {});
+    if (!unlocked) {
+      unlocked = true;
+      const src = ctx.createBufferSource();
+      src.buffer = ctx.createBuffer(1, 1, ctx.sampleRate);
+      src.connect(ctx.destination);
+      src.start(0);
+    }
   }
-  ['pointerdown', 'touchend', 'click', 'keydown'].forEach((type) => document.addEventListener(type, unlock, { capture: true, passive: true }));
+  ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown'].forEach((type) => document.addEventListener(type, unlock, { capture: true, passive: true }));
   document.addEventListener('visibilitychange', () => {
     if (!ctx) return;
-    if (document.hidden) ctx.suspend(); else ctx.resume();
+    if (document.hidden) ctx.suspend(); else ctx.resume().then(apply, () => {});
   });
 
   // ---------- Music ----------
