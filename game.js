@@ -36,46 +36,6 @@
   const TAP_MAX_MS = 500; // a press this short that barely moves counts as a tap
   const TAP_MAX_MOVE = 0.2; // in cells
 
-  // Hints shown under the board, per group, for the first few levels.
-  const HINTS = [
-    [
-      'Tap a line to send it straight out, or drag it the way its arrow points to slide it as far as you like.',
-      'Lines can’t pass through each other. Clear the way first.',
-      'Stuck? Drag a line back the way it came, or use Undo.',
-      'You can stop a line partway, and drag it back as far as where it started.',
-      'Work out which lines are free first.',
-    ],
-    [
-      'Dashed parts of a line are see-through. Other lines can slide right through them.',
-      'A line can’t get out? Slide another one partway so its see-through gap lines up.',
-      'Slide too far and the gap closes again. Drag it back.',
-      'Some levels need more than one gap lined up.',
-      'See-through parts can slide over other lines too.',
-      'From here on, it’s up to you to spot which gaps to use.',
-    ],
-    [
-      'Triangles are reflectors. A line that hits the slanted side turns 90° and keeps going.',
-      'Follow each line’s path around the reflectors before you move it.',
-      'A line that bounces can still be blocked by lines on its new path.',
-      'Reflectors work with see-through parts too.',
-      'Some lines bounce off more than one reflector on the way out.',
-    ],
-    [
-      'Tap a reflector to turn it a quarter turn. Some lines can only get out once a reflector is turned.',
-      'Each tap turns it a little further. Watch where each line would bounce.',
-      'A reflector can’t turn while a line is on it, or while a line that went through it is still on the board.',
-      'Sometimes a reflector has to be turned more than once as you go.',
-      'Plan the order: turn, slide, then turn again.',
-    ],
-    [
-      'Gates block lines. A gate opens while any line sits on a plate of the same colour.',
-      'Slide a line partway onto a plate to hold its gate open, then send another line through.',
-      'A gate can’t close on a line that’s inside it.',
-      'Some colours have more than one gate. One plate opens them all.',
-      'Think about which line should leave last.',
-    ],
-  ];
-
   // ---------- DOM ----------
   const $ = (id) => document.getElementById(id);
   const screens = { menu: $('menu'), game: $('game') };
@@ -214,26 +174,6 @@
   let state = null;
   let drag = null;
 
-  /**
-   * Groups 4 and 5 bring in more mechanics as they go. The first level in the
-   * group with see-through lines, and the first that combines everything,
-   * say so (the levels are ordered by difficulty, so find them in the data).
-   */
-  function newMechanicTip(group, index) {
-    if (group < 3) return '';
-    const levels = groupsNow()[group].levels.map((_, i) => levelAt(group, i));
-    const hasClear = (l) => l.lines.some((a) => a.clear.length);
-    const firstClear = levels.findIndex(hasClear);
-    const firstAll = group === 4 ? levels.findIndex((l) => hasClear(l) && l.rotatable && l.gates.length) : -1;
-    if (index === firstAll) return 'The final challenge: see-through lines, turning reflectors and gates, all at once.';
-    if (index === firstClear) {
-      return group === 3
-        ? 'See-through lines join in: line up their gaps as well as turning the reflectors.'
-        : 'See-through lines join in: slide one partway to line up its gap, while keeping the right gate open.';
-    }
-    return '';
-  }
-
   /** Opens a level, carrying on where you left it unless `fresh` is set. */
   function startLevel(group, index, { fresh = false } = {}) {
     const level = levelAt(group, index);
@@ -262,7 +202,9 @@
       gateFlash: new Map(), // gate cell -> 0-1, flashes when it blocks a line
       rating: (groupsNow()[group].ratings || [])[index],
       // Tips are for learning the game, so only on Easy.
-      levelHint: tier === 0 ? (HINTS[group] || [])[index] || newMechanicTip(group, index) : '',
+      // No standing tips under the board (the welcome popups teach each
+      // group); the space is only used to explain a hint.
+      levelHint: '',
       hint: null, // { id, to, start, moves } while a hint is showing
       hintsUsed: 0, // counted so hints can be tied to ads later
     };
