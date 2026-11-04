@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;600;700&display=swap" />
-  <link rel="stylesheet" href="style.css?v=8d53acda" />
+  <link rel="stylesheet" href="style.css?v=b54c176c" />
 </head>
 <body>
   <!-- The ocean: drifting light rays and rising bubbles behind everything. -->
@@ -52,22 +52,6 @@
       <p id="groupNote" class="group-note" hidden></p>
       <div id="levelGrid" class="level-grid"></div>
 
-      <details class="how">
-        <summary>How to play</summary>
-        <ul>
-          <li>Drag a line the way its arrow points. The rest of the line follows the head.</li>
-          <li>Tap a line to send it straight out. If something is in the way, it bumps it and springs back.</li>
-          <li>You can stop partway, and drag a line back again, but never past where it started.</li>
-          <li>Solid parts block each other. Dashed parts are see-through, so other lines can pass through them.</li>
-          <li>Triangles are reflectors. A line that hits the slanted side turns 90° and keeps going. The flat sides block.</li>
-          <li>Reflectors marked with a turning arrow can be tapped to turn them a quarter turn.</li>
-          <li>Coloured gates block lines. A gate opens while a line sits on a plate of the same colour.</li>
-          <li>Slide every line off the board to finish the level. Every level can be solved.</li>
-          <li>Stuck? Press Hint and the next best move flashes.</li>
-          <li>On big boards, pinch with two fingers to zoom in and move around.</li>
-          <li>Finish 10 levels in a group to unlock the next group.</li>
-        </ul>
-      </details>
     </div>
   </section>
 
@@ -75,12 +59,14 @@
        left, and big buttons along the bottom within reach of a thumb. -->
   <section id="game" class="screen" aria-label="Game">
     <header class="hud">
-      <span class="hud-spacer" aria-hidden="true"></span>
       <div class="hud-center">
         <div id="levelLabel" class="level-label">Level 1</div>
         <div id="moves" class="moves">0 moves</div>
       </div>
-      <button id="gameSettingsBtn" class="btn ghost icon-btn hud-gear" data-open-settings aria-label="Settings" title="Settings"><svg class="gear" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M19.1 10.6 L21.7 10.7 L21.7 13.3 L19.1 13.4 L18.0 16.0 L19.8 18.0 L18.0 19.8 L16.0 18.0 L13.4 19.1 L13.3 21.7 L10.7 21.7 L10.6 19.1 L8.0 18.0 L6.0 19.8 L4.2 18.0 L6.0 16.0 L4.9 13.4 L2.3 13.3 L2.3 10.7 L4.9 10.6 L6.0 8.0 L4.2 6.0 L6.0 4.2 L8.0 6.0 L10.6 4.9 L10.7 2.3 L13.3 2.3 L13.4 4.9 L16.0 6.0 L18.0 4.2 L19.8 6.0 L18.0 8.0Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></button>
+      <div class="hud-buttons">
+        <button id="helpBtn" class="btn ghost icon-btn hud-gear help-btn" aria-label="How to play this group" title="How to play this group">?</button>
+        <button id="gameSettingsBtn" class="btn ghost icon-btn hud-gear" data-open-settings aria-label="Settings" title="Settings"><svg class="gear" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M19.1 10.6 L21.7 10.7 L21.7 13.3 L19.1 13.4 L18.0 16.0 L19.8 18.0 L18.0 19.8 L16.0 18.0 L13.4 19.1 L13.3 21.7 L10.7 21.7 L10.6 19.1 L8.0 18.0 L6.0 19.8 L4.2 18.0 L6.0 16.0 L4.9 13.4 L2.3 13.3 L2.3 10.7 L4.9 10.6 L6.0 8.0 L4.2 6.0 L6.0 4.2 L8.0 6.0 L10.6 4.9 L10.7 2.3 L13.3 2.3 L13.4 4.9 L16.0 6.0 L18.0 4.2 L19.8 6.0 L18.0 8.0Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></button>
+      </div>
     </header>
 
     <!-- The board, with the line count and hint tucked under it, centred in
@@ -108,6 +94,17 @@
       <button id="hintBtn" class="action-btn hint-btn" title="Hint (H)"><svg class="action-icon" viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 18h5M10.5 21h3"/><path d="M12 3a6 6 0 0 0-3.6 10.8c.7.6 1.1 1.3 1.1 2.2h5c0-.9.4-1.6 1.1-2.2A6 6 0 0 0 12 3Z"/></svg><span>Hint</span></button>
     </nav>
   </section>
+
+  <!-- Welcome to a group: a looping demo of its new mechanic -->
+  <div id="introOverlay" class="overlay" hidden>
+    <div class="dialog intro" role="dialog" aria-modal="true" aria-labelledby="introTitle" aria-describedby="introText">
+      <p class="intro-kicker">How to play</p>
+      <h2 id="introTitle"></h2>
+      <canvas id="introCanvas" class="intro-canvas" aria-hidden="true"></canvas>
+      <p id="introText" class="intro-text"></p>
+      <button id="introDismiss" class="btn primary">Dismiss</button>
+    </div>
+  </div>
 
   <!-- Settings -->
   <div id="settingsOverlay" class="overlay" hidden>
@@ -145,7 +142,8 @@
   <script src="audio.js?v=5a681982"></script>
   <script src="rules.js?v=662de468"></script>
   <script src="levels-data.js?v=0b531cdb"></script>
+  <script src="intro.js?v=5d593108"></script>
   <script src="sea-life.js?v=0d6e1358"></script>
-  <script src="game.js?v=a01d3836"></script>
+  <script src="game.js?v=9ffaf187"></script>
 </body>
 </html>

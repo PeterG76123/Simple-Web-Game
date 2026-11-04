@@ -297,18 +297,6 @@ h1 {
 }
 .level-btn.partial:not(.done) .sub { color: var(--group, var(--accent)); font-size: 0.68rem; }
 
-.how {
-  margin-top: 28px;
-  text-align: left;
-  background: var(--glass);
-  border: 1px solid var(--glass-edge);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border-radius: 18px;
-  padding: 12px 16px;
-}
-.how summary { cursor: pointer; font-family: var(--font-display); font-weight: 600; font-size: 1.05rem; }
-.how ul { margin: 10px 0 2px; padding-left: 20px; color: var(--muted); line-height: 1.55; }
 
 /* ---------- Buttons ---------- */
 .btn {
@@ -361,12 +349,14 @@ h1 {
   width: 100%;
   max-width: 640px;
   display: grid;
-  grid-template-columns: 48px minmax(0, 1fr) 48px;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
   flex: none;
 }
-.hud-center { text-align: center; min-width: 0; }
+.hud-center { text-align: left; min-width: 0; padding-left: 4px; }
+.hud-buttons { display: flex; gap: 8px; }
+.help-btn { font-family: var(--font-display); font-weight: 700; font-size: 1.35rem; line-height: 1; }
 .level-label, .moves { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .level-label {
   font-family: var(--font-display);
@@ -487,6 +477,40 @@ h1 {
   box-shadow: 0 0 18px rgba(94, 242, 255, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.6);
 }
 .action-btn.hint-btn:hover:not(:disabled) { box-shadow: 0 0 26px rgba(94, 242, 255, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.6); }
+/* Stuck for a while? The Hint button glows and pulses, with a little bubble. */
+.action-btn.hint-btn { position: relative; }
+.action-btn.hint-btn.nudge { animation: nudge 1.6s ease-in-out infinite; }
+.action-btn.hint-btn.nudge .action-icon { animation: bulb 1.6s ease-in-out infinite; }
+.action-btn.hint-btn.nudge::after {
+  content: "Stuck? Try a hint!";
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 12px);
+  padding: 8px 14px;
+  border-radius: 16px 16px 4px 16px;
+  background: var(--text);
+  color: var(--abyss);
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 0.95rem;
+  white-space: nowrap;
+  box-shadow: 0 0 18px rgba(94, 242, 255, 0.5);
+  animation: bob 1.6s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes nudge {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 18px rgba(94, 242, 255, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.6); }
+  50% { transform: scale(1.07); box-shadow: 0 0 34px rgba(94, 242, 255, 0.95), inset 0 1px 0 rgba(255, 255, 255, 0.6); }
+}
+@keyframes bulb {
+  0%, 100% { filter: none; }
+  50% { filter: drop-shadow(0 0 6px #fff7b0) drop-shadow(0 0 2px #fff7b0); }
+}
+@keyframes bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
 /* Short screens (a phone on its side): smaller buttons, so the board keeps its room. */
 @media (max-height: 620px) {
   .action-btn { min-height: 54px; flex-direction: row; gap: 8px; }
@@ -505,7 +529,7 @@ h1 {
     row-gap: 12px;
     align-items: stretch;
   }
-  #game .hud { grid-column: 2; grid-row: 1; grid-template-columns: minmax(0, 1fr) 44px; }
+  #game .hud { grid-column: 2; grid-row: 1; }
   #game .hud-spacer { display: none; }
   #game .hud-gear { width: 44px; height: 44px; }
   #game .board-area { grid-column: 1; grid-row: 1 / span 2; --below: 92px; }
@@ -564,6 +588,29 @@ h1 {
   from { transform: translateY(18px) scale(0.97); opacity: 0; }
   to { transform: translateY(0) scale(1); opacity: 1; }
 }
+
+/* ---------- Welcome to a group (intro.js) ---------- */
+.dialog.intro { max-width: 360px; padding: 22px 22px 24px; }
+.dialog.intro h2 { color: var(--group, var(--accent)); text-shadow: 0 0 16px color-mix(in srgb, var(--group, var(--accent)) 45%, transparent); margin-bottom: 14px; }
+.intro-kicker {
+  margin: 0 0 4px !important;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 0.8rem !important;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.intro-canvas {
+  display: block;
+  width: min(100%, 280px);
+  aspect-ratio: 1;
+  margin: 0 auto 16px;
+  border-radius: 20px;
+  box-shadow: 0 0 30px rgba(30, 140, 220, 0.3);
+}
+.intro-text { color: var(--text) !important; font-size: 1.05rem; font-weight: 600; margin-bottom: 18px !important; }
+.dialog.intro .btn { width: 100%; }
 
 /* ---------- Settings ---------- */
 .icon-btn { display: inline-flex; align-items: center; justify-content: center; }

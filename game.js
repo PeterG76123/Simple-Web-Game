@@ -102,6 +102,43 @@
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(progress)); } catch (e) { /* ignore */ }
   }
 
+  // ---------- Welcome popups ----------
+  // Each group's welcome popup (intro.js) shows the first time you play any
+  // level in it; the ? button brings it back.
+  const INTROS_KEY = 'arrow-escape-intros-seen-v1';
+  let introsSeen = [];
+  try { introsSeen = JSON.parse(localStorage.getItem(INTROS_KEY)) || []; } catch (e) { introsSeen = []; }
+  function showIntro(group) {
+    if (!window.ArrowIntro) return;
+    window.ArrowIntro.show(group, groupTitle(group), () => {
+      if (!introsSeen.includes(group)) {
+        introsSeen.push(group);
+        try { localStorage.setItem(INTROS_KEY, JSON.stringify(introsSeen)); } catch (e) { /* ignore */ }
+      }
+      resetIdle();
+    });
+  }
+  const introOpen = () => !!(window.ArrowIntro && window.ArrowIntro.isOpen());
+
+  // ---------- Nudging towards a hint ----------
+  // If nothing happens for a while, the Hint button pulses with a little bubble.
+  const IDLE_MS = 20000;
+  let lastActive = performance.now();
+  function resetIdle() {
+    lastActive = performance.now();
+    const b = document.getElementById('hintBtn');
+    if (b) b.classList.remove('nudge');
+  }
+  ['pointerdown', 'keydown', 'wheel'].forEach((type) => document.addEventListener(type, resetIdle, { capture: true, passive: true }));
+  setInterval(() => {
+    const b = document.getElementById('hintBtn');
+    const settingsOpen = window.ArrowSettings && window.ArrowSettings.isOpen && window.ArrowSettings.isOpen();
+    const waiting = state && screens.game.classList.contains('active') && !state.finished && !state.hint && !state.thinking
+      && overlay.hidden && !settingsOpen && !introOpen() && !b.disabled && !document.hidden;
+    if (!waiting) { lastActive = Math.max(lastActive, performance.now() - IDLE_MS / 2); return; }
+    if (performance.now() - lastActive > IDLE_MS) b.classList.add('nudge');
+  }, 1000);
+
   // ---------- Levels in progress ----------
   // Where every line (and reflector) is on levels you've started but not
   // finished, with the undo history, so leaving and coming back loses nothing.
@@ -262,6 +299,11 @@
     $('zoomControls').hidden = n < 9;
     resetView();
     resizeCanvas();
+    resetIdle();
+    // First time in this group? Show how its new mechanic works.
+    if (!introsSeen.includes(group)) {
+      setTimeout(() => { if (state && state.group === group && !introOpen()) showIntro(group); }, 300);
+    }
   }
 
   const restOffsets = () => state.lines.map((l) => l.rest);
@@ -1513,12 +1555,13 @@
   $('menuBtn').addEventListener('click', goToMenu);
   $('restartBtn').addEventListener('click', askRestart);
   $('undoBtn').addEventListener('click', undo);
+  $('helpBtn').addEventListener('click', () => { if (state) showIntro(state.group); });
   $('hintBtn').addEventListener('click', showHint);
   document.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'z' && screens.game.classList.contains('active')) {
       e.preventDefault();
       undo();
-    } else if (e.key === 'h' && !e.ctrlKey && !e.metaKey && screens.game.classList.contains('active') && overlay.hidden && !(window.ArrowSettings.isOpen && window.ArrowSettings.isOpen())) {
+    } else if (e.key === 'h' && !e.ctrlKey && !e.metaKey && screens.game.classList.contains('active') && overlay.hidden && !introOpen() && !(window.ArrowSettings.isOpen && window.ArrowSettings.isOpen())) {
       showHint();
     }
   });

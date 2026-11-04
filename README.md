@@ -46,6 +46,7 @@ python3 -m http.server 8000
 - `settings.js`: music, sound and sea-creature settings (saved on the device) and the settings screen
 - `audio.js`: sound effects and calm generated underwater music, made with the Web Audio API (no sound files)
 - `sea-life.js`: the glowing creatures that swim across the background
+- `intro.js`: each group's welcome popup, a looping demo of its new mechanic (also opened with the ? button)
 - `game.js`: dragging, drawing, undo, hints, groups and menus
 
 ## Making levels
