@@ -1542,16 +1542,8 @@
       b.addEventListener('click', () => startLevel(gi, i));
       grid.appendChild(b);
     });
-
-    const next = nextLevel();
-    $('playBtn').textContent = progress.completed.length === 0 ? 'Play'
-      : next ? `Continue: ${groupTitle(next.group)}, level ${next.index + 1}` : 'Play again';
   }
 
-  $('playBtn').addEventListener('click', () => {
-    const next = nextLevel() || { group: 0, index: 0 };
-    startLevel(next.group, next.index);
-  });
   $('menuBtn').addEventListener('click', goToMenu);
   $('restartBtn').addEventListener('click', askRestart);
   $('undoBtn').addEventListener('click', undo);
