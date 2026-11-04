@@ -31,7 +31,10 @@ t.groups.forEach((g, gi) => {
     const gates = level.gates || [];
     const plates = level.plates || [];
     const world = { mirrors, rotatable: level.rotatable, gates, plates };
-    const result = solve(n, level.lines, { maxStates: 400000, ...world });
+    let result = solve(n, level.lines, { maxStates: 400000, ...world });
+    // Big turning-reflector boards: if the full search runs out of room, use
+    // the same turns-and-exits-only search the generator used.
+    if (result.gaveUp && level.rotatable) result = solve(n, level.lines, { maxStates: 400000, ...world, slides: false });
     console.log(`  ${name.padStart(5)}  ${n}x${n}  ${String(level.lines.length).padStart(2)} lines  par ${String(level.par).padStart(2)}  ` +
       (result.solvable ? `solved in ${result.par}` : 'NOT SOLVED') +
       (mirrors.length ? `  ${mirrors.length} ${level.rotatable ? 'turnable ' : ''}reflectors${hasClear ? ', see-through' : ''}` : '') +

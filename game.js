@@ -224,10 +224,14 @@
 
   function computeHint() {
     const level = levelAt(state.group, state.index);
-    const result = solve(state.n, level.lines, {
+    const opts = {
       mirrors: state.mirrors, rotatable: state.rotatable, gates: state.gates, plates: state.plates,
       start: restOffsets(), maxStates: 150000,
-    });
+    };
+    let result = solve(state.n, level.lines, opts);
+    // Big turning-reflector boards: fall back to a search of turns and lines
+    // leaving only, which is much smaller.
+    if (result.gaveUp && state.rotatable) result = solve(state.n, level.lines, { ...opts, slides: false });
     state.hintsUsed++;
     const moves = state.history.length;
     if (!result.solvable) {
