@@ -268,8 +268,7 @@
 
   function updateHud() {
     const moves = state.history.length;
-    const rating = state.rating !== undefined ? ` · ${state.rating.toFixed(1)}/10` : '';
-    $('moves').textContent = `${TIERS[state.tier].name}${rating} · ${moves === 1 ? '1 move' : `${moves} moves`}`;
+    $('moves').textContent = `${TIERS[state.tier].name} · ${moves === 1 ? '1 move' : `${moves} moves`}`;
     const left = state.lines.filter((l) => l.rest >= 0).length;
     $('remaining').textContent = left === 1 ? '1 line left' : `${left} lines left`;
     $('undoBtn').disabled = moves === 0 || state.finished;
