@@ -114,6 +114,19 @@
       exitAt: path.escapes ? len + ray.length : Infinity,
       // Furthest offset the track allows.
       limit: path.escapes ? len + ray.length : ray.length,
+      // True if no square appears twice along the track (the path never
+      // crosses itself), which allows a quicker exit check.
+      simple: (() => {
+        const seen = new Set();
+        for (const [x, y] of track) {
+          if (!inBounds(n, x, y)) continue;
+          const c = y * n + x;
+          if (seen.has(c)) return false;
+          seen.add(c);
+        }
+        return true;
+      })(),
+      firstSolid: solid.indexOf(true),
     };
   }
 
@@ -277,10 +290,73 @@
    * Taking a line off never blocks another, so this is always safe.
    * Returns the ids removed, in order.
    */
+  /**
+   * Quick exit check for a line whose track never crosses itself, with no
+   * gates: its solid parts sweep every square from its first solid part
+   * onwards, so it can leave exactly when none of those squares holds
+   * another line's solid part. Same answer as stepping with reach().
+   */
+  function canExitQuick(n, line, offset, occ, id) {
+    if (!line.escapes) return false;
+    if (line.firstSolid < 0) return true;
+    const track = line.track;
+    for (let t = offset + line.firstSolid; t < track.length; t++) {
+      const [x, y] = track[t];
+      if (x < 0 || y < 0 || x >= n || y >= n) continue;
+      const o = occ[y * n + x];
+      if (o !== -1 && o !== id) return false;
+    }
+    return true;
+  }
+
+  /** Square -> ids of lines whose track passes it (cached on the lines array). */
+  function trackIndex(n, lines) {
+    if (lines.trackIndex) return lines.trackIndex;
+    const index = new Map();
+    lines.forEach((line, id) => {
+      for (const [x, y] of line.track) {
+        if (!inBounds(n, x, y)) continue;
+        const c = y * n + x;
+        if (!index.has(c)) index.set(c, []);
+        index.get(c).push(id);
+      }
+    });
+    lines.trackIndex = index;
+    return index;
+  }
+
   function clearFree(n, lines, offsets, occ, canTake) {
     // One map shared by every line (solid parts never overlap), updated as
     // lines leave, instead of rebuilding it for each line checked.
     occ = occ || solidMap(n, lines, offsets, -1);
+    if (!lines.world && !canTake) {
+      // Fast path: check each line once, and after a line leaves, re-check
+      // only lines whose tracks pass the squares it freed. Lines whose path
+      // crosses itself use the full step-by-step check.
+      const index = trackIndex(n, lines);
+      const queued = new Uint8Array(lines.length);
+      const queue = [];
+      for (let id = 0; id < lines.length; id++) if (offsets[id] >= 0) { queue.push(id); queued[id] = 1; }
+      const removed = [];
+      while (queue.length) {
+        const id = queue.pop();
+        queued[id] = 0;
+        if (offsets[id] < 0) continue;
+        const free = lines[id].simple ? canExitQuick(n, lines[id], offsets[id], occ, id) : reach(n, lines, offsets, id, occ).exit;
+        if (!free) continue;
+        const line = lines[id];
+        for (let j = 0; j < line.len; j++) {
+          const [x, y] = line.track[offsets[id] + j];
+          if (!inBounds(n, x, y)) continue;
+          const c = y * n + x;
+          if (occ[c] === id) occ[c] = -1;
+          for (const k of index.get(c) || []) if (k !== id && offsets[k] >= 0 && !queued[k]) { queued[k] = 1; queue.push(k); }
+        }
+        offsets[id] = -1;
+        removed.push(id);
+      }
+      return removed;
+    }
     // With gates, plates depend on every segment, so keep a count map too,
     // updated the same way.
     const any = lines.world ? anyMap(n, lines, offsets) : undefined;
@@ -348,6 +424,22 @@
    * every move still needed and path lists them as { line, to } (to = -1
    * means it leaves the board).
    */
+  /** A copy of `occ` with line `id` moved from offset `from` to `to` (solid parts only). */
+  function movedMap(n, line, occ, id, from, to) {
+    const out = occ.slice();
+    for (let j = 0; j < line.len; j++) {
+      if (!line.solid[j]) continue;
+      const [x, y] = line.track[from + j];
+      if (inBounds(n, x, y) && out[y * n + x] === id) out[y * n + x] = -1;
+    }
+    for (let j = 0; j < line.len; j++) {
+      if (!line.solid[j]) continue;
+      const [x, y] = line.track[to + j];
+      if (inBounds(n, x, y)) out[y * n + x] = id;
+    }
+    return out;
+  }
+
   function solve(n, arrows, opts = {}) {
     if (opts.rotatable || opts.gates) return solveWorld(n, arrows, opts);
     const { maxStates = 200000, mirrors = [], start: from } = opts;
@@ -387,7 +479,8 @@
             if (s === offsets[id]) continue;
             const o = offsets.slice();
             o[id] = s;
-            const exits = clearFree(n, lines, o);
+            // Start from this position's map with just the moved line updated.
+            const exits = clearFree(n, lines, o, movedMap(n, lines[id], occ, id, offsets[id], s));
             const k = o.join(',');
             if (seen.has(k)) continue;
             seen.set(k, { prev: key, line: id, to: s, exits });

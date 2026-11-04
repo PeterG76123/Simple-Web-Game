@@ -327,13 +327,98 @@ function repair(n, paths, rng, { map = null, iterations = 8000, extra = null } =
   return null;
 }
 
-module.exports = { mulberry32, shuffle, pathCover, toArrow, greedy, fastGreedy, orientations, repair };
+/**
+ * Picks arrow ends by peeling the board: repeatedly find a line that could
+ * slide straight out given the lines still on the board, point its arrow
+ * that way, and take it off. The board is solvable by construction (the
+ * peel order is a solution). If no line can leave, the longest stuck line is
+ * cut in two and the peel starts again. Fast enough for 30x30 boards, where
+ * random flipping (repair) almost never succeeds.
+ * Seed paths (aimed at reflectors) keep their first cell as the arrow if they
+ * can. Returns arrows or null.
+ */
+function peel(n, paths, rng, { map = null, minLen = 3, cuts = 200 } = {}) {
+  let items = paths.map((p, i) => ({ cells: p, seed: paths.locked ? paths.locked[i] : false }));
+  for (let attempt = 0; attempt <= cuts; attempt++) {
+    const owner = new Int32Array(n * n).fill(-1);
+    items.forEach((it, id) => it.cells.forEach(([x, y]) => { owner[y * n + x] = id; }));
+    const opts = items.map((it) => orientations(n, it.cells, map));
+    const gone = new Uint8Array(items.length);
+    const chosen = new Array(items.length);
+    let left = items.length;
+    const order = shuffle(items.map((_, i) => i), rng);
+    let progress = true;
+    while (left && progress) {
+      progress = false;
+      for (const id of order) {
+        if (gone[id]) continue;
+        // Lines aimed at a reflector only ever point at it, so it gets used.
+        const tryOrder = items[id].seed ? [0] : rng() < 0.5 ? [0, 1] : [1, 0];
+        for (const k of tryOrder) {
+          const o = opts[id][k];
+          if (!o.alone) continue;
+          let clear = true;
+          for (const c of o.ray) {
+            const w = owner[c];
+            if (w >= 0 && w !== id && !gone[w]) { clear = false; break; }
+          }
+          if (!clear) continue;
+          chosen[id] = k;
+          gone[id] = 1;
+          left--;
+          progress = true;
+          break;
+        }
+      }
+    }
+    if (!left) return items.map((it, id) => opts[id][chosen[id]].arrow);
+    // Stuck: cut a stuck line in two so that one piece can leave right away
+    // (searching stuck lines and cut points), so every cut makes progress.
+    // Pieces stay at least minLen long.
+    const stuckIds = shuffle(items.map((_, i) => i).filter((i) => !gone[i] && items[i].cells.length >= 2 * minLen), rng);
+    let cut = null;
+    for (const i of stuckIds) {
+      const c = items[i].cells;
+      const points = shuffle(Array.from({ length: c.length - 2 * minLen + 1 }, (_, j) => minLen + j), rng);
+      for (const k of points) {
+        // The piece that leaves must not need the other piece gone, so only
+        // its own line id counts as clear (the other piece still sits there).
+        const a = c.slice(0, k);
+        const b = c.slice(k);
+        const aCells = new Set(a.map(([x, y]) => y * n + x));
+        const bCells = new Set(b.map(([x, y]) => y * n + x));
+        const clearOf = (piece, other) => {
+          for (const way of [piece, piece.slice().reverse()]) {
+            const o = orientations(n, way, map)[0];
+            if (!o.alone) continue;
+            if (o.ray.every((cc) => !other.has(cc) && (owner[cc] < 0 || gone[owner[cc]] || owner[cc] === i))) return true;
+          }
+          return false;
+        };
+        if (clearOf(a, bCells) || clearOf(b, aCells)) { cut = [i, k]; break; }
+      }
+      if (cut) break;
+    }
+    if (!cut) {
+      // No cut helps straight away: fall back to cutting the longest stuck line.
+      const target = items.map((_, i) => i).filter((i) => !gone[i]).sort((x, y) => items[y].cells.length - items[x].cells.length).find((i) => items[i].cells.length >= 2 * minLen);
+      if (target === undefined) return null;
+      cut = [target, minLen + ((rng() * (items[target].cells.length - 2 * minLen + 1)) | 0)];
+    }
+    const [ti, k] = cut;
+    const c = items[ti].cells;
+    items.splice(ti, 1, { cells: c.slice(0, k), seed: items[ti].seed }, { cells: c.slice(k), seed: false });
+  }
+  return null;
+}
+
+module.exports = { mulberry32, shuffle, pathCover, toArrow, greedy, fastGreedy, orientations, repair, peel };
 
 // ---------------------------------------------------------------------------
 // Level makers
 // ---------------------------------------------------------------------------
 
-const { solve, solvableWithWholeExits } = globalThis.ArrowRules;
+const { solve, solvableWithWholeExits, clearFree } = globalThis.ArrowRules;
 const MIRROR_SHAPES = [[0, 3], [0, 1], [2, 3], [2, 1]];
 
 function placeMirrors(n, count, rng) {
@@ -404,7 +489,71 @@ function aimSeeds(n, mirrors, map, rng) {
   return seeds;
 }
 
+/**
+ * Carves special squares (reflectors or gates) into a solved full board.
+ * Each one goes on a square that is on some line A's way out and is the tail
+ * end of another line B (B gets one square shorter, so it stays a line and
+ * every square stays filled). A then has to pass through it, so it is used.
+ *  - Gates don't change any path, so the board stays solvable (gates open).
+ *  - Reflectors bend A's path (and any other path through that square), so
+ *    the fast check confirms the board can still be cleared.
+ * Returns { arrows, cells: [[x, y, ...shape]] } or null.
+ */
+function carve(n, arrows, rng, { count, type, minLen = 3, tries = 400 }) {
+  arrows = arrows.map((a) => ({ cells: a.cells.slice(), dir: a.dir, clear: [] }));
+  const placed = [];
+  const near = (x, y) => placed.some(([px, py]) => Math.abs(px - x) <= 1 && Math.abs(py - y) <= 1);
+  for (let t = 0; t < tries && placed.length < count; t++) {
+    const map = type === 'mirror' ? mirrorMap(n, placed) : null;
+    const a = arrows[(rng() * arrows.length) | 0];
+    const path = tracePath(n, a.cells[0][0], a.cells[0][1], a.dir, map);
+    if (!path.cells.length) continue;
+    const k = (rng() * path.cells.length) | 0;
+    const [x, y] = path.cells[k];
+    if (x === 0 || y === 0 || x === n - 1 || y === n - 1 || near(x, y)) continue;
+    const bi = arrows.findIndex((b) => { const tail = b.cells[b.cells.length - 1]; return tail[0] === x && tail[1] === y; });
+    if (bi < 0 || arrows[bi].cells.length <= minLen || arrows[bi] === a) continue;
+    // Travel direction as A enters the square.
+    const prev = k ? path.cells[k - 1] : a.cells[0];
+    const dir = DIRS.findIndex(([dx, dy]) => dx === x - prev[0] && dy === y - prev[1]);
+    let piece;
+    if (type === 'gate') {
+      piece = [x, y];
+    } else {
+      // A reflector whose open sides include the side A comes in through.
+      const entry = (dir + 2) % 4;
+      const fits = MIRROR_SHAPES.filter(([p, q]) => p === entry || q === entry);
+      piece = [x, y, ...fits[(rng() * fits.length) | 0]];
+    }
+    const trial = arrows.slice();
+    trial[bi] = { ...arrows[bi], cells: arrows[bi].cells.slice(0, -1) };
+    if (type === 'mirror') {
+      const m2 = mirrorMap(n, placed.concat([piece]));
+      const owner = new Int32Array(n * n).fill(-1);
+      trial.forEach((b, id) => b.cells.forEach(([cx, cy]) => { owner[cy * n + cx] = id; }));
+      const g = fastGreedy(trial.map((b) => orientations(n, b.cells, m2)[0]), owner);
+      if (g.stuck.length) continue;
+    }
+    arrows = trial;
+    placed.push(piece);
+  }
+  return placed.length === count ? { arrows, cells: placed } : null;
+}
+
 function makeSolid(n, rng, { mirrors: mirrorCount = 0 } = {}) {
+  if (mirrorCount && n > 12) {
+    // Big boards: solve the board first, then carve the reflectors in.
+    const base = makeSolid(n, rng, {});
+    if (!base) return null;
+    const carved = carve(n, base.arrows, rng, { count: mirrorCount, type: 'mirror' });
+    if (!carved) return null;
+    const mirrors = carved.cells;
+    const map = mirrorMap(n, mirrors);
+    const owner = new Int32Array(n * n).fill(-1);
+    carved.arrows.forEach((a, id) => a.cells.forEach(([x, y]) => { owner[y * n + x] = id; }));
+    const g = fastGreedy(carved.arrows.map((a) => orientations(n, a.cells, map)[0]), owner);
+    return { size: n, arrows: carved.arrows, mirrors, par: carved.arrows.length, partial: 0, rounds: g.rounds, initialFree: g.initialFree };
+  }
   let mirrors = [];
   let map = null;
   let seeds = [];
@@ -424,7 +573,14 @@ function makeSolid(n, rng, { mirrors: mirrorCount = 0 } = {}) {
     for (const o of chosen) for (const c of o.ray) if (mirrorCells.has(c)) hit.add(c);
     return -(mirrorCells.size - hit.size) * 150;
   } : null;
-  const arrows = repair(n, paths, rng, { map, extra });
+  // Small and medium boards: random flips (repair) give more varied boards.
+  // Big boards: peel, which reliably finds a solvable layout.
+  let arrows = n <= 12 ? repair(n, paths, rng, { map, extra }) : peel(n, paths, rng, { map });
+  if (arrows && mirrorCount && n > 12) {
+    const used = new Set();
+    for (const a of arrows) for (const [x, y] of tracePath(n, a.cells[0][0], a.cells[0][1], a.dir, map).cells) if (mirrorCells.has(y * n + x)) used.add(y * n + x);
+    if (used.size < mirrorCells.size) arrows = null;
+  }
   // Cutting dead ends can leave short pieces; every line must be 3 or longer.
   if (!arrows || arrows.some((a) => a.cells.length < lengths(n).minLen)) return null;
   const owner = new Int32Array(n * n).fill(-1);
@@ -450,9 +606,20 @@ function makeSeeThrough(n, rng, { mirrors: mirrorCount = 0, layouts = 12, pairs 
     const len = cells.length;
     return toArrow(cells, a.clear.map((k) => len - 1 - k).filter((k) => k !== 0));
   };
+  // How many lines stay stuck once every free line is taken off. A small jam
+  // makes as good a puzzle as a big one and is far cheaper to prove, so big
+  // jams are skipped before any search.
+  const maxStuck = 14;
+  const stuckAfterClearing = (arrows) => {
+    const lines = arrows.map((a) => buildLine(n, a, map));
+    const offsets = lines.map(() => 0);
+    clearFree(n, lines, offsets);
+    return offsets.filter((o) => o >= 0).length;
+  };
   const check = (arrows) => {
     if (mirrorCount && unusedMirrors(n, arrows, mirrors, map)) return null;
-    if (solvableWithWholeExits(n, arrows, mirrors)) return null;
+    const stuck = stuckAfterClearing(arrows);
+    if (stuck === 0 || stuck > maxStuck) return null;
     const result = solve(n, arrows, { mirrors, maxStates });
     if (!result.solvable) return null;
     // Proof that the see-through parts are needed: with them solid, the
@@ -497,5 +664,6 @@ function makeSeeThrough(n, rng, { mirrors: mirrorCount = 0, layouts = 12, pairs 
 }
 
 module.exports.makeSolid = makeSolid;
+module.exports.carve = carve;
 module.exports.makeSeeThrough = makeSeeThrough;
 module.exports.unusedMirrors = unusedMirrors;

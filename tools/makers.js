@@ -5,7 +5,7 @@
  * the solver can prove is needed.
  */
 'use strict';
-const { mulberry32, shuffle, pathCover, repair, makeSolid } = require('./fullgen.js');
+const { mulberry32, shuffle, pathCover, repair, makeSolid, carve } = require('./fullgen.js');
 const { DIRS, inBounds, solve, solveWorld, turnMirror, tracePath, mirrorMap } = globalThis.ArrowRules;
 
 /**
@@ -64,6 +64,7 @@ function makeRotate(n, rng, { mirrors: count = 2, minTurns = Math.max(1, Math.fl
  * with the gates shut.
  */
 function makeGates(n, rng, { mirrors: colours = 1, tries = 30, maxStates = 20000 } = {}) {
+  if (n > 14) return makeGatesBig(n, rng, { colours, tries, maxStates });
   // Gates: away from the edge and from each other.
   const gates = [];
   // Two gates per colour on mid-size boards; on the biggest boards one each
@@ -141,6 +142,40 @@ function makeGates(n, rng, { mirrors: colours = 1, tries = 30, maxStates = 20000
       states: best.states,
       stats: { gates: gates.length },
     };
+  }
+  return null;
+}
+
+/**
+ * Gates on big boards: make and solve a full board first, then carve each
+ * gate onto a square on some line's way out (see fullgen.carve). Gates don't
+ * change any path, so the board can always be cleared with the gates open,
+ * and every gate is on a line's way out. Then plates are placed as for
+ * smaller boards.
+ */
+function makeGatesBig(n, rng, { colours, tries, maxStates }) {
+  const base = makeSolid(n, rng, {});
+  if (!base) return null;
+  const carved = carve(n, base.arrows, rng, { count: colours, type: 'gate' });
+  if (!carved) return null;
+  const gates = carved.cells.map(([x, y], c) => [x, y, c]);
+  const { arrows } = carved;
+  const lineCells = [];
+  arrows.forEach((a) => a.cells.forEach(([x, y]) => lineCells.push([x, y])));
+  for (let t = 0; t < tries; t++) {
+    const plates = [];
+    const used = new Set();
+    for (let c = 0; c < colours; c++) {
+      let cell;
+      do cell = lineCells[(rng() * lineCells.length) | 0]; while (used.has(cell[1] * n + cell[0]));
+      used.add(cell[1] * n + cell[0]);
+      plates.push([cell[0], cell[1], c]);
+    }
+    // Every gate is on some line's way out, so with the gates shut that line
+    // can never leave: the gates are needed.
+    const best = solveWorld(n, arrows, { gates, plates, maxStates });
+    if (!best.solvable) continue;
+    return { arrows, mirrors: [], extras: { gates, plates }, par: best.par, partial: best.partialMoves, states: best.states, stats: { gates: gates.length } };
   }
   return null;
 }
