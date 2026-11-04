@@ -24,6 +24,9 @@ function entryFor(size, level) {
   };
 }
 
+// Reflectors for twin levels with reflectors, by board size.
+const reflectorsFor = (n) => (n <= 6 ? 1 : n <= 8 ? 2 : n <= 10 ? 3 : n <= 15 ? 4 : n <= 20 ? 5 : 6);
+
 const wrap = (maker) => (size, rng, opts) => {
   const level = maker(size, rng, opts);
   return level ? entryFor(size, level) : null;
@@ -45,4 +48,10 @@ module.exports = {
   combo: wrap((n, rng, { mirrors }) => makeCombo(n, rng, { mirrors, turn: true, colours: n <= 8 ? 1 : n <= 14 ? 2 : 3 })),
   // Twin eels: pairs of lines that slide together. "mirrors" is the number of pairs.
   twins: wrap(makeTwins),
+  // Twins with see-through lines.
+  twinsclear: wrap((n, rng, { mirrors }) => makeTwins(n, rng, { mirrors, clear: true })),
+  // Twins with fixed reflectors (more as the board grows).
+  twinsmirror: wrap((n, rng, { mirrors }) => makeTwins(n, rng, { mirrors, reflectors: reflectorsFor(n) })),
+  // Twins with see-through lines and fixed reflectors.
+  twinsmix: wrap((n, rng, { mirrors }) => makeTwins(n, rng, { mirrors, clear: true, reflectors: reflectorsFor(n) })),
 };

@@ -9,6 +9,10 @@
  *  3. Fill each slot with a candidate spread across that slot kind's ratings.
  *  4. Rate the chosen levels again, scaled across just this group (so each
  *     group runs from 1.0 to 10.0), and order it from lowest to highest.
+ *     A group with `phases` (e.g. [10, 15]) keeps its slots in those blocks:
+ *     the first block's levels come first (ordered among themselves), then
+ *     the next block's, and so on; each block's ratings cover its own share
+ *     of the 1.0-10.0 range, so ratings still rise through the group.
  *
  * Run with: node tools/build-levels.js
  *           node tools/build-levels.js --no-grow   (use only what is already in
@@ -22,13 +26,13 @@ const { readBank, fill } = require('./bank.js');
 const { scale } = require('./difficulty.js');
 require('../rules.js');
 const { decodeLevel, solve, pathToText } = globalThis.ArrowRules;
-const MIXED = new Set(['rotclear', 'gatesclear', 'combo']);
+const MIXED = new Set(['rotclear', 'gatesclear', 'combo', 'twins', 'twinsclear', 'twinsmirror', 'twinsmix']);
 
 /** A known solution for a mixed level (used by hints), as compact text. */
 function solutionFor(entry) {
   if (entry.solution) return entry.solution;
   const L = decodeLevel(entry.level);
-  const r = solve(L.size, L.lines, { mirrors: L.mirrors, rotatable: L.rotatable, gates: L.gates, plates: L.plates, maxStates: 100000 });
+  const r = solve(L.size, L.lines, { mirrors: L.mirrors, rotatable: L.rotatable, gates: L.gates, plates: L.plates, twins: L.twins, maxStates: 100000 });
   return r.solvable ? pathToText(r.path) : null;
 }
 
@@ -94,9 +98,27 @@ async function main() {
       }
       // Final ratings: the same scale, stretched over this group's own levels,
       // so every group runs from 1.0 (its easiest) to 10.0 (its hardest).
-      const final = scale(picked.map((p) => p.e));
-      picked.forEach((p) => { p.r = final(p.e); });
-      picked.sort((a, b) => a.r - b.r);
+      if (g.phases) {
+        // Blocks of slots in order (e.g. the group's own mechanic first, then
+        // levels that mix in others); each block spans its share of 1-10.
+        const total = picked.length;
+        const ordered = [];
+        let start = 0;
+        for (const size of g.phases) {
+          const block = picked.slice(start, start + size);
+          const final = scale(block.map((p) => p.e));
+          const lo = 1 + (9 * start) / total, hi = 1 + (9 * (start + size)) / total;
+          block.forEach((p) => { p.r = Math.round((lo + ((final(p.e) - 1) / 9) * (hi - lo)) * 10) / 10; });
+          block.sort((a, b) => a.r - b.r);
+          ordered.push(...block);
+          start += size;
+        }
+        picked.splice(0, picked.length, ...ordered);
+      } else {
+        const final = scale(picked.map((p) => p.e));
+        picked.forEach((p) => { p.r = final(p.e); });
+        picked.sort((a, b) => a.r - b.r);
+      }
       // Known solutions for mixed levels, so hints can follow them instantly.
       const solutions = picked.map((p) => (MIXED.has(p.kind) ? solutionFor(p.e) : null));
       groups.push({ name: g.name, levels: picked.map((p) => p.e.level), ratings: picked.map((p) => p.r), solutions });

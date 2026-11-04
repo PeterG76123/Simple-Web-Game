@@ -14,6 +14,11 @@
  *   kind 'twins': pairs of twin lines that slide together; the board takes
  *                 more moves with the twins than without, and the usual way
  *                 of clearing it no longer works (m = number of pairs)
+ *   kind 'twinsclear', 'twinsmirror', 'twinsmix': twins with see-through
+ *                 lines, fixed reflectors, or both
+ *
+ * Group 6 (twin eels) has `phases`: its first 10 levels are twins alone,
+ * then the other mechanics join in (see tools/build-levels.js).
  *   kind 'rotclear', 'gatesclear', 'combo': the same with see-through lines
  *                 (and, for 'combo', turnable reflectors and gates together),
  *                 each mechanic proven needed (see tools/makers.js)
@@ -35,6 +40,9 @@ const rc = (n, m) => [n, 'rotclear', m]; // rotating reflectors + see-through li
 const gc = (n, m) => [n, 'gatesclear', m]; // gates + see-through lines: m colours
 const all = (n, m) => [n, 'combo', m]; // see-through lines, turnable reflectors and gates: m reflectors
 const tw = (n, m) => [n, 'twins', m]; // twin eels: m pairs
+const twc = (n, m) => [n, 'twinsclear', m]; // twins with see-through lines
+const twm = (n, m) => [n, 'twinsmirror', m]; // twins with fixed reflectors
+const twx = (n, m) => [n, 'twinsmix', m]; // twins with see-through lines and reflectors
 const range = (from, to) => Array.from({ length: to - from + 1 }, (_, i) => from + i);
 const twice = (sizes) => sizes.flatMap((n) => [n, n]);
 
@@ -81,7 +89,12 @@ module.exports = {
         },
         {
           name: 'Twin eels',
-          slots: [tw(5, 1), tw(6, 1), tw(6, 2), tw(7, 2), tw(8, 2)],
+          phases: [10, 15],
+          slots: [
+            tw(5, 1), tw(5, 1), tw(6, 1), tw(6, 1), tw(6, 2), tw(7, 1), tw(7, 2), tw(7, 2), tw(8, 2), tw(8, 2),
+            twc(6, 1), twc(7, 1), twm(7, 1), twc(7, 2), twm(8, 2), twc(8, 2), twx(8, 2), twm(9, 2), twc(9, 2),
+            twx(9, 2), twm(10, 2), twc(10, 2), twx(10, 2), twm(10, 3), twx(10, 3),
+          ],
         },
       ],
     },
@@ -115,6 +128,14 @@ module.exports = {
             return n <= 13 ? [g(n, c), g(n, c)] : n <= 16 ? [g(n, c), gc(n, c)] : n <= 18 ? [gc(n, c), all(n, 4)] : [all(n, 5), all(n, 5)];
           }),
         },
+        {
+          name: 'Twin eels',
+          phases: [10, 10],
+          slots: [
+            tw(11, 2), tw(12, 2), tw(12, 2), tw(13, 2), tw(14, 2), tw(15, 2), tw(16, 3), tw(17, 3), tw(18, 3), tw(20, 3),
+            twc(11, 2), twm(12, 2), twc(12, 2), twc(13, 2), twm(14, 3), twc(14, 2), twm(16, 3), twm(18, 3), twm(19, 3), twm(20, 3),
+          ],
+        },
       ],
     },
     {
@@ -143,6 +164,16 @@ module.exports = {
         {
           name: 'Gates and plates',
           slots: range(21, 30).flatMap((n) => (n <= 23 ? [g(n, 3), gc(n, 3)] : n <= 26 ? [gc(n, 3), gc(n, 3)] : [all(n, 6 + Math.floor((n - 27) / 2)), all(n, 7)])),
+        },
+        {
+          name: 'Twin eels',
+          phases: [10, 10],
+          // Reflectors join twins on boards up to 27x27 (bigger ones are too
+          // slow to search with both).
+          slots: [
+            tw(21, 3), tw(22, 3), tw(23, 3), tw(24, 3), tw(25, 3), tw(26, 3), tw(27, 4), tw(28, 4), tw(29, 4), tw(30, 4),
+            twm(21, 3), twm(22, 3), twm(23, 3), twm(24, 3), twm(24, 3), twm(25, 3), twm(25, 4), twm(26, 4), twm(26, 4), twm(27, 4),
+          ],
         },
       ],
     },

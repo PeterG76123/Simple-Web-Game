@@ -53,6 +53,9 @@ t.groups.forEach((g, gi) => {
     const plates = level.plates || [];
     const twins = level.twins || [];
     const world = { mirrors, rotatable: level.rotatable, gates, plates, twins };
+    // Big twin boards with no see-through parts are searched the quick way
+    // (single lines only leave), as they were built.
+    if (twins.length && n > 12 && !hasClear) world.slides = false;
     let result = solve(n, level.lines, { maxStates: 400000, ...world });
     const fullGaveUp = !!result.gaveUp;
     // Big turning-reflector boards: if the full search runs out of room, try
@@ -102,7 +105,9 @@ t.groups.forEach((g, gi) => {
     if (gi === 5 && !twins.length) fail(`${name} has no twin eels`);
     if (gi === 5) {
       // The twins must matter: the same board without them takes fewer moves.
-      const alone = solve(n, level.lines, { maxStates: 400000, mirrors });
+      const alone = n > 12 && !hasClear
+        ? globalThis.ArrowRules.solveTwins(n, level.lines, { twins: [], mirrors, slides: false })
+        : solve(n, level.lines, { maxStates: 400000, mirrors });
       if (alone.solvable && alone.par >= result.par) fail(`${name}: the twins make no difference`);
     }
     if (gi < 3 && level.rotatable) fail(`${name} has turnable reflectors`);

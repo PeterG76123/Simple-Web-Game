@@ -593,25 +593,34 @@
    * anyway). Finds the fewest moves, as par.
    * Path items are { line, to }: `to` is where that line ends (-1 = it left);
    * for a twin, its twin moves by the same amount.
+   * With `slides: false`, lines without a twin only ever leave (no partial
+   * slides): far quicker on big boards with no see-through parts, where a
+   * partial slide of a single line is very rarely any use.
    */
-  function solveTwins(n, arrows, { twins = [], maxStates = 200000, mirrors = [], start: from } = {}) {
+  function solveTwins(n, arrows, { twins = [], maxStates = 200000, mirrors = [], start: from, slides = true } = {}) {
     const map = mirrorMap(n, mirrors);
     const lines = arrows.map((a) => buildLine(n, a, map));
     const twin = twinMap(lines.length, twins);
     // Take off every line that can leave and has no twin on the board.
     const settle = (o) => {
       const out = [];
+      const occ = solidMap(n, lines, o, -1);
       let changed = true;
       while (changed) {
         changed = false;
-        const occ = solidMap(n, lines, o, -1);
         for (let id = 0; id < lines.length; id++) {
           if (o[id] < 0 || activeTwin(twin, o, id) >= 0) continue;
-          if (!reach(n, lines, o, id, occ).exit) continue;
+          const line = lines[id];
+          const free = line.simple ? canExitQuick(n, line, o[id], occ, id) : reach(n, lines, o, id, occ).exit;
+          if (!free) continue;
+          // Gone: clear its squares from the shared map.
+          for (let j = 0; j < line.len; j++) {
+            const [x, y] = line.track[o[id] + j];
+            if (inBounds(n, x, y) && occ[y * n + x] === id) occ[y * n + x] = -1;
+          }
           o[id] = -1;
           out.push(id);
           changed = true;
-          break;
         }
       }
       return out;
@@ -663,7 +672,7 @@
               moveTwins(lines, next, id, t, d);
               tryState(next, { line: id, to: next[id] });
             }
-          } else {
+          } else if (slides) {
             const hi = reach(n, lines, o, id, occ).max;
             const lo = reachBack(n, lines, o, id, occ).min;
             for (let s = lo; s <= hi; s++) {

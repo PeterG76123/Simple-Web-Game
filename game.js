@@ -198,7 +198,7 @@
     // Twin eels share a colour of their own (and are drawn banded): each pair
     // gets a colour no other eel on the board uses.
     const twins = level.twins || [];
-    const TWIN_COLOURS = [8, 1, 6]; // sunny yellow, pink, coral
+    const TWIN_COLOURS = [8, 1, 6, 3]; // sunny yellow, pink, coral, orange
     const reserved = TWIN_COLOURS.slice(0, twins.length);
     lines.forEach((l) => { while (reserved.includes(l.colorIndex)) l.colorIndex = (l.colorIndex + 1) % 10; });
     twins.forEach(([a, b], k) => { lines[a].colorIndex = lines[b].colorIndex = reserved[k]; });
@@ -381,9 +381,18 @@
       if (same()) return path[i];
       const step = path[i];
       if (step.turn !== undefined) ms = turnMirror(ms, step.turn);
-      else offsets[step.line] = step.to;
+      else applyStep(offsets, step);
     }
     return null;
+  }
+
+  /** Plays one saved-solution step on `offsets` (a twin's step moves its twin too). */
+  function applyStep(offsets, step) {
+    const t = state.twinOf ? ArrowRules.activeTwin(state.twinOf, offsets, step.line) : -1;
+    if (t < 0) { offsets[step.line] = step.to; return; }
+    const line = state.lines[step.line];
+    const delta = step.to === -1 ? line.exitAt - offsets[step.line] : step.to - offsets[step.line];
+    ArrowRules.moveTwins(state.lines, offsets, step.line, t, delta);
   }
 
   /**
@@ -401,7 +410,7 @@
     const onRoute = new Set([keyOf(offsets, ms)]);
     for (const step of path) {
       if (step.turn !== undefined) ms = turnMirror(ms, step.turn);
-      else offsets[step.line] = step.to;
+      else applyStep(offsets, step);
       onRoute.add(keyOf(offsets, ms));
     }
     // Walk back through the player's moves.
@@ -412,7 +421,7 @@
       const h = state.history[state.history.length - 1 - k];
       if (!h) break;
       if (h.turn !== undefined) m = h.mirrors.map((x) => x.slice());
-      else o[h.id] = h.from;
+      else { o[h.id] = h.from; if (h.twin) o[h.twin.id] = h.twin.from; }
     }
     return -1;
   }
@@ -449,6 +458,9 @@
       mirrors: state.mirrors, rotatable: state.rotatable, gates: state.gates, plates: state.plates,
       twins: state.twins, start: restOffsets(), maxStates: 150000,
     };
+    // Big twin boards with no see-through parts: single eels only need to
+    // leave, so the quicker search is enough.
+    if (state.twins.length && state.n > 12 && !state.lines.some((l) => l.solid.includes(false))) opts.slides = false;
     // Otherwise search. Big boards and turning reflectors get a smaller budget
     // so a hint never keeps a player waiting; turning boards then try a
     // search of turns and lines leaving only.
