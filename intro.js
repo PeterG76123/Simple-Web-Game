@@ -296,28 +296,10 @@
       ctx.save();
       ctx.translate(cx(mr.x), cx(mr.y));
       ctx.rotate(s.angle[i]);
-      const h = cell * 0.42;
-      // The base shape fills the top-right half; its slanted side runs top-left to bottom-right.
-      const grad = ctx.createLinearGradient(-h, -h, h, h);
-      grad.addColorStop(0, colors.mirror);
-      grad.addColorStop(1, 'rgba(143, 230, 255, 0.25)');
-      ctx.globalAlpha = s.alpha * 0.75;
-      ctx.fillStyle = grad;
-      ctx.beginPath(); ctx.moveTo(-h, -h); ctx.lineTo(h, -h); ctx.lineTo(h, h); ctx.closePath(); ctx.fill();
-      ctx.globalAlpha = s.alpha;
-      ctx.strokeStyle = colors.mirrorEdge;
-      ctx.lineWidth = cell * 0.09;
-      ctx.lineCap = 'round';
-      ctx.shadowColor = colors.mirror;
-      ctx.shadowBlur = cell * 0.3;
-      ctx.beginPath(); ctx.moveTo(-h, -h); ctx.lineTo(h, h); ctx.stroke();
-      ctx.shadowBlur = 0;
-      if (mr.turns) {
-        // A turning arrow in the open half marks a reflector you can tap.
-        ctx.strokeStyle = colors.accent;
-        ctx.lineWidth = cell * 0.05;
-        ctx.beginPath(); ctx.arc(-h * 0.35, h * 0.35, cell * 0.16, Math.PI * 0.9, Math.PI * 2.3); ctx.stroke();
-      }
+      // The game's reflector (art.js) is drawn in its up-left shape; a quarter
+      // turn back gives this demo's base shape, the rock in the top-right half.
+      ctx.rotate(-Math.PI / 2);
+      root.ArrowArt.reflector(ctx, cell * 0.42, cell, { turns: !!mr.turns, turnColor: colors.accent });
       ctx.restore();
     });
 

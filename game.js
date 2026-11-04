@@ -1080,7 +1080,7 @@
       state.gatesOpen = openNow;
     }
 
-    // Reflectors: a triangle filling half the cell, with its slanted side
+    // Reflectors: reef rock filling half the cell, with its pearly slanted side
     // facing the two open sides. Drawn from the up-left shape, turned by a
     // number of quarter turns (animated while a reflector is turning).
     const half = cell * 0.4;
@@ -1108,52 +1108,9 @@
         ctx.globalAlpha = 1;
       }
       ctx.rotate((quarter * Math.PI) / 2);
-      // Up-left shape: corner at bottom-right, slanted side from top-right to bottom-left.
-      // Drawn as a crystal shard: a see-through gradient with a bright facet.
-      const crystal = ctx.createLinearGradient(half, half, -half * 0.2, -half * 0.2);
-      const base = flash > 0 ? mix(colors.mirror, colors.danger, Math.min(1, flash)) : colors.mirror;
-      crystal.addColorStop(0, base);
-      crystal.addColorStop(1, 'rgba(255,255,255,0.15)');
-      ctx.globalAlpha = 0.75;
-      ctx.fillStyle = crystal;
-      ctx.beginPath();
-      ctx.moveTo(half, half);
-      ctx.lineTo(half, -half);
-      ctx.lineTo(-half, half);
-      ctx.closePath();
-      ctx.fill();
-      ctx.globalAlpha = 1;
-      ctx.lineCap = 'round';
-      const edge = state.rotatable ? colors.turnable : colors.mirrorEdge;
-      ctx.strokeStyle = edge;
-      ctx.globalAlpha = 0.3;
-      ctx.lineWidth = cell * 0.2;
-      ctx.beginPath();
-      ctx.moveTo(half, -half);
-      ctx.lineTo(-half, half);
-      ctx.stroke();
-      ctx.globalAlpha = 1;
-      ctx.lineWidth = cell * 0.07;
-      ctx.beginPath();
-      ctx.moveTo(half, -half);
-      ctx.lineTo(-half, half);
-      ctx.stroke();
-      if (state.rotatable) {
-        // A small turning arrow in the open half marks reflectors you can tap.
-        ctx.lineWidth = cell * 0.05;
-        ctx.beginPath();
-        ctx.arc(-cell * 0.12, -cell * 0.12, cell * 0.14, Math.PI * 0.9, Math.PI * 2.1);
-        ctx.stroke();
-        const ex = -cell * 0.12 + cell * 0.14 * Math.cos(Math.PI * 2.1);
-        const ey = -cell * 0.12 + cell * 0.14 * Math.sin(Math.PI * 2.1);
-        ctx.fillStyle = colors.turnable;
-        ctx.beginPath();
-        ctx.moveTo(ex + cell * 0.07, ey - cell * 0.02);
-        ctx.lineTo(ex - cell * 0.03, ey + cell * 0.07);
-        ctx.lineTo(ex - cell * 0.05, ey - cell * 0.06);
-        ctx.closePath();
-        ctx.fill();
-      }
+      // Up-left shape: corner at bottom-right, slanted side from top-right to
+      // bottom-left. A piece of reef rock with a mother-of-pearl face (art.js).
+      window.ArrowArt.reflector(ctx, half, cell, { flash, danger: colors.danger, turns: state.rotatable, turnColor: colors.turnable });
       ctx.restore();
     });
 
