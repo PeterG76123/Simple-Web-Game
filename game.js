@@ -708,7 +708,7 @@
     const twin = partnerOf(line);
     if (twin) {
       const t = twinReach(state.n, state.lines, offsets, line.id, twin.id);
-      r = { max: line.rest + t.fwd, exit: t.out[0], blocker: t.blocker, gate: -1 };
+      r = { max: line.rest + t.fwd, exit: t.out[0], blocker: t.blocker, gate: -1, twinLeaves: t.out[1] };
       back = { min: line.rest - t.back, blocker: t.backBlocker, gate: -1 };
       twin.mode = 'drag';
     }
@@ -867,6 +867,24 @@
       line.rest = -1;
       line.mode = 'exit';
       line.speed = EXIT_SPEED_START;
+      updateHud();
+      sfx('exit');
+    } else if (twin && r.twinLeaves) {
+      // Its twin reaches the edge first and swims off. That frees this eel,
+      // which carries on out alone if its way is clear (two moves, as when
+      // done by hand: the pair's slide, then this eel leaving).
+      const from = line.rest;
+      const delta = r.max - from;
+      state.history.push({ id: line.id, from, twin: moveTwinBy(twin, twin.rest, delta) });
+      line.rest = from + delta;
+      if (reach(state.n, state.lines, restOffsets(), line.id).exit) {
+        state.history.push({ id: line.id, from: line.rest });
+        line.rest = -1;
+        line.mode = 'exit';
+        line.speed = EXIT_SPEED_START;
+      } else {
+        line.mode = 'settle';
+      }
       updateHud();
       sfx('exit');
     } else {
