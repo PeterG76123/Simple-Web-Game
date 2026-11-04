@@ -2,10 +2,10 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Arrow Escape</title>
   <meta name="description" content="A puzzle game: drag each tangled line off the board the way its arrow points, using see-through gaps to get past other lines." />
-  <link rel="stylesheet" href="style.css?v=0d9bff20" />
+  <link rel="stylesheet" href="style.css?v=3de6c4ae" />
 </head>
 <body>
   <!-- Front screen -->
@@ -43,6 +43,7 @@
           <li>Coloured gates block lines. A gate opens while a line sits on a plate of the same colour.</li>
           <li>Slide every line off the board to finish the level. Every level can be solved.</li>
           <li>Stuck? Press Hint and the next best move flashes.</li>
+          <li>On big boards, pinch with two fingers to zoom in and move around.</li>
           <li>Finish 10 levels in a group to unlock the next group.</li>
         </ul>
       </details>
@@ -69,6 +70,12 @@
 
     <div class="board-footer">
       <p id="remaining" class="remaining"></p>
+      <!-- Pinch with two fingers to zoom and move around; these do the same. -->
+      <div id="zoomControls" class="zoom-controls" hidden>
+        <button id="zoomOut" class="zoom-btn" aria-label="Zoom out" title="Zoom out">&minus;</button>
+        <button id="zoomIn" class="zoom-btn" aria-label="Zoom in" title="Zoom in">+</button>
+        <button id="zoomFit" class="zoom-btn" aria-label="Show the whole board" title="Show the whole board">&#10530;</button>
+      </div>
       <button id="hintBtn" class="btn ghost hint-btn" title="Hint (H)">Hint</button>
     </div>
     <p id="hint" class="hint" aria-live="polite"></p>
@@ -83,8 +90,8 @@
     </div>
   </div>
 
-  <script src="rules.js?v=dddec63e"></script>
+  <script src="rules.js?v=8cfa4d21"></script>
   <script src="levels-data.js?v=b07ff07f"></script>
-  <script src="game.js?v=39cbe5be"></script>
+  <script src="game.js?v=bdbd9fcd"></script>
 </body>
 </html>

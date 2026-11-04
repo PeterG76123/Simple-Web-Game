@@ -314,6 +314,7 @@ h1 {
 .btn:disabled:active { transform: none; }
 
 .board-wrap {
+  position: relative;
   width: 100%;
   max-width: 560px;
   aspect-ratio: 1;
@@ -325,6 +326,27 @@ h1 {
 }
 
 #board { display: block; width: 100%; height: 100%; cursor: grab; touch-action: none; }
+
+.zoom-controls {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+.zoom-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 1.2rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+.zoom-btn:disabled { opacity: 0.35; cursor: default; }
+.zoom-btn:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 #board:active { cursor: grabbing; }
 
 .hint {

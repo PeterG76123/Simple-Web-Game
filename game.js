@@ -171,6 +171,10 @@
     updateHud();
     hideDialog();
     showScreen('game');
+    pointers.clear();
+    pinch = null;
+    $('zoomControls').hidden = n < 9;
+    resetView();
     resizeCanvas();
   }
 
@@ -237,6 +241,11 @@
     if (move.turn !== undefined) {
       state.hint = { id: -1, turn: move.turn, start: performance.now(), moves };
       canvas.dataset.hintTurn = String(move.turn);
+      {
+        const { cell, margin } = layout(boardSize());
+        const [mx, my] = state.mirrors[move.turn];
+        showPoint(margin + (mx + 0.5) * cell, margin + (my + 0.5) * cell);
+      }
       setHintText(`Tap the flashing reflector to turn it.${result.par > 1 ? ` You can finish in ${result.par} moves.` : ''}`);
       return;
     }
@@ -251,16 +260,113 @@
     }
     text += result.par > 1 ? ` You can finish in ${result.par} moves.` : '';
     state.hint = { id: move.line, to: move.to, start: performance.now(), moves };
+    {
+      const { cell, margin } = layout(boardSize());
+      const [hx, hy] = line.track[line.rest + line.len - 1];
+      showPoint(margin + (hx + 0.5) * cell, margin + (hy + 0.5) * cell);
+    }
     canvas.dataset.hintLine = String(move.line);
     canvas.dataset.hintTo = String(move.to);
     setHintText(text);
   }
 
   // ---------- Input ----------
+  /** Pointer position in board coordinates (undoing any zoom and pan). */
   function boardPoint(evt) {
     const rect = canvas.getBoundingClientRect();
     const { cell, margin } = layout(rect.width);
-    return { px: evt.clientX - rect.left, py: evt.clientY - rect.top, cell, margin };
+    return {
+      px: (evt.clientX - rect.left - view.x) / view.scale,
+      py: (evt.clientY - rect.top - view.y) / view.scale,
+      cell,
+      margin,
+    };
+  }
+
+  // ---------- Zoom (pinch, two-finger pan, buttons, wheel) ----------
+  // view: how the board is drawn, in CSS pixels: scale, then shift by x, y.
+  const view = { scale: 1, x: 0, y: 0 };
+  const pointers = new Map(); // pointerId -> { x, y } for every finger down
+  let pinch = null; // { dist, midX, midY, scale, x, y } while two fingers are down
+
+  const boardSize = () => canvas.width / (window.devicePixelRatio || 1);
+  // Zoom in until about six squares fill the board (at least 2x).
+  const maxZoom = () => Math.max(2, state ? state.n / 6 : 2);
+
+  function clampView() {
+    const size = boardSize();
+    view.scale = Math.min(maxZoom(), Math.max(1, view.scale));
+    const min = size - size * view.scale;
+    view.x = Math.min(0, Math.max(min, view.x));
+    view.y = Math.min(0, Math.max(min, view.y));
+    $('zoomFit').disabled = view.scale <= 1.001;
+    $('zoomIn').disabled = view.scale >= maxZoom() - 0.001;
+    $('zoomOut').disabled = view.scale <= 1.001;
+  }
+
+  /** Zoom to `scale`, keeping the board point under (sx, sy) where it is on screen. */
+  function zoomAt(sx, sy, scale) {
+    const bx = (sx - view.x) / view.scale;
+    const by = (sy - view.y) / view.scale;
+    view.scale = Math.min(maxZoom(), Math.max(1, scale));
+    view.x = sx - bx * view.scale;
+    view.y = sy - by * view.scale;
+    clampView();
+  }
+
+  function resetView() {
+    view.scale = 1;
+    view.x = 0;
+    view.y = 0;
+    clampView();
+  }
+
+  /** When zoomed in, move the view so board point (bx, by) is on screen. */
+  function showPoint(bx, by) {
+    if (view.scale <= 1.001) return;
+    const size = boardSize();
+    const sx = bx * view.scale + view.x;
+    const sy = by * view.scale + view.y;
+    const edge = size * 0.15;
+    if (sx > edge && sx < size - edge && sy > edge && sy < size - edge) return;
+    view.x = size / 2 - bx * view.scale;
+    view.y = size / 2 - by * view.scale;
+    clampView();
+  }
+
+  function canvasPoint(p) {
+    const rect = canvas.getBoundingClientRect();
+    return [p.x - rect.left, p.y - rect.top];
+  }
+
+  function startPinch() {
+    const [a, b] = [...pointers.values()];
+    const [ax, ay] = canvasPoint(a);
+    const [bx, by] = canvasPoint(b);
+    pinch = { dist: Math.max(1, Math.hypot(ax - bx, ay - by)), midX: (ax + bx) / 2, midY: (ay + by) / 2, scale: view.scale, x: view.x, y: view.y };
+  }
+
+  function movePinch() {
+    const [a, b] = [...pointers.values()];
+    const [ax, ay] = canvasPoint(a);
+    const [bx, by] = canvasPoint(b);
+    const dist = Math.max(1, Math.hypot(ax - bx, ay - by));
+    const midX = (ax + bx) / 2;
+    const midY = (ay + by) / 2;
+    // The board point that was under the fingers' midpoint stays under it.
+    const px = (pinch.midX - pinch.x) / pinch.scale;
+    const py = (pinch.midY - pinch.y) / pinch.scale;
+    view.scale = Math.min(maxZoom(), Math.max(1, pinch.scale * (dist / pinch.dist)));
+    view.x = midX - px * view.scale;
+    view.y = midY - py * view.scale;
+    clampView();
+  }
+
+  /** A second finger landed mid-drag: put the line back where it was. */
+  function cancelDrag() {
+    if (!drag) return;
+    drag.line.mode = 'settle';
+    drag = null;
   }
 
   /** The line under a cell, preferring a solid part over a see-through one. */
@@ -317,7 +423,19 @@
   }
 
   function onPointerDown(evt) {
-    if (!state || state.finished || drag) return;
+    if (!state) return;
+    pointers.set(evt.pointerId, { x: evt.clientX, y: evt.clientY });
+    // Track every finger until it lifts, even if it lands on an empty square.
+    try { canvas.setPointerCapture(evt.pointerId); } catch (e) { /* ignore */ }
+    if (pointers.size >= 2) {
+      // Two fingers: pinch to zoom and pan, never move a line.
+      evt.preventDefault();
+      canvas.setPointerCapture(evt.pointerId);
+      cancelDrag();
+      startPinch();
+      return;
+    }
+    if (state.finished || drag || pinch) return;
     const { px, py, cell, margin } = boardPoint(evt);
     const x = Math.floor((px - margin) / cell);
     const y = Math.floor((py - margin) / cell);
@@ -343,6 +461,11 @@
   }
 
   function onPointerMove(evt) {
+    if (pointers.has(evt.pointerId)) pointers.set(evt.pointerId, { x: evt.clientX, y: evt.clientY });
+    if (pinch && pointers.size >= 2) {
+      movePinch();
+      return;
+    }
     if (!drag || evt.pointerId !== drag.pointerId) return;
     const { px, py } = boardPoint(evt);
     const { line, reach: r, back } = drag;
@@ -383,6 +506,14 @@
   }
 
   function onPointerUp(evt) {
+    pointers.delete(evt.pointerId);
+    if (pinch) {
+      if (pinch.ended && pointers.size === 0) { pinch = null; return; }
+      // The pinch ends when a finger lifts; the other finger does nothing
+      // until it lifts too.
+      if (pointers.size < 2) pinch = pointers.size ? { ended: true } : null;
+      return;
+    }
     if (!drag || evt.pointerId !== drag.pointerId) return;
     const { line, reach: r, back } = drag;
     const now = performance.now();
@@ -527,10 +658,17 @@
   function resizeCanvas() {
     if (!state) return;
     const size = boardWrap.clientWidth;
+    // Keep the same part of the board in view when the board changes size.
+    const old = boardSize();
+    if (old > 0 && size > 0) {
+      view.x *= size / old;
+      view.y *= size / old;
+    }
     const dpr = window.devicePixelRatio || 1;
     canvas.width = Math.round(size * dpr);
     canvas.height = Math.round(size * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    clampView();
     draw();
   }
 
@@ -555,10 +693,14 @@
   }
 
   function draw() {
-    const size = canvas.width / (window.devicePixelRatio || 1);
+    const dpr = window.devicePixelRatio || 1;
+    const size = canvas.width / dpr;
     const { cell, margin } = layout(size);
     const center = (v) => margin + (v + 0.5) * cell;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, size, size);
+    // Zoom and pan: everything below is drawn in board coordinates.
+    ctx.setTransform(dpr * view.scale, 0, 0, dpr * view.scale, dpr * view.x, dpr * view.y);
 
     ctx.fillStyle = colors.dot;
     for (let y = 0; y < state.n; y++) {
@@ -999,6 +1141,17 @@
   canvas.addEventListener('pointermove', onPointerMove);
   canvas.addEventListener('pointerup', onPointerUp);
   canvas.addEventListener('pointercancel', onPointerUp);
+  // Mouse wheel / trackpad pinch zooms around the pointer.
+  canvas.addEventListener('wheel', (e) => {
+    if (!state) return;
+    e.preventDefault();
+    const rect = canvas.getBoundingClientRect();
+    zoomAt(e.clientX - rect.left, e.clientY - rect.top, view.scale * Math.exp(-e.deltaY * 0.002));
+  }, { passive: false });
+  const zoomButton = (factor) => () => { const s = boardSize() / 2; zoomAt(s, s, view.scale * factor); };
+  $('zoomIn').addEventListener('click', zoomButton(1.6));
+  $('zoomOut').addEventListener('click', zoomButton(1 / 1.6));
+  $('zoomFit').addEventListener('click', resetView);
   new ResizeObserver(resizeCanvas).observe(boardWrap);
 
   menuGroup = (nextLevel() || { group: 0 }).group;
