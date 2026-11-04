@@ -1481,6 +1481,29 @@
     else { fxRunning = false; fxCtx.clearRect(0, 0, w, h); }
   }
 
+  /** The trail of bubbles behind an eel swimming off the board. */
+  function drawBubbles(cell) {
+    const now = performance.now();
+    const dt = Math.min(0.05, (now - lastBubbleTime) / 1000);
+    lastBubbleTime = now;
+    if (!bubbles.length) return;
+    bubbles = bubbles.filter((b) => (b.life -= dt * 0.7) > 0);
+    for (const b of bubbles) {
+      b.x += (b.vx + Math.sin((now / 300) + b.r * 50) * cell * 0.3) * dt;
+      b.y += b.vy * dt;
+      ctx.globalAlpha = Math.min(1, b.life) * 0.8;
+      ctx.strokeStyle = 'rgba(200,245,255,0.9)';
+      ctx.lineWidth = Math.max(1, b.r * 0.18);
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(255,255,255,0.8)';
+      ctx.beginPath();
+      ctx.arc(b.x - b.r * 0.35, b.y - b.r * 0.35, b.r * 0.22, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
   // ---------- Dialogs ----------
   function showDialog(title, text, buttons) {
     $('dialogTitle').textContent = title;
