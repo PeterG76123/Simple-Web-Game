@@ -100,8 +100,11 @@
   const progress = loadProgress();
   const isCompleted = (g, i) => progress.completed.includes(`${tier}-${g}-${i}`);
   const completedIn = (g) => groupsNow()[g].levels.filter((_, i) => isCompleted(g, i)).length;
-  const isGroupUnlocked = (g) => g === 0 || completedIn(g - 1) >= UNLOCK_AFTER;
-  const isUnlocked = (g, i) => isGroupUnlocked(g) && (i === 0 || isCompleted(g, i - 1));
+  // TESTING: every group and level is open. Set to false before release to
+  // bring back unlocking (10 levels opens the next group, levels in order).
+  const UNLOCK_ALL = true;
+  const isGroupUnlocked = (g) => UNLOCK_ALL || g === 0 || completedIn(g - 1) >= UNLOCK_AFTER;
+  const isUnlocked = (g, i) => UNLOCK_ALL || (isGroupUnlocked(g) && (i === 0 || isCompleted(g, i - 1)));
 
   // ---------- Theme colours for the canvas ----------
   let colors = {};

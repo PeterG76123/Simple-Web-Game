@@ -1,9 +1,9 @@
 {"level":"6|7|41URDD,30DLD,05UUUUU,20LDDDR,53LD,15URD,32DDDRRU||G420P110","lines":7,"partial":0,"rounds":0,"initialFree":0,"states":5,"gates":1}
-{"level":"6|10|43RU,01URR,50DLUL,42LUL,11DDD,04UU,24UU,55ULD,05RRRU||G330P530","lines":9,"partial":1,"rounds":0,"initialFree":0,"states":6,"gates":1}
+{"level":"6|9|43RU,01URR,50DLUL,42LUL,11DDD,04UU,24UU,55ULD,05RRRU||G330P530","lines":9,"partial":0,"rounds":0,"initialFree":0,"states":5,"gates":1}
 {"level":"6|7|24LURURD,40DLULD,01UR,03URU,35LLLU,53LURUU,55ULD||G340P120","lines":7,"partial":0,"rounds":0,"initialFree":0,"states":3,"gates":1}
-{"level":"6|8|42RUU,30RDLL,12UUR,02UU,22DR,43RDLLDRR,05UURDRDL||G320P510","lines":7,"partial":1,"rounds":0,"initialFree":0,"states":6,"gates":1}
+{"level":"6|7|42RUU,30RDLL,12UUR,02UU,22DR,43RDLLDRR,05UURDRDL||G320P510","lines":7,"partial":0,"rounds":0,"initialFree":0,"states":6,"gates":1}
 {"level":"6|8|21URDD,03UUURD,40RDD,12DRRRUU,15RU,05UR,34DRU,55UU||G220P500","lines":8,"partial":0,"rounds":0,"initialFree":0,"states":4,"gates":1}
-{"level":"6|7|43DLDLLLU,00RRDDL,50DD,30RDLDDLD,11LDDRD,53DDL||G420P050","lines":6,"partial":1,"rounds":0,"initialFree":0,"states":10,"gates":1}
+{"level":"6|6|43DLDLLLU,00RRDDL,50DD,30RDLDDLD,11LDDRD,53DDL||G420P050","lines":6,"partial":0,"rounds":0,"initialFree":0,"states":10,"gates":1}
 {"level":"6|7|11URD,51ULLD,32DDL,00DDDDD,15UURU,25RRUU,55UUULU||G120P310","lines":7,"partial":0,"rounds":0,"initialFree":0,"states":2,"gates":1}
 {"level":"6|6|24RRUULD,03UUURDRU,41LUR,12RDL,50DDDD,55LLLLLU||G140P120","lines":6,"partial":0,"rounds":0,"initialFree":0,"states":5,"gates":1}
-{"level":"6|7|44RDLL,20RRRDL,00RDLDRRU,52DLULU,33LDDLU,05UUR||G340P540","lines":6,"partial":1,"rounds":0,"initialFree":0,"states":7,"gates":1}
+{"level":"6|6|44RDLL,20RRRDL,00RDLDRRU,52DLULU,33LDDLU,05UUR||G340P540","lines":6,"partial":0,"rounds":0,"initialFree":0,"states":7,"gates":1}

@@ -146,11 +146,13 @@
   }
 
   /**
-   * Gate check for line `id` stepping from offset `from` to `to`. Returns the
-   * cell of a closed gate it would run into, or -1. `any` counts every line's
-   * segments at their current offsets (including this line at `from`).
+   * Gate check for one step of a slide: the line is moving from offset `prev`
+   * to `to` (one square), having started the whole slide at `from`. Returns
+   * the cell of a closed gate it would run into, or -1. `any` counts every
+   * line's segments where they were when the slide started (this line at
+   * `from`).
    */
-  function gateBlock(n, line, from, to, world, any) {
+  function gateBlock(n, line, from, prev, to, world, any) {
     // Where gates and plates fall along this line's track, worked out once.
     if (!line.gateInfo || line.gateInfo.world !== world) {
       const gates = [];
@@ -173,8 +175,8 @@
     const inAt = (t, o) => t >= o && t <= o + last;
     for (const [t, c, colour] of gates) {
       // Only gates this step newly enters matter: a line already inside a
-      // gate keeps it open.
-      if (!inAt(t, to) || inAt(t, from)) continue;
+      // gate (as of the previous step) keeps it open.
+      if (!inAt(t, to) || inAt(t, prev)) continue;
       // Another line is inside it, holding it open.
       if (any[c] > 0) continue;
       // Open if any plate of its colour is covered after the step.
@@ -239,7 +241,7 @@
       const blocker = hitAt(n, line, occ, s + 1, id);
       if (blocker !== -1) return { max: s, exit: false, blocker, gate: -1 };
       if (world) {
-        const gate = gateBlock(n, line, offsets[id], s + 1, world, any);
+        const gate = gateBlock(n, line, offsets[id], s, s + 1, world, any);
         if (gate !== -1) return { max: s, exit: false, blocker: -1, gate };
       }
       s++;
@@ -262,7 +264,7 @@
       const blocker = hitAt(n, line, occ, s - 1, id);
       if (blocker !== -1) return { min: s, blocker, gate: -1 };
       if (world) {
-        const gate = gateBlock(n, line, offsets[id], s - 1, world, any);
+        const gate = gateBlock(n, line, offsets[id], s, s - 1, world, any);
         if (gate !== -1) return { min: s, blocker: -1, gate };
       }
       s--;
