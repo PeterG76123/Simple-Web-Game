@@ -5,8 +5,8 @@
  * the solver can prove is needed.
  */
 'use strict';
-const { mulberry32, shuffle, pathCover, repair, makeSolid, carve } = require('./fullgen.js');
-const { DIRS, inBounds, solve, solveWorld, turnMirror, tracePath, mirrorMap } = globalThis.ArrowRules;
+const { mulberry32, shuffle, pathCover, repair, makeSolid, makeSeeThrough, carve, unusedMirrors } = require('./fullgen.js');
+const { DIRS, inBounds, solve, solveWorld, turnMirror, tracePath, mirrorMap, buildLine, clearFree, playPath, pathToText } = globalThis.ArrowRules;
 
 /**
  * Rotating reflectors. Make a solvable board with every reflector set right,
@@ -189,4 +189,128 @@ function makeGatesBig(n, rng, { colours, tries, maxStates }) {
   return null;
 }
 
-module.exports = { makeRotate, makeGates, mulberry32 };
+/**
+ * Levels that combine mechanics, built in stages and then proven by the
+ * solver to need every one of them:
+ *   1. A see-through jam (see-through parts needed, at least one partial
+ *      slide), on a board with `mirrors` reflectors if any.
+ *   2. `colours` gates carved onto squares on some line's way out.
+ *   3. Plates placed under lines.
+ *   4. If `turn`, some reflectors turned away (they become turnable).
+ * Kept only if it is proven that: it can be solved (a known way through is
+ * played by the real rules); it can't be solved with the see-through parts
+ * solid, with the reflectors set as the solution uses them; it can't be
+ * solved with the gates shut (if any) or without turning (if turnable); and
+ * it needs a partial slide.
+ */
+function makeCombo(n, rng, { mirrors: mirrorCount = 0, colours = 0, turn = false, tries = 20, maxStates = 20000 } = {}) {
+  // A see-through jam on a board with the reflectors (if any): its
+  // see-through parts are proven needed with the reflectors set as built.
+  const jam = makeSeeThrough(n, rng, { mirrors: mirrorCount });
+  if (!jam) return null;
+  let arrows = jam.arrows;
+  const mirrors = jam.mirrors;
+  let gates = [];
+  if (colours) {
+    const carved = carve(n, arrows, rng, { count: colours, type: 'gate', mirrors });
+    if (!carved) return null;
+    arrows = carved.arrows;
+    gates = carved.cells.map(([x, y], c) => [x, y, c]);
+  }
+  if (arrows.some((a) => a.cells.length < 3)) return null;
+  const gateCells = new Set(gates.map(([x, y]) => y * n + x));
+  const mirrorCells = new Set(mirrors.map(([x, y]) => y * n + x));
+  const map0 = mirrorMap(n, mirrors);
+
+  // A solution with the gates open and reflectors as built: it becomes the
+  // known way through (after turning reflectors back), and gives the order
+  // lines leave in, for placing plates.
+  const open = solve(n, arrows, { mirrors, maxStates });
+  if (!open.solvable) return null;
+  if (colours) {
+    // Carving gates shortens lines, which can loosen the jam: prove again
+    // that it needs a partial slide and can't be done with solid lines.
+    if (open.partialMoves < 1) return null;
+    const solid = solve(n, arrows.map((a) => ({ ...a, clear: [] })), { mirrors, maxStates: maxStates * 3 });
+    if (solid.solvable || solid.gaveUp) return null;
+  }
+  const order = new Map();
+  open.path.forEach((step, i) => { if (step.to === -1) order.set(step.line, i); });
+
+  // See-through needed: the jam was proven to need its see-through parts
+  // with these reflectors as built (the way the level is solved), and gates
+  // only make things harder.
+
+  const crossers = gates.map(([gx, gy]) => arrows.map((a, id) => id).filter((id) => {
+    const a = arrows[id];
+    return tracePath(n, a.cells[0][0], a.cells[0][1], a.dir, map0).cells.some(([x, y]) => x === gx && y === gy);
+  }));
+
+  for (let t = 0; t < tries; t++) {
+    // Plates under lines that leave after every line that needs their gate.
+    const plates = [];
+    const used = new Set();
+    let placedAll = true;
+    gates.forEach(([, , c], gi) => {
+      const last = Math.max(-1, ...crossers[gi].map((id) => order.get(id)));
+      const later = arrows.map((_, id) => id).filter((id) => order.get(id) > last && !crossers[gi].includes(id));
+      if (!later.length) { placedAll = false; return; }
+      const holder = arrows[later[(rng() * later.length) | 0]];
+      const options = holder.cells.filter(([x, y]) => !used.has(y * n + x));
+      if (!options.length) { placedAll = false; return; }
+      const [x, y] = options[(rng() * options.length) | 0];
+      used.add(y * n + x);
+      plates.push([x, y, c]);
+    });
+    if (!placedAll) continue;
+
+    // Turn some reflectors away; turning them back is the start of the known way.
+    let start = mirrors.map((mm) => mm.slice());
+    const restore = [];
+    if (turn) {
+      const picks = shuffle(mirrors.map((_, i) => i), rng).slice(0, 1 + ((rng() * mirrors.length) | 0));
+      for (const k of picks) {
+        const away = 1 + ((rng() * 3) | 0);
+        for (let r = 0; r < away; r++) start = turnMirror(start, k);
+        for (let r = away; r < 4; r++) restore.push({ turn: k });
+      }
+      // Turning needed: some line can't leave as things stand.
+      const map = mirrorMap(n, start);
+      if (!arrows.some((a) => !tracePath(n, a.cells[0][0], a.cells[0][1], a.dir, map).escapes)) continue;
+    }
+    // Gates needed: some line's way out reaches a gate before any reflector
+    // (so turning can't steer it away), so with gates shut it can't leave.
+    if (colours) {
+      const blockedByGate = arrows.some((a) => {
+        for (const [x, y] of tracePath(n, a.cells[0][0], a.cells[0][1], a.dir, mirrorMap(n, start)).cells) {
+          const c = y * n + x;
+          if (mirrorCells.has(c)) return false;
+          if (gateCells.has(c)) return true;
+        }
+        return false;
+      });
+      if (!blockedByGate) continue;
+    }
+    const world = { mirrors: start, rotatable: turn, gates, plates };
+    // Solvable: the known way must work by the real rules.
+    const known = restore.concat(open.path);
+    if (!playPath(n, arrows, world, known)) continue;
+    // Fewest moves: exact if the search finishes, otherwise the known way's
+    // length (saved so the checker can replay it).
+    const best = solveWorld(n, arrows, { ...world, maxStates });
+    const exact = best.solvable;
+    // If even the best solution skips the see-through gaps (turning found a
+    // way round them), they aren't really needed: try again.
+    if (exact && best.partialMoves < 1) continue;
+    const par = exact ? best.par : known.length;
+    return {
+      arrows, mirrors: start,
+      extras: { rotatable: turn, gates, plates },
+      par, partial: exact ? best.partialMoves : open.partialMoves, states: best.states,
+      stats: { turns: exact ? best.turns : restore.length, gates: gates.length, ...(exact ? {} : { solution: pathToText(known) }) },
+    };
+  }
+  return null;
+}
+
+module.exports = { makeRotate, makeGates, makeCombo, mulberry32 };

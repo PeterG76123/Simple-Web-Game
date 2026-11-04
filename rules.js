@@ -691,6 +691,47 @@
     return way && way.length ? way[0] : null;
   }
 
+  /**
+   * Plays a list of moves ({ line, to } or { turn: k }) by the game's rules
+   * and checks every move is allowed and the board ends up clear. Used to
+   * prove a level can be solved without a search. Returns true or false.
+   */
+  function playPath(n, arrows, { mirrors = [], rotatable = false, gates = [], plates = [] }, path) {
+    const world = makeWorld(n, gates, plates);
+    let ms = mirrors.map((m) => m.slice());
+    const build = () => {
+      const lines = arrows.map((a) => buildLine(n, a, mirrorMap(n, ms)));
+      lines.world = world;
+      return lines;
+    };
+    let lines = build();
+    const offsets = arrows.map(() => 0);
+    for (const step of path) {
+      if (step.turn !== undefined) {
+        if (!rotatable || !canTurn(n, lines, offsets, ms[step.turn])) return false;
+        ms = turnMirror(ms, step.turn);
+        lines = build();
+        continue;
+      }
+      const id = step.line;
+      if (offsets[id] < 0) return false;
+      const r = reach(n, lines, offsets, id);
+      if (step.to === -1) {
+        if (!r.exit) return false;
+        offsets[id] = -1;
+      } else {
+        const b = reachBack(n, lines, offsets, id);
+        if (step.to < b.min || step.to > r.max) return false;
+        offsets[id] = step.to;
+      }
+    }
+    return offsets.every((o) => o < 0);
+  }
+
+  /** Moves as compact text ("t3" = turn reflector 3, "5:2" = line 5 to 2, "5:x" = line 5 out) and back. */
+  const pathToText = (path) => path.map((p) => (p.turn !== undefined ? `t${p.turn}` : `${p.line}:${p.to < 0 ? 'x' : p.to}`)).join(' ');
+  const pathFromText = (text) => text.split(' ').filter(Boolean).map((t) => (t[0] === 't' ? { turn: Number(t.slice(1)) } : { line: Number(t.split(':')[0]), to: t.split(':')[1] === 'x' ? -1 : Number(t.split(':')[1]) }));
+
   /** True if the level can be cleared by sliding lines straight out, with no partial slides. */
   function solvableWithWholeExits(n, arrows, mirrors = [], gates = [], plates = []) {
     const map = mirrorMap(n, mirrors);
@@ -765,5 +806,5 @@
     return { size: parseInt(size, 36), par: Number(par), lines, mirrors, rotatable: extraText.includes('R'), gates, plates };
   }
 
-  root.ArrowRules = { encodeLevel, decodeLevel, findTurnWay, makeWorld, anyMap, turnMirror, canTurn, solveWorld, DIRS, inBounds, rayCells, mirrorMap, tracePath, buildLine, solidMap, reach, reachBack, clearFree, solve, solvableWithWholeExits };
+  root.ArrowRules = { encodeLevel, decodeLevel, findTurnWay, playPath, pathToText, pathFromText, makeWorld, anyMap, turnMirror, canTurn, solveWorld, DIRS, inBounds, rayCells, mirrorMap, tracePath, buildLine, solidMap, reach, reachBack, clearFree, solve, solvableWithWholeExits };
 })(typeof window !== 'undefined' ? window : globalThis);

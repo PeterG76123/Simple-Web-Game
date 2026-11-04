@@ -499,20 +499,30 @@ function aimSeeds(n, mirrors, map, rng) {
  *    the fast check confirms the board can still be cleared.
  * Returns { arrows, cells: [[x, y, ...shape]] } or null.
  */
-function carve(n, arrows, rng, { count, type, minLen = 3, tries = 400 }) {
-  arrows = arrows.map((a) => ({ cells: a.cells.slice(), dir: a.dir, clear: [] }));
+function carve(n, arrows, rng, { count, type, minLen = 3, tries = 400, mirrors = [], check = true, avoidLines = null, avoidCells = null }) {
+  // check: false skips the solid-board solvability check (the caller checks
+  // the finished board itself). avoidLines / avoidCells: lines that must not
+  // be used or shortened, and squares a piece must not go on.
+  // `mirrors`: reflectors already on the board (for gates on reflector
+  // boards), so paths are traced the way lines really go. See-through parts
+  // are kept (adjusted when a line gets shorter).
+  arrows = arrows.map((a) => ({ cells: a.cells.slice(), dir: a.dir, clear: (a.clear || []).slice() }));
   const placed = [];
+  const fixed = new Set(mirrors.map(([x, y]) => y * n + x));
   const near = (x, y) => placed.some(([px, py]) => Math.abs(px - x) <= 1 && Math.abs(py - y) <= 1);
   for (let t = 0; t < tries && placed.length < count; t++) {
-    const map = type === 'mirror' ? mirrorMap(n, placed) : null;
-    const a = arrows[(rng() * arrows.length) | 0];
+    const map = type === 'mirror' ? mirrorMap(n, mirrors.concat(placed)) : mirrorMap(n, mirrors);
+    const ai = (rng() * arrows.length) | 0;
+    if (avoidLines && avoidLines.has(ai)) continue;
+    const a = arrows[ai];
     const path = tracePath(n, a.cells[0][0], a.cells[0][1], a.dir, map);
     if (!path.cells.length) continue;
     const k = (rng() * path.cells.length) | 0;
     const [x, y] = path.cells[k];
-    if (x === 0 || y === 0 || x === n - 1 || y === n - 1 || near(x, y)) continue;
+    if (x === 0 || y === 0 || x === n - 1 || y === n - 1 || near(x, y) || fixed.has(y * n + x)) continue;
+    if (avoidCells && avoidCells.has(y * n + x)) continue;
     const bi = arrows.findIndex((b) => { const tail = b.cells[b.cells.length - 1]; return tail[0] === x && tail[1] === y; });
-    if (bi < 0 || arrows[bi].cells.length <= minLen || arrows[bi] === a) continue;
+    if (bi < 0 || arrows[bi].cells.length <= minLen || arrows[bi] === a || (avoidLines && avoidLines.has(bi))) continue;
     // Travel direction as A enters the square.
     const prev = k ? path.cells[k - 1] : a.cells[0];
     const dir = DIRS.findIndex(([dx, dy]) => dx === x - prev[0] && dy === y - prev[1]);
@@ -526,8 +536,9 @@ function carve(n, arrows, rng, { count, type, minLen = 3, tries = 400 }) {
       piece = [x, y, ...fits[(rng() * fits.length) | 0]];
     }
     const trial = arrows.slice();
-    trial[bi] = { ...arrows[bi], cells: arrows[bi].cells.slice(0, -1) };
-    if (type === 'mirror') {
+    const shorter = arrows[bi].cells.slice(0, -1);
+    trial[bi] = { ...arrows[bi], cells: shorter, clear: arrows[bi].clear.filter((c) => c < shorter.length) };
+    if (type === 'mirror' && check) {
       const all = placed.concat([piece]);
       const m2 = mirrorMap(n, all);
       const owner = new Int32Array(n * n).fill(-1);

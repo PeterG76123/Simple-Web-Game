@@ -11,6 +11,13 @@
  *                  some, and needs more turns as reflectors are added
  *   kind 'gates': coloured gates opened by matching plates; can't be solved
  *                 with the gates shut
+ *   kind 'rotclear', 'gatesclear', 'combo': the same with see-through lines
+ *                 (and, for 'combo', turnable reflectors and gates together),
+ *                 each mechanic proven needed (see tools/makers.js)
+ *
+ * In Groups 4 and 5 the early levels teach the group's own mechanic; see-
+ * through lines join in more and more towards the end, and the last levels
+ * of Group 5 combine every mechanic.
  *
  * Every level fills the whole board, with lines of 3 squares or more.
  * `pool` is how many candidates per slot the bank should hold to choose from.
@@ -21,6 +28,9 @@ const s = (n, m = 0) => [n, 'solid', m];
 const c = (n, m = 0) => [n, 'clear', m];
 const r = (n, m) => [n, 'rotate', m]; // rotating reflectors: m reflectors
 const g = (n, m) => [n, 'gates', m]; // gates and plates: m colours
+const rc = (n, m) => [n, 'rotclear', m]; // rotating reflectors + see-through lines: m reflectors
+const gc = (n, m) => [n, 'gatesclear', m]; // gates + see-through lines: m colours
+const all = (n, m) => [n, 'combo', m]; // see-through lines, turnable reflectors and gates: m reflectors
 const range = (from, to) => Array.from({ length: to - from + 1 }, (_, i) => from + i);
 const twice = (sizes) => sizes.flatMap((n) => [n, n]);
 
@@ -53,16 +63,16 @@ module.exports = {
           name: 'Turning reflectors',
           slots: [
             r(5, 1), r(5, 1), r(5, 1), r(6, 2), r(6, 2), r(6, 2), r(6, 2), r(7, 2), r(7, 3), r(7, 3),
-            r(7, 3), r(8, 3), r(8, 3), r(8, 4), r(8, 4), r(9, 4), r(9, 4), r(9, 4), r(9, 5), r(9, 5),
-            r(10, 5), r(10, 5), r(10, 6), r(10, 6), r(10, 6),
+            r(7, 3), r(8, 3), r(8, 3), rc(8, 3), r(8, 4), rc(9, 3), r(9, 4), rc(9, 4), r(9, 5), rc(9, 4),
+            rc(10, 4), r(10, 5), rc(10, 4), rc(10, 5), rc(10, 5),
           ],
         },
         {
           name: 'Gates and plates',
           slots: [
             g(5, 1), g(5, 1), g(5, 1), g(6, 1), g(6, 1), g(6, 1), g(6, 2), g(7, 1), g(7, 2), g(7, 2),
-            g(7, 2), g(8, 2), g(8, 2), g(8, 2), g(8, 2), g(9, 2), g(9, 2), g(9, 2), g(9, 3), g(9, 3),
-            g(10, 3), g(10, 3), g(10, 3), g(10, 3), g(10, 3),
+            gc(7, 1), g(8, 2), gc(8, 2), g(8, 2), gc(9, 2), gc(9, 2), g(9, 3), gc(10, 2), gc(10, 3),
+            all(8, 2), all(9, 2), all(9, 3), all(10, 3), all(10, 3), all(10, 4),
           ],
         },
       ],
@@ -83,8 +93,20 @@ module.exports = {
             return [s(n, m), c(n, Math.min(m, 5))];
           }),
         },
-        { name: 'Turning reflectors', slots: twice(range(11, 20)).map((n) => r(n, 4 + Math.floor((n - 11) / 4))) },
-        { name: 'Gates and plates', slots: twice(range(11, 20)).map((n) => g(n, n <= 14 ? 2 : 3)) },
+        {
+          name: 'Turning reflectors',
+          slots: range(11, 20).flatMap((n) => {
+            const m = 4 + Math.floor((n - 11) / 4);
+            return n <= 13 ? [r(n, m), r(n, m)] : n <= 18 ? [r(n, m), rc(n, m)] : [rc(n, m), rc(n, m)];
+          }),
+        },
+        {
+          name: 'Gates and plates',
+          slots: range(11, 20).flatMap((n) => {
+            const c = n <= 14 ? 2 : 3;
+            return n <= 13 ? [g(n, c), g(n, c)] : n <= 16 ? [g(n, c), gc(n, c)] : n <= 18 ? [gc(n, c), all(n, 4)] : [all(n, 5), all(n, 5)];
+          }),
+        },
       ],
     },
     {
@@ -103,8 +125,17 @@ module.exports = {
             return [s(n, m), c(n, Math.min(m, 6))];
           }),
         },
-        { name: 'Turning reflectors', slots: twice(range(21, 30)).map((n) => r(n, 6 + Math.floor((n - 21) / 4))) },
-        { name: 'Gates and plates', slots: twice(range(21, 30)).map((n) => g(n, 3)) },
+        {
+          name: 'Turning reflectors',
+          slots: range(21, 30).flatMap((n) => {
+            const m = 6 + Math.floor((n - 21) / 4);
+            return n <= 23 ? [r(n, m), rc(n, m)] : [rc(n, m), rc(n, m)];
+          }),
+        },
+        {
+          name: 'Gates and plates',
+          slots: range(21, 30).flatMap((n) => (n <= 23 ? [g(n, 3), gc(n, 3)] : n <= 26 ? [gc(n, 3), gc(n, 3)] : [all(n, 6 + Math.floor((n - 27) / 2)), all(n, 7)])),
+        },
       ],
     },
   ],
