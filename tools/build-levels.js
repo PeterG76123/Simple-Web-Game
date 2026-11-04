@@ -20,6 +20,17 @@ const path = require('path');
 const plan = require('./level-plan.js');
 const { readBank, fill } = require('./bank.js');
 const { scale } = require('./difficulty.js');
+require('../rules.js');
+const { decodeLevel, solve, pathToText } = globalThis.ArrowRules;
+const MIXED = new Set(['rotclear', 'gatesclear', 'combo']);
+
+/** A known solution for a mixed level (used by hints), as compact text. */
+function solutionFor(entry) {
+  if (entry.solution) return entry.solution;
+  const L = decodeLevel(entry.level);
+  const r = solve(L.size, L.lines, { mirrors: L.mirrors, rotatable: L.rotatable, gates: L.gates, plates: L.plates, maxStates: 100000 });
+  return r.solvable ? pathToText(r.path) : null;
+}
 
 async function main() {
   const t0 = Date.now();
@@ -79,14 +90,16 @@ async function main() {
         used.set(key, k + 1);
         // The k-th of `total` slots of this kind takes from the k-th slice of
         // the pool's ratings, so a group gets a spread from easy to hard.
-        picked.push(pool[Math.min(pool.length - 1, Math.floor(((k + 0.5) / total) * pool.length))]);
+        picked.push({ ...pool[Math.min(pool.length - 1, Math.floor(((k + 0.5) / total) * pool.length))], kind });
       }
       // Final ratings: the same scale, stretched over this group's own levels,
       // so every group runs from 1.0 (its easiest) to 10.0 (its hardest).
       const final = scale(picked.map((p) => p.e));
       picked.forEach((p) => { p.r = final(p.e); });
       picked.sort((a, b) => a.r - b.r);
-      groups.push({ name: g.name, levels: picked.map((p) => p.e.level), ratings: picked.map((p) => p.r) });
+      // Known solutions for mixed levels, so hints can follow them instantly.
+      const solutions = picked.map((p) => (MIXED.has(p.kind) ? solutionFor(p.e) : null));
+      groups.push({ name: g.name, levels: picked.map((p) => p.e.level), ratings: picked.map((p) => p.r), solutions });
       console.log(`  ratings: ${picked.map((p) => p.r.toFixed(1)).join(' ')}`);
     }
     tiers.push({ name: tier.name, groups });
@@ -105,6 +118,8 @@ async function main() {
       ...t.groups.flatMap((g) => [
         `        { name: ${JSON.stringify(g.name)},`,
         `          ratings: ${JSON.stringify(g.ratings)},`,
+        // Known solutions for big mixed levels (null elsewhere), used by hints.
+        ...(g.solutions.some(Boolean) ? [`          solutions: ${JSON.stringify(g.solutions)},`] : []),
         '          levels: [',
         ...g.levels.map((l) => `            ${JSON.stringify(l)},`),
         '          ] },',

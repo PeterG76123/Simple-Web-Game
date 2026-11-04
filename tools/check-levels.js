@@ -53,8 +53,9 @@ t.groups.forEach((g, gi) => {
     let replayed = null;
     if (!result.solvable && result.gaveUp) {
       const entry = bankEntries.get(raw);
-      if (entry && entry.solution) {
-        const path = pathFromText(entry.solution);
+      const saved = (g.solutions || [])[i] || (entry && entry.solution);
+      if (saved) {
+        const path = pathFromText(saved);
         if (playPath(n, level.lines, world, path)) {
           replayed = path;
           result = { solvable: true, par: path.length, partialMoves: path.filter((p) => p.to !== undefined && p.to >= 0).length, replayed: true };

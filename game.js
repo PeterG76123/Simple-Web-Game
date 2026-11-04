@@ -270,14 +270,73 @@
    * on big boards. Returns { k, taps } or null.
    */
   function turnThatFrees(level) {
-    if (!state.rotatable) return null;
+    // Not with gates: the quick search takes lines off freely, which can
+    // close a gate.
+    if (!state.rotatable || state.gates.length) return null;
     return findTurnWay(state.n, level.lines, { mirrors: state.mirrors, start: restOffsets() });
+  }
+
+  /**
+   * If the level has a saved solution and the board is exactly where that
+   * solution would have it after some number of moves, the next move of the
+   * solution. Otherwise null.
+   */
+  function knownNextStep(level) {
+    const text = (groupsNow()[state.group].solutions || [])[state.index];
+    if (!text) return null;
+    const path = ArrowRules.pathFromText(text);
+    const n = state.n;
+    let ms = (level.mirrors || []).map((m) => m.slice());
+    const offsets = level.lines.map(() => 0);
+    const now = restOffsets();
+    const same = () => offsets.every((o, i) => o === now[i]) && ms.every((m, i) => m[2] === state.mirrors[i][2] && m[3] === state.mirrors[i][3]);
+    for (let i = 0; i < path.length; i++) {
+      if (same()) return path[i];
+      const step = path[i];
+      if (step.turn !== undefined) ms = turnMirror(ms, step.turn);
+      else offsets[step.line] = step.to;
+    }
+    return null;
+  }
+
+  /**
+   * How many undos would put the board back on the level's saved solution,
+   * or -1 if none do (or there is no saved solution).
+   */
+  function undosToKnownRoute(level) {
+    const text = (groupsNow()[state.group].solutions || [])[state.index];
+    if (!text) return -1;
+    // Positions along the saved solution, as text keys.
+    const path = ArrowRules.pathFromText(text);
+    let ms = (level.mirrors || []).map((m) => m.slice());
+    const offsets = level.lines.map(() => 0);
+    const keyOf = (o, m) => o.join(',') + '|' + m.map((x) => x[2] + '' + x[3]).join('');
+    const onRoute = new Set([keyOf(offsets, ms)]);
+    for (const step of path) {
+      if (step.turn !== undefined) ms = turnMirror(ms, step.turn);
+      else offsets[step.line] = step.to;
+      onRoute.add(keyOf(offsets, ms));
+    }
+    // Walk back through the player's moves.
+    const o = restOffsets();
+    let m = state.mirrors.map((x) => x.slice());
+    for (let k = 0; k <= state.history.length; k++) {
+      if (onRoute.has(keyOf(o, m))) return k;
+      const h = state.history[state.history.length - 1 - k];
+      if (!h) break;
+      if (h.turn !== undefined) m = h.mirrors.map((x) => x.slice());
+      else o[h.id] = h.from;
+    }
+    return -1;
   }
 
   function computeHint() {
     const level = levelAt(state.group, state.index);
-    const free = freeLineNow();
-    const turn = free ? null : turnThatFrees(level);
+    // Levels with a saved solution: if the board is on it, its next step is
+    // the hint (instant, and following hints stays on the route).
+    const known = knownNextStep(level);
+    const free = known ? null : freeLineNow();
+    const turn = free || known ? null : turnThatFrees(level);
     if (turn) {
       const moves = state.history.length;
       state.hint = { id: -1, turn: turn.k, start: performance.now(), moves };
@@ -303,18 +362,32 @@
       mirrors: state.mirrors, rotatable: state.rotatable, gates: state.gates, plates: state.plates,
       start: restOffsets(), maxStates: 150000,
     };
-    // Turning-reflector boards: try the full search with a small budget, then
-    // fall back to a search of turns and lines leaving only, which is much
-    // smaller. Big boards would otherwise keep a player waiting.
-    let result = solve(state.n, level.lines, state.rotatable ? { ...opts, maxStates: 15000 } : opts);
-    if (result.gaveUp && state.rotatable) result = solve(state.n, level.lines, { ...opts, slides: false });
+    // Otherwise search. Big boards and turning reflectors get a smaller budget
+    // so a hint never keeps a player waiting; turning boards then try a
+    // search of turns and lines leaving only.
+    let result = known ? { solvable: true, path: [known], par: 0 } : null;
+    let proven = false; // true once a full search has finished
+    if (!result) {
+      const big = state.n > 12;
+      result = solve(state.n, level.lines, big ? { ...opts, maxStates: 15000 } : opts);
+      proven = !result.gaveUp;
+      if (!result.solvable && result.gaveUp && state.rotatable) {
+        const quick = solve(state.n, level.lines, { ...opts, slides: false, maxStates: 15000 });
+        if (quick.solvable) result = quick;
+      }
+    }
     state.hintsUsed++;
     const moves = state.history.length;
     if (!result.solvable) {
       state.hint = { id: -1, to: 0, start: performance.now(), moves };
-      setHintText(result.gaveUp
-        ? 'This is too tangled to work out from here. Try Undo or Restart.'
-        : 'There’s no way out from here. Undo some moves or restart.');
+      // Only say there's no way out when a full search has proven it. If
+      // undoing gets back onto the saved solution, say how far.
+      const back = undosToKnownRoute(level);
+      setHintText(back > 0
+        ? `Undo ${back} ${back === 1 ? 'move' : 'moves'} to get back on track.`
+        : proven
+          ? 'There’s no way out from here. Undo some moves or restart.'
+          : 'This is too tangled to work out from here. Try Undo or Restart.');
       return;
     }
     const move = result.path[0];
