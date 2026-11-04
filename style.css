@@ -611,6 +611,9 @@ h1 {
 }
 .hint.active { color: var(--accent); font-weight: 700; text-shadow: 0 0 12px rgba(94, 242, 255, 0.4); }
 
+/* The win burst: above everything, but never in the way of a tap. */
+.bubble-layer { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 20; pointer-events: none; }
+
 /* ---------- Dialog ---------- */
 .overlay {
   position: absolute;

@@ -977,7 +977,7 @@
       updateHud();
       burstBubbles();
       sfx('win');
-      setTimeout(showWinDialog, 450);
+      setTimeout(showWinDialog, 650);
     }
   }
 
@@ -1397,14 +1397,75 @@
   let bubbles = [];
   let lastBubbleTime = performance.now();
 
-  /** A burst of bubbles rising through the whole board (when a level is cleared). */
+  /**
+   * Level cleared: a rush of bubbles wells up from below the bottom of the
+   * screen and rises over everything (on its own layer above the dialogs).
+   */
+  const fx = $('bubbleLayer');
+  const fxCtx = fx.getContext('2d');
+  let fxBubbles = [];
+  let fxRunning = false;
   function burstBubbles() {
-    if (!motionOK || !state) return;
-    const size = boardSize();
-    const { cell } = layout(size);
-    for (let k = 0; k < 60; k++) {
-      bubbles.push({ x: Math.random() * size, y: size * (0.5 + Math.random() * 0.6), r: cell * (0.06 + Math.random() * 0.18), vx: (Math.random() - 0.5) * cell, vy: -cell * (2 + Math.random() * 3), life: 1.4 });
+    if (!motionOK) return;
+    const dpr = window.devicePixelRatio || 1;
+    const w = fx.clientWidth, h = fx.clientHeight;
+    fx.width = Math.round(w * dpr);
+    fx.height = Math.round(h * dpr);
+    fxCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const tint = colors.lines;
+    const unit = Math.min(w, h * 0.6);
+    const count = Math.round(110 * Math.max(0.7, Math.min(1.4, (w * h) / (400 * 860))));
+    for (let k = 0; k < count; k++) {
+      // Mostly small, a few big ones; staggered so they come in waves.
+      const big = Math.random() < 0.12;
+      const r = unit * (big ? 0.05 + Math.random() * 0.06 : 0.012 + Math.random() * 0.035);
+      fxBubbles.push({
+        x: Math.random() * w,
+        y: h + r + Math.random() * h * 0.15,
+        r,
+        delay: Math.random() * 0.9,
+        speed: h * (0.45 + Math.random() * 0.5) * (big ? 0.8 : 1), // px per second
+        wobble: r * (0.6 + Math.random()) + 6,
+        phase: Math.random() * Math.PI * 2,
+        tint: Math.random() < 0.35 ? tint[Math.floor(Math.random() * tint.length)] : null,
+        age: 0,
+      });
     }
+    if (!fxRunning) { fxRunning = true; fxLast = performance.now(); requestAnimationFrame(fxFrame); }
+  }
+  let fxLast = 0;
+  function fxFrame(now) {
+    const dt = Math.min(0.05, (now - fxLast) / 1000);
+    fxLast = now;
+    const w = fx.clientWidth, h = fx.clientHeight;
+    fxCtx.clearRect(0, 0, w, h);
+    fxBubbles = fxBubbles.filter((b) => b.y > -b.r * 2);
+    for (const b of fxBubbles) {
+      b.age += dt;
+      if (b.age < b.delay) continue;
+      // Rising faster as it goes, swaying side to side.
+      const t = b.age - b.delay;
+      b.y -= b.speed * (0.7 + Math.min(0.6, t * 0.5)) * dt;
+      const x = b.x + Math.sin(b.phase + t * 3) * b.wobble;
+      fxCtx.globalAlpha = 0.9;
+      if (b.tint) {
+        fxCtx.fillStyle = b.tint;
+        fxCtx.globalAlpha = 0.16;
+        fxCtx.beginPath(); fxCtx.arc(x, b.y, b.r, 0, Math.PI * 2); fxCtx.fill();
+        fxCtx.globalAlpha = 0.9;
+      }
+      fxCtx.strokeStyle = b.tint || 'rgba(205,245,255,0.95)';
+      fxCtx.lineWidth = Math.max(1.2, b.r * 0.12);
+      fxCtx.shadowColor = b.tint || 'rgba(160,235,255,0.9)';
+      fxCtx.shadowBlur = Math.min(14, b.r * 0.5);
+      fxCtx.beginPath(); fxCtx.arc(x, b.y, b.r, 0, Math.PI * 2); fxCtx.stroke();
+      fxCtx.shadowBlur = 0;
+      fxCtx.fillStyle = 'rgba(255,255,255,0.85)';
+      fxCtx.beginPath(); fxCtx.arc(x - b.r * 0.35, b.y - b.r * 0.38, b.r * 0.2, 0, Math.PI * 2); fxCtx.fill();
+    }
+    fxCtx.globalAlpha = 1;
+    if (fxBubbles.length) requestAnimationFrame(fxFrame);
+    else { fxRunning = false; fxCtx.clearRect(0, 0, w, h); }
   }
 
   function drawBubbles(cell) {
