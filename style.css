@@ -455,7 +455,38 @@ h1 {
   to { transform: translateY(0) scale(1); opacity: 1; }
 }
 
+/* ---------- Sea life drifting across the background (sea-life.js) ---------- */
+.sea-life { position: absolute; inset: 0; }
+.creature { position: absolute; left: 0; top: 0; will-change: transform; }
+.creature .facing, .creature svg, .creature .school { width: 100%; height: 100%; display: block; }
+.creature svg { overflow: visible; filter: drop-shadow(0 0 4px currentColor); }
+.creature svg path, .creature svg ellipse, .creature svg circle {
+  fill: currentColor; fill-opacity: 0.22; stroke: currentColor; stroke-width: 1.6;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+.creature svg .eye { fill: #fff; fill-opacity: 0.9; stroke: none; }
+.creature svg .shell { fill: none; stroke-opacity: 0.6; }
+.creature .tentacles path, .creature.seahorse path:first-child, .creature .tail, .creature .fin { fill: none; }
+.creature.manta .tail { stroke-width: 1.2; }
+.creature .school { position: relative; }
+.creature .member { position: absolute; width: 30%; height: 30%; animation: school-drift 3s ease-in-out infinite alternate; }
+.creature .wiggle .tail { transform-origin: 12px 15px; animation: tail-wag 0.5s ease-in-out infinite alternate; }
+.creature .pulse .bell { transform-origin: 20px 24px; animation: jelly-pulse 2.2s ease-in-out infinite; }
+.creature .pulse .tentacles { transform-origin: 20px 24px; animation: jelly-trail 2.2s ease-in-out infinite; }
+.creature .flipper.front { transform-origin: 52px 18px; animation: flipper 1.8s ease-in-out infinite alternate; }
+.creature .flipper.back { transform-origin: 52px 38px; animation: flipper 1.8s ease-in-out infinite alternate-reverse; }
+.creature .flap { transform-origin: 50% 50%; animation: manta-flap 2.6s ease-in-out infinite; }
+.creature .bob { animation: seahorse-bob 2.4s ease-in-out infinite alternate; }
+.creature .glide .tail { transform-origin: 20px 40px; animation: tail-wag 3s ease-in-out infinite alternate; }
+@keyframes tail-wag { from { transform: scaleY(0.75) rotate(-8deg); } to { transform: scaleY(1) rotate(8deg); } }
+@keyframes jelly-pulse { 0%, 100% { transform: scale(1, 1); } 40% { transform: scale(0.82, 1.12); } }
+@keyframes jelly-trail { 0%, 100% { transform: scaleY(1); } 40% { transform: scaleY(0.88); } }
+@keyframes flipper { from { transform: rotate(-14deg); } to { transform: rotate(16deg); } }
+@keyframes manta-flap { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(0.62); } }
+@keyframes seahorse-bob { from { transform: translateY(-4px) rotate(-3deg); } to { transform: translateY(4px) rotate(3deg); } }
+@keyframes school-drift { from { transform: translate(-3px, -2px); } to { transform: translate(3px, 3px); } }
+
 @media (prefers-reduced-motion: reduce) {
   .dialog, .ocean::before, .ocean span { animation: none; }
-  .ocean span { display: none; }
+  .ocean span, .sea-life { display: none; }
 }
