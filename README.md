@@ -1,4 +1,4 @@
-# Arrow Escape
+# Tangled Tides
 
 A puzzle game for the browser. The board is a tangle of lines, each with an arrow at one end. Drag a line the way its arrow points and the rest of it follows the head like a worm. You can stop partway, and a line is cleared once it slides off the board. Tap a line to send it straight out; if something is in the way, it bumps into it and springs back. Drag a line to move it exactly as far as you want.
 
@@ -14,11 +14,11 @@ On big boards, pinch with two fingers to zoom in and move around. There are also
 
 The groups are:
 
-- **Group 1: Solid lines.** Boards grow from 4×4 to 10×10.
-- **Group 2: See-through lines.** Five short tutorials, then boards from 6×6 to 10×10 that need more and more partial slides.
-- **Group 3: Reflectors.** Triangles that fill half a square. A line that hits the slanted side turns 90° and keeps going, with its body following around the bend. The flat sides block. A mix of solid and see-through levels from 5×5 to 10×10, with 1 to 7 reflectors.
-- **Group 4: Turning reflectors.** Tap a reflector to turn it a quarter turn. A reflector can't turn while a line is on it, or while a line that went through it is still on the board. Every level needs at least one turn, and later levels need several.
-- **Group 5: Gates and plates.** Coloured gates block lines. A gate is open while any line sits on a plate of the same colour, and it can't close on a line inside it. Plates sit under lines, so a line leaving can close a gate, and a line slid partway onto a plate can reopen it. Every level needs its gates.
+- **Group 1, Kelp Shallows: solid lines.** Boards grow from 4×4 to 10×10.
+- **Group 2, Jellyfish Bay: see-through lines.** Five short tutorials, then boards from 6×6 to 10×10 that need more and more partial slides.
+- **Group 3, Crystal Reef: reflectors.** Triangles that fill half a square. A line that hits the slanted side turns 90° and keeps going, with its body following around the bend. The flat sides block. A mix of solid and see-through levels from 5×5 to 10×10, with 1 to 7 reflectors.
+- **Group 4, Whirlpool: turning reflectors.** Tap a reflector to turn it a quarter turn. A reflector can't turn while a line is on it, or while a line that went through it is still on the board. Every level needs at least one turn, and later levels need several.
+- **Group 5, Sunken Wreck: gates and plates.** Coloured gates block lines. A gate is open while any line sits on a plate of the same colour, and it can't close on a line inside it. Plates sit under lines, so a line leaving can close a gate, and a line slid partway onto a plate can reopen it. Every level needs its gates.
 
 Levels unlock one at a time within a group. Finish 10 levels in a group to unlock the next group in that setting. Each group's level buttons have their own colour.
 
@@ -40,9 +40,12 @@ python3 -m http.server 8000
 ## Files
 
 - `index.html`: front screen, game screen and dialogs
-- `style.css`: layout and light/dark themes
+- `style.css`: layout and the Deep Sea look
 - `rules.js`: how lines move, block each other and bounce off reflectors; the solver; the compact level format
 - `levels-data.js`: the levels the game plays (generated; don't edit by hand)
+- `settings.js`: music, sound and sea-creature settings (saved on the device) and the settings screen
+- `audio.js`: sound effects and calm generated underwater music, made with the Web Audio API (no sound files)
+- `sea-life.js`: the glowing creatures that swim across the background
 - `game.js`: dragging, drawing, undo, hints, groups and menus
 
 ## Making levels

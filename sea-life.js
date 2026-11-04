@@ -1,11 +1,13 @@
 /*
  * Sea life: glowing creatures that now and then swim across the background.
- * Purely decorative: they sit behind everything, ignore taps, and are left
- * out entirely when the player has asked for reduced motion.
+ * Purely decorative: they sit behind everything and ignore taps. The
+ * "Sea creatures" setting turns them off (it starts off for players whose
+ * device asks for reduced motion).
  */
 (function () {
   'use strict';
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const Settings = window.ArrowSettings;
+  const wanted = () => !Settings || Settings.get('creatures');
   const ocean = document.querySelector('.ocean');
   if (!ocean || !Element.prototype.animate) return;
   const layer = document.createElement('div');
@@ -82,7 +84,7 @@
   let lastKind = null;
 
   function spawn() {
-    if (document.hidden || alive >= MAX_AT_ONCE) return;
+    if (!wanted() || document.hidden || alive >= MAX_AT_ONCE) return;
     let name = pick(bag);
     if (name === lastKind) name = pick(bag);
     lastKind = name;
@@ -132,6 +134,15 @@
     const anim = el.animate(frames, { duration: duration * rand(0.85, 1.15), easing: 'linear' });
     anim.onfinish = () => { el.remove(); alive--; };
   }
+
+  // Turned off: the creatures there now fade away.
+  if (Settings) Settings.onChange((name, on) => {
+    if (name !== 'creatures' || on) return;
+    layer.querySelectorAll('.creature').forEach((el) => {
+      el.style.transition = 'opacity 0.6s';
+      el.style.opacity = '0';
+    });
+  });
 
   function loop() {
     spawn();

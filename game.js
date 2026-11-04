@@ -11,6 +11,10 @@
   // and levels below always mean those of this setting.
   let tier = 0;
   const groupsNow = () => TIERS[tier].groups;
+  // Each group's place in the sea. (The level data names the mechanic, which
+  // is shown under it.)
+  const GROUP_TITLES = ['Kelp Shallows', 'Jellyfish Bay', 'Crystal Reef', 'Whirlpool', 'Sunken Wreck'];
+  const groupTitle = (g) => GROUP_TITLES[g] || `Group ${g + 1}`;
 
   // Levels are stored compactly (see rules.js) and decoded when first needed.
   const decoded = new Map();
@@ -183,7 +187,8 @@
     };
     drag = null;
 
-    $('levelLabel').textContent = `Group ${group + 1} · Level ${index + 1}`;
+    $('levelLabel').textContent = `${groupTitle(group)} · ${index + 1}`;
+    $('levelLabel').title = `${groupTitle(group)}, level ${index + 1}`;
     $('hint').textContent = state.levelHint;
     $('hint').classList.remove('active');
     delete canvas.dataset.hintLine;
@@ -239,6 +244,8 @@
       asked.thinking = false;
       if (state !== asked || state.finished || drag) return;
       computeHint();
+      const h = state.hint;
+      if (h && (h.id >= 0 || h.turn !== undefined)) sfx('hint');
     }, 30);
   }
 
@@ -564,6 +571,7 @@
       // A line is on it, or has gone through it: it can't turn.
       state.mirrorFlash[k] = 1;
       if (navigator.vibrate) navigator.vibrate(30);
+      sfx('noTurn');
       return;
     }
     const before = state.mirrors;
@@ -573,6 +581,7 @@
     rebuildLines();
     state.history.push({ turn: k, mirrors: before });
     updateHud();
+    sfx('turn');
   }
 
   function onPointerDown(evt) {
@@ -623,6 +632,7 @@
     const { px, py } = boardPoint(evt);
     const { line, reach: r, back } = drag;
     drag.moved = Math.max(drag.moved, Math.hypot(px - drag.startX, py - drag.startY) / drag.cell);
+    if (!drag.sounded && drag.moved >= TAP_MAX_MOVE) { drag.sounded = true; sfx('pick'); }
     // Follow the path: project the finger's movement onto the way the head is
     // travelling right now, which changes when the line goes round a reflector.
     const mx = px - drag.lastX;
@@ -643,19 +653,22 @@
     const wanted = drag.wanted;
     line.offset = Math.max(back.min, Math.min(wanted, limit));
     let blockerId = -1;
+    let hit = false;
     if (!r.exit && wanted > r.max + BLOCK_PUSH) {
       blockerId = r.blocker;
-      if (r.gate >= 0) flashGate(r.gate);
+      if (r.gate >= 0) hit = flashGate(r.gate);
     }
     if (wanted < back.min - BLOCK_PUSH) {
       if (back.blocker !== -1) blockerId = back.blocker;
-      if (back.gate >= 0) flashGate(back.gate);
+      if (back.gate >= 0) hit = flashGate(back.gate) || hit;
     }
     const blocker = state.lines[blockerId];
     if (blocker && blocker.flash < 0.4) {
       blocker.flash = 1;
       if (navigator.vibrate) navigator.vibrate(30);
+      hit = true;
     }
+    if (hit) sfx('bump');
   }
 
   function onPointerUp(evt) {
@@ -688,11 +701,12 @@
       line.mode = 'exit';
       line.speed = EXIT_SPEED_START;
       state.history.push({ id: line.id, from });
+      sfx('exit');
     } else {
       const to = Math.min(Math.round(line.offset), r.max, line.exitAt - 1);
       line.rest = Math.max(back.min, to);
       line.mode = 'settle';
-      if (line.rest !== from) state.history.push({ id: line.id, from });
+      if (line.rest !== from) { state.history.push({ id: line.id, from }); sfx('slide'); }
     }
     updateHud();
   }
@@ -701,7 +715,9 @@
     if ((state.gateFlash.get(cell) || 0) < 0.4) {
       state.gateFlash.set(cell, 1);
       if (navigator.vibrate) navigator.vibrate(30);
+      return true;
     }
+    return false;
   }
 
   /** Tap: slide all the way off if nothing is in the way, otherwise bump and spring back. */
@@ -712,6 +728,7 @@
       line.mode = 'exit';
       line.speed = EXIT_SPEED_START;
       updateHud();
+      sfx('exit');
     } else {
       line.mode = 'bump';
       line.bumpTarget = r.max + BUMP_OVERLAP;
@@ -724,6 +741,7 @@
     if (!state || state.finished || drag) return;
     const last = state.history.pop();
     if (!last) return;
+    sfx('undo');
     if (last.turn !== undefined) {
       const m = state.mirrors[last.turn];
       const a = ANGLE[shapeIndex(m[2], m[3])];
@@ -738,6 +756,11 @@
     line.rest = last.from;
     line.mode = 'settle';
     updateHud();
+  }
+
+  /** Plays a sound effect from audio.js (if sound is available and on). */
+  function sfx(name) {
+    if (window.ArrowAudio) window.ArrowAudio.play(name);
   }
 
   // ---------- Update loop ----------
@@ -779,6 +802,7 @@
           const blocker = state.lines[l.blocker];
           if (blocker) blocker.flash = 1;
           if (navigator.vibrate) navigator.vibrate(30);
+          sfx('bump');
         }
       } else if (l.mode === 'exit') {
         busy = true;
@@ -799,6 +823,7 @@
       if (state.unlockedGroup >= 0 && !isGroupUnlocked(state.unlockedGroup)) state.unlockedGroup = -1;
       updateHud();
       burstBubbles();
+      sfx('win');
       setTimeout(showWinDialog, 450);
     }
   }
@@ -904,9 +929,12 @@
         }
         ctx.globalAlpha = 1;
       }
+      // Which gates are open, to chime when one opens or closes.
+      let openNow = '';
       for (const [gx, gy, c] of state.gates) {
         const cellIndex = gy * state.n + gx;
         const open = covered.has(c) || any[cellIndex] > 0;
+        openNow += open ? '1' : '0';
         const flash = state.gateFlash.get(cellIndex) || 0;
         const color = flash > 0 ? mix(colors.gates[c], colors.danger, Math.min(1, flash * 1.3)) : colors.gates[c];
         const [bx, by, w] = box(gx, gy, 0.06);
@@ -944,6 +972,17 @@
           }
         }
       }
+      if (state.gatesOpen !== undefined && openNow !== state.gatesOpen) {
+        let opened = 0;
+        let closed = 0;
+        for (let i = 0; i < openNow.length; i++) {
+          if (openNow[i] === '1' && state.gatesOpen[i] === '0') opened++;
+          if (openNow[i] === '0' && state.gatesOpen[i] === '1') closed++;
+        }
+        if (opened) sfx('gateOpen');
+        else if (closed) sfx('gateClose');
+      }
+      state.gatesOpen = openNow;
     }
 
     // Reflectors: a triangle filling half the cell, with its slanted side
@@ -1266,9 +1305,9 @@
       ? `Solved in ${moves} moves. That’s the best possible!`
       : `Solved in ${moves} moves. It can be done in ${par}.`;
     const nextGroup = group + 1 < groupsNow().length && isGroupUnlocked(group + 1) ? group + 1 : -1;
-    const startNextGroup = { label: `Start Group ${nextGroup + 1}`, action: () => startLevel(nextGroup, 0) };
+    const startNextGroup = { label: `Go to ${groupTitle(nextGroup)}`, action: () => startLevel(nextGroup, 0) };
 
-    if (state.unlockedGroup >= 0) detail += ` You’ve unlocked Group ${state.unlockedGroup + 1}: ${groupsNow()[state.unlockedGroup].name}.`;
+    if (state.unlockedGroup >= 0) detail += ` You’ve unlocked ${groupTitle(state.unlockedGroup)}: ${groupsNow()[state.unlockedGroup].name.toLowerCase()}.`;
 
     if (index + 1 < levels.length) {
       const buttons = [{ label: 'Next level', primary: true, action: () => startLevel(group, index + 1) }];
@@ -1282,7 +1321,7 @@
       buttons.push({ label: 'Back to menu', primary: nextGroup < 0, action: goToMenu });
       buttons.push({ label: 'Play again', action: () => startLevel(group, index) });
       const last = group + 1 >= groupsNow().length;
-      showDialog(`Group ${group + 1} complete!`, `${detail} ${last ? `You untangled every ${TIERS[tier].name} level.` : ''}`.trim(), buttons);
+      showDialog(`${groupTitle(group)} complete!`, `${detail} ${last ? `You untangled every ${TIERS[tier].name} level.` : ''}`.trim(), buttons);
     }
   }
 
@@ -1343,7 +1382,7 @@
       b.id = `groupTab${gi}`;
       b.setAttribute('role', 'tab');
       b.setAttribute('aria-selected', String(gi === menuGroup));
-      b.innerHTML = `<span class="group-title">Group ${gi + 1}</span>` +
+      b.innerHTML = `<span class="group-title">${groupTitle(gi)}</span>` +
         `<span class="group-sub">${grp.name}</span>` +
         `<span class="group-count${unlocked ? '' : ' locked'}">${unlocked ? `${completedIn(gi)} / ${grp.levels.length} done` : 'Locked'}</span>`;
       b.addEventListener('click', () => { menuGroup = gi; renderMenu(); });
@@ -1358,7 +1397,7 @@
       const prev = menuGroup - 1;
       const left = UNLOCK_AFTER - completedIn(prev);
       note.hidden = false;
-      note.textContent = `Finish ${left} more ${left === 1 ? 'level' : 'levels'} in Group ${prev + 1} to unlock this group.`;
+      note.textContent = `Finish ${left} more ${left === 1 ? 'level' : 'levels'} in ${groupTitle(prev)} to unlock this group.`;
     }
 
     const grid = $('levelGrid');
@@ -1375,7 +1414,7 @@
       const sub = done ? 'Done' : open ? `${level.size}×${level.size}` : 'Locked';
       b.innerHTML = `<span>${i + 1}</span><span class="sub">${sub}</span>`;
       const rating = (groupsNow()[menuGroup].ratings || [])[i];
-      b.setAttribute('aria-label', `Group ${menuGroup + 1}, level ${i + 1}, ${sub}${rating !== undefined ? `, difficulty ${rating} of 10` : ''}`);
+      b.setAttribute('aria-label', `${groupTitle(menuGroup)}, level ${i + 1}, ${sub}${rating !== undefined ? `, difficulty ${rating} of 10` : ''}`);
       if (rating !== undefined) b.title = `Difficulty ${rating}/10`;
       const gi = menuGroup;
       b.addEventListener('click', () => startLevel(gi, i));
@@ -1384,7 +1423,7 @@
 
     const next = nextLevel();
     $('playBtn').textContent = progress.completed.length === 0 ? 'Play'
-      : next ? `Continue: Group ${next.group + 1}, Level ${next.index + 1}` : 'Play again';
+      : next ? `Continue: ${groupTitle(next.group)}, level ${next.index + 1}` : 'Play again';
   }
 
   $('playBtn').addEventListener('click', () => {
@@ -1399,7 +1438,7 @@
     if ((e.ctrlKey || e.metaKey) && e.key === 'z' && screens.game.classList.contains('active')) {
       e.preventDefault();
       undo();
-    } else if (e.key === 'h' && !e.ctrlKey && !e.metaKey && screens.game.classList.contains('active') && overlay.hidden) {
+    } else if (e.key === 'h' && !e.ctrlKey && !e.metaKey && screens.game.classList.contains('active') && overlay.hidden && !(window.ArrowSettings.isOpen && window.ArrowSettings.isOpen())) {
       showHint();
     }
   });

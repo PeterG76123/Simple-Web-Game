@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Arrow Escape</title>
+  <title>Tangled Tides</title>
   <meta name="description" content="A puzzle game: drag each tangled line off the board the way its arrow points, using see-through gaps to get past other lines." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;600;700&display=swap" />
-  <link rel="stylesheet" href="style.css?v=53b5098a" />
+  <link rel="stylesheet" href="style.css?v=ed02f914" />
 </head>
 <body>
   <!-- The ocean: drifting light rays and rising bubbles behind everything. -->
@@ -27,6 +27,7 @@
 
   <!-- Front screen -->
   <section id="menu" class="screen active" aria-label="Main menu">
+    <button id="menuSettingsBtn" class="btn ghost icon-btn corner-btn" data-open-settings aria-label="Settings" title="Settings"><svg class="gear" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M19.1 10.6 L21.7 10.7 L21.7 13.3 L19.1 13.4 L18.0 16.0 L19.8 18.0 L18.0 19.8 L16.0 18.0 L13.4 19.1 L13.3 21.7 L10.7 21.7 L10.6 19.1 L8.0 18.0 L6.0 19.8 L4.2 18.0 L6.0 16.0 L4.9 13.4 L2.3 13.3 L2.3 10.7 L4.9 10.6 L6.0 8.0 L4.2 6.0 L6.0 4.2 L8.0 6.0 L10.6 4.9 L10.7 2.3 L13.3 2.3 L13.4 4.9 L16.0 6.0 L18.0 4.2 L19.8 6.0 L18.0 8.0Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></button>
     <div class="menu-card">
       <div class="logo" aria-hidden="true">
         <!-- Two glowing eels that never cross: cyan along the top, pink along the bottom. -->
@@ -40,7 +41,7 @@
           <circle cx="104" cy="51" r="2.4" fill="#fff"/><circle cx="104.6" cy="51" r="1.1" fill="#021022"/>
         </svg>
       </div>
-      <h1>Arrow Escape</h1>
+      <h1>Tangled Tides</h1>
       <p class="tagline">Guide the glowing eels out of the deep.</p>
 
       <button id="playBtn" class="btn primary big">Play</button>
@@ -81,6 +82,7 @@
       <div class="hud-actions">
         <button id="undoBtn" class="btn ghost" aria-label="Undo last move" title="Undo (Ctrl+Z)">&#8630;<span class="btn-text"> Undo</span></button>
         <button id="restartBtn" class="btn ghost" aria-label="Restart level" title="Restart">&#8635;</button>
+        <button id="gameSettingsBtn" class="btn ghost icon-btn" data-open-settings aria-label="Settings" title="Settings"><svg class="gear" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M19.1 10.6 L21.7 10.7 L21.7 13.3 L19.1 13.4 L18.0 16.0 L19.8 18.0 L18.0 19.8 L16.0 18.0 L13.4 19.1 L13.3 21.7 L10.7 21.7 L10.6 19.1 L8.0 18.0 L6.0 19.8 L4.2 18.0 L6.0 16.0 L4.9 13.4 L2.3 13.3 L2.3 10.7 L4.9 10.6 L6.0 8.0 L4.2 6.0 L6.0 4.2 L8.0 6.0 L10.6 4.9 L10.7 2.3 L13.3 2.3 L13.4 4.9 L16.0 6.0 L18.0 4.2 L19.8 6.0 L18.0 8.0Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></button>
       </div>
     </header>
 
@@ -101,6 +103,29 @@
     <p id="hint" class="hint" aria-live="polite"></p>
   </section>
 
+  <!-- Settings -->
+  <div id="settingsOverlay" class="overlay" hidden>
+    <div class="dialog settings" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+      <h2 id="settingsTitle">Settings</h2>
+      <div class="setting">
+        <label class="setting-row" for="setMusic"><span class="setting-name">Music</span>
+          <input type="checkbox" id="setMusic" class="switch" role="switch"></label>
+        <input type="range" id="setMusicVol" class="volume" min="0" max="100" step="1" aria-label="Music volume">
+      </div>
+      <div class="setting">
+        <label class="setting-row" for="setSfx"><span class="setting-name">Sound effects</span>
+          <input type="checkbox" id="setSfx" class="switch" role="switch"></label>
+        <input type="range" id="setSfxVol" class="volume" min="0" max="100" step="1" aria-label="Sound effects volume">
+      </div>
+      <div class="setting">
+        <label class="setting-row" for="setCreatures"><span class="setting-name">Sea creatures
+          <small>Fish, turtles and whales swimming in the background</small></span>
+          <input type="checkbox" id="setCreatures" class="switch" role="switch"></label>
+      </div>
+      <button id="settingsDone" class="btn primary">Done</button>
+    </div>
+  </div>
+
   <!-- Win / lose dialog -->
   <div id="overlay" class="overlay" hidden>
     <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dialogTitle">
@@ -110,9 +135,11 @@
     </div>
   </div>
 
-  <script src="rules.js?v=d637eec1"></script>
+  <script src="settings.js?v=b86c4aea"></script>
+  <script src="audio.js?v=e35d89dd"></script>
+  <script src="rules.js?v=da7c0b0f"></script>
   <script src="levels-data.js?v=0b531cdb"></script>
-  <script src="sea-life.js?v=ff815244"></script>
-  <script src="game.js?v=4e70a9a4"></script>
+  <script src="sea-life.js?v=0d6e1358"></script>
+  <script src="game.js?v=1ef108f3"></script>
 </body>
 </html>

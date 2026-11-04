@@ -209,9 +209,10 @@ h1 {
   font: inherit;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
+  justify-content: center;
   gap: 2px;
-  padding: 10px 12px;
+  padding: 10px 8px;
   border-radius: 18px;
   border: 1px solid var(--glass-edge);
   background: var(--glass);
@@ -219,7 +220,7 @@ h1 {
   -webkit-backdrop-filter: blur(10px);
   color: var(--text);
   cursor: pointer;
-  text-align: left;
+  text-align: center;
   min-width: 0;
   transition: border-color 0.2s, box-shadow 0.2s, transform 0.1s;
 }
@@ -456,6 +457,112 @@ h1 {
   to { transform: translateY(0) scale(1); opacity: 1; }
 }
 
+/* ---------- Settings ---------- */
+.icon-btn { display: inline-flex; align-items: center; justify-content: center; }
+.hud .icon-btn { padding: 8px 10px; }
+.icon-btn .gear { display: block; transition: transform 0.4s; }
+.icon-btn:hover .gear { transform: rotate(45deg); }
+.corner-btn {
+  position: absolute;
+  top: max(14px, env(safe-area-inset-top, 0px));
+  right: max(14px, env(safe-area-inset-right, 0px));
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  z-index: 2;
+}
+.dialog.settings { text-align: left; max-width: 360px; }
+.dialog.settings h2 { text-align: center; margin-bottom: 18px; }
+.dialog.settings > .btn { width: 100%; margin-top: 8px; }
+.setting {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--glass-edge);
+}
+.setting:last-of-type { border-bottom: none; }
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  cursor: pointer;
+}
+.setting-name { font-family: var(--font-display); font-weight: 600; font-size: 1.1rem; }
+.setting-name small {
+  display: block;
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: 0.82rem;
+  color: var(--muted);
+  margin-top: 2px;
+}
+/* An on/off switch */
+.switch {
+  appearance: none;
+  -webkit-appearance: none;
+  flex: none;
+  width: 52px;
+  height: 30px;
+  margin: 0;
+  border-radius: 999px;
+  background: rgba(160, 230, 255, 0.14);
+  border: 1px solid var(--glass-edge);
+  position: relative;
+  cursor: pointer;
+  transition: background 0.2s, box-shadow 0.2s;
+}
+.switch::before {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--muted);
+  transition: transform 0.2s, background 0.2s;
+}
+.switch:checked {
+  background: linear-gradient(180deg, var(--accent), var(--accent-2));
+  box-shadow: 0 0 14px rgba(94, 242, 255, 0.45);
+}
+.switch:checked::before { transform: translateX(22px); background: #fff; }
+.switch:focus-visible, .volume:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+/* A volume slider, filled up to its value */
+.volume {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 28px;
+  margin: 10px 0 0;
+  background: transparent;
+  cursor: pointer;
+}
+.volume::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent) var(--fill, 50%), rgba(160, 230, 255, 0.16) var(--fill, 50%));
+}
+.volume::-moz-range-track { height: 6px; border-radius: 999px; background: rgba(160, 230, 255, 0.16); }
+.volume::-moz-range-progress { height: 6px; border-radius: 999px; background: var(--accent); }
+.volume::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 22px;
+  height: 22px;
+  margin-top: -8px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 10px rgba(94, 242, 255, 0.7);
+}
+.volume::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 10px rgba(94, 242, 255, 0.7);
+}
+.volume:disabled { opacity: 0.35; cursor: default; }
+
 /* ---------- Sea life drifting across the background (sea-life.js) ---------- */
 .sea-life { position: absolute; inset: 0; }
 .creature { position: absolute; left: 0; top: 0; will-change: transform; }
@@ -490,5 +597,5 @@ h1 {
 
 @media (prefers-reduced-motion: reduce) {
   .dialog, .ocean::before, .ocean span { animation: none; }
-  .ocean span, .sea-life { display: none; }
+  .ocean span { display: none; }
 }
