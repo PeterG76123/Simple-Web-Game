@@ -26,7 +26,7 @@ const { readBank, fill } = require('./bank.js');
 const { scale } = require('./difficulty.js');
 require('../rules.js');
 const { decodeLevel, solve, pathToText } = globalThis.ArrowRules;
-const MIXED = new Set(['rotclear', 'gatesclear', 'combo', 'twins', 'twinsclear', 'twinsmirror', 'twinsmix']);
+const MIXED = new Set(['rotclear', 'gatesclear', 'combo', 'twins', 'twinsclear', 'twinsmirror', 'twinsmix', 'twinsturn', 'twinsgates', 'twinsall']);
 
 /** A known solution for a mixed level (used by hints), as compact text. */
 function solutionFor(entry) {

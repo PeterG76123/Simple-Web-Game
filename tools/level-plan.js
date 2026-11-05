@@ -16,6 +16,9 @@
  *                 of clearing it no longer works (m = number of pairs)
  *   kind 'twinsclear', 'twinsmirror', 'twinsmix': twins with see-through
  *                 lines, fixed reflectors, or both
+ *   kind 'twinsturn', 'twinsgates', 'twinsall': twins with turning reflectors,
+ *                 with gates, or with everything; turning / the gates are
+ *                 proven still needed with the twins
  *
  * Group 6 (twin eels) has `phases`: its first 10 levels are twins alone,
  * then the other mechanics join in (see tools/build-levels.js).
@@ -43,6 +46,9 @@ const tw = (n, m) => [n, 'twins', m]; // twin eels: m pairs
 const twc = (n, m) => [n, 'twinsclear', m]; // twins with see-through lines
 const twm = (n, m) => [n, 'twinsmirror', m]; // twins with fixed reflectors
 const twx = (n, m) => [n, 'twinsmix', m]; // twins with see-through lines and reflectors
+const twr = (n, m) => [n, 'twinsturn', m]; // twins with turning reflectors
+const twg = (n, m) => [n, 'twinsgates', m]; // twins with gates and plates
+const twa = (n, m) => [n, 'twinsall', m]; // twins with see-through lines, turning reflectors and gates
 const range = (from, to) => Array.from({ length: to - from + 1 }, (_, i) => from + i);
 const twice = (sizes) => sizes.flatMap((n) => [n, n]);
 
@@ -92,8 +98,8 @@ module.exports = {
           phases: [10, 15],
           slots: [
             tw(5, 1), tw(5, 1), tw(6, 1), tw(6, 1), tw(6, 2), tw(7, 1), tw(7, 2), tw(7, 2), tw(8, 2), tw(8, 2),
-            twc(6, 1), twc(7, 1), twm(7, 1), twc(7, 2), twm(8, 2), twc(8, 2), twx(8, 2), twm(9, 2), twc(9, 2),
-            twx(9, 2), twm(10, 2), twc(10, 2), twx(10, 2), twm(10, 3), twx(10, 3),
+            twc(6, 1), twr(6, 1), twg(6, 1), twm(7, 1), twc(7, 2), twr(8, 2), twg(8, 2), twx(8, 2), twm(9, 2), twc(9, 2),
+            twr(9, 2), twg(9, 2), twa(8, 1), twx(10, 2), twa(10, 2),
           ],
         },
       ],
@@ -133,7 +139,9 @@ module.exports = {
           phases: [10, 10],
           slots: [
             tw(11, 2), tw(12, 2), tw(12, 2), tw(13, 2), tw(14, 2), tw(15, 2), tw(16, 3), tw(17, 3), tw(18, 3), tw(20, 3),
-            twc(11, 2), twm(12, 2), twc(12, 2), twc(13, 2), twm(14, 3), twc(14, 2), twm(16, 3), twm(18, 3), twm(19, 3), twm(20, 3),
+            // Turning reflectors and gates join in on the smaller boards (bigger
+            // ones are too slow to search with twins).
+            twc(11, 2), twg(11, 2), twr(11, 2), twg(12, 2), twr(12, 2), twc(13, 2), twm(14, 3), twc(14, 2), twm(16, 3), twm(18, 3),
           ],
         },
       ],

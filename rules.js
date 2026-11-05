@@ -530,6 +530,33 @@
    */
   function twinReach(n, lines, offsets, a, b, occ) {
     const la = lines[a], lb = lines[b];
+    const world = lines.world;
+    // With gates: every other line's segments (for plates and gates held open).
+    let others = null;
+    if (world) {
+      others = anyMap(n, lines, offsets);
+      for (const [id, line] of [[a, la], [b, lb]]) {
+        for (let j = 0; j < line.len; j++) {
+          const [x, y] = line.track[offsets[id] + j];
+          if (inBounds(n, x, y)) others[y * n + x]--;
+        }
+      }
+    }
+    // A closed gate that `line` would newly enter going prevO -> toO, while its
+    // twin goes to otherTo at the same time (the twin can hold a gate open, or
+    // press a plate that opens it). Returns the gate's cell, or -1.
+    const gateFor = (line, prevO, toO, other, otherTo) => {
+      for (const [t, c, colour] of lineGates(n, line, world)) {
+        if (!(t >= toO && t < toO + line.len) || (t >= prevO && t < prevO + line.len)) continue;
+        if (others[c] > 0 || onCell(other, otherTo, c)) continue;
+        let open = false;
+        for (const pc of world.platesOf.get(colour) || []) {
+          if (others[pc] > 0 || onCell(line, toO, pc) || onCell(other, otherTo, pc)) { open = true; break; }
+        }
+        if (!open) return c;
+      }
+      return -1;
+    };
     occ = (occ || solidMap(n, lines, offsets, -1)).slice();
     for (const [id, line] of [[a, la], [b, lb]]) {
       for (let j = 0; j < line.len; j++) {
@@ -556,23 +583,69 @@
       }
       return -1;
     };
+    const gateAt = (pa, pb, na, nb) => {
+      if (!world) return -1;
+      const g = gateFor(la, pa, na, lb, nb);
+      return g !== -1 ? g : gateFor(lb, pb, nb, la, na);
+    };
     const sa = offsets[a], sb = offsets[b];
-    let fwd = 0, blocker = -1;
+    let fwd = 0, blocker = -1, gate = -1;
     for (;;) {
       const na = sa + fwd + 1, nb = sb + fwd + 1;
       if (na > la.limit || nb > lb.limit) break;
       const hit = blockedAt(na, nb);
       if (hit !== -1) { blocker = hit; break; }
+      const g = gateAt(na - 1, nb - 1, na, nb);
+      if (g !== -1) { gate = g; break; }
       fwd++;
       if (na === la.exitAt || nb === lb.exitAt) break;
     }
-    let back = 0, backBlocker = -1;
+    let back = 0, backBlocker = -1, backGate = -1;
     while (sa - back - 1 >= 0 && sb - back - 1 >= 0) {
-      const hit = blockedAt(sa - back - 1, sb - back - 1);
+      const pa = sa - back - 1, pb = sb - back - 1;
+      const hit = blockedAt(pa, pb);
       if (hit !== -1) { backBlocker = hit; break; }
+      const g = gateAt(pa + 1, pb + 1, pa, pb);
+      if (g !== -1) { backGate = g; break; }
       back++;
     }
-    return { fwd, back, out: [sa + fwd === la.exitAt, sb + fwd === lb.exitAt], blocker, backBlocker };
+    return { fwd, back, out: [sa + fwd === la.exitAt, sb + fwd === lb.exitAt], blocker, backBlocker, gate, backGate };
+  }
+
+  /** Track positions of each square a line's track passes (cached on the line). */
+  function cellTimes(n, line) {
+    if (!line.cellT) {
+      line.cellT = new Map();
+      line.track.forEach(([x, y], t) => {
+        if (!inBounds(n, x, y)) return;
+        const c = y * n + x;
+        if (!line.cellT.has(c)) line.cellT.set(c, []);
+        line.cellT.get(c).push(t);
+      });
+      line.cellN = n;
+    }
+    return line.cellT;
+  }
+  /** True if `line` at offset `o` has any segment on square `cell`. */
+  function onCell(line, o, cell) {
+    const ts = line.cellT && line.cellT.get(cell);
+    if (!ts) return false;
+    for (const t of ts) if (t >= o && t < o + line.len) return true;
+    return false;
+  }
+  /** Gates along a line's track: [track position, cell, colour] (cached). */
+  function lineGates(n, line, world) {
+    if (!line.twinGates || line.twinGates.world !== world) {
+      cellTimes(n, line);
+      const list = [];
+      line.track.forEach(([x, y], t) => {
+        if (!inBounds(n, x, y)) return;
+        const c = y * n + x;
+        if (world.gateAt.has(c)) list.push([t, c, world.gateAt.get(c)]);
+      });
+      line.twinGates = { world, list };
+    }
+    return line.twinGates.list;
   }
 
   /**
@@ -587,23 +660,65 @@
   }
 
   /**
-   * Solver for levels with twin eels (and fixed reflectors). Every slide or
-   * exit is one move; a slide of a twin moves both. Lines with no twin on the
-   * board leave as soon as they can (each costs the one move it must cost
-   * anyway). Finds the fewest moves, as par.
-   * Path items are { line, to }: `to` is where that line ends (-1 = it left);
-   * for a twin, its twin moves by the same amount.
+   * Solver for levels with twin eels, on any board: see-through parts, fixed
+   * or turning reflectors, gates and plates. Every slide, exit or turn is one
+   * move; a slide of a twin moves both. Lines with no twin on the board leave
+   * as soon as they can (each costs the one move it must cost anyway), unless
+   * they sit on a plate or in a gate (taking those off could shut a gate, so
+   * the search decides). Finds the fewest moves, as par.
+   * Path items are { line, to } (`to` is where that line ends, -1 = it left;
+   * a twin's twin moves by the same amount) or { turn: k }.
    * With `slides: false`, lines without a twin only ever leave (no partial
    * slides): far quicker on big boards with no see-through parts, where a
-   * partial slide of a single line is very rarely any use.
+   * partial slide of a single line is very rarely any use. `noTurns` leaves
+   * the reflectors as they are.
    */
-  function solveTwins(n, arrows, { twins = [], maxStates = 200000, mirrors = [], start: from, slides = true } = {}) {
-    const map = mirrorMap(n, mirrors);
-    const lines = arrows.map((a) => buildLine(n, a, map));
-    const twin = twinMap(lines.length, twins);
+  function solveTwins(n, arrows, { twins = [], maxStates = 200000, mirrors = [], rotatable = false, gates = [], plates = [], start: from, startMirrors, slides = true, noTurns = false } = {}) {
+    const world = makeWorld(n, gates, plates);
+    const shapes = (ms) => ms.map((m) => `${m[2]}${m[3]}`).join('');
+    const cache = new Map();
+    const linesFor = (ms, key = shapes(ms)) => {
+      let lines = cache.get(key);
+      if (!lines) {
+        const map = mirrorMap(n, ms);
+        lines = arrows.map((a) => buildLine(n, a, map));
+        lines.world = world;
+        cache.set(key, lines);
+      }
+      return lines;
+    };
+    const twin = twinMap(arrows.length, twins);
+    // Gate and plate squares: a line on one isn't taken off automatically.
+    const special = world ? new Set([...gates, ...plates].map(([x, y]) => y * n + x)) : null;
+    const takeable = (lines, o, id) => {
+      if (!special) return true;
+      const line = lines[id];
+      for (let j = 0; j < line.len; j++) {
+        const [x, y] = line.track[o[id] + j];
+        if (inBounds(n, x, y) && special.has(y * n + x)) return false;
+      }
+      return true;
+    };
     // Take off every line that can leave and has no twin on the board.
-    const settle = (o) => {
+    const settle = (lines, o) => {
       const out = [];
+      if (world) {
+        let changed = true;
+        while (changed) {
+          changed = false;
+          const occ = solidMap(n, lines, o, -1);
+          const any = anyMap(n, lines, o);
+          for (let id = 0; id < lines.length; id++) {
+            if (o[id] < 0 || activeTwin(twin, o, id) >= 0 || !takeable(lines, o, id)) continue;
+            if (!reach(n, lines, o, id, occ, any).exit) continue;
+            o[id] = -1;
+            out.push(id);
+            changed = true;
+            break;
+          }
+        }
+        return out;
+      }
       const occ = solidMap(n, lines, o, -1);
       let changed = true;
       while (changed) {
@@ -625,11 +740,14 @@
       }
       return out;
     };
-    const start = from ? from.slice() : lines.map(() => 0);
-    const startExits = settle(start);
-    const startKey = start.join(',');
+    const ms0 = (startMirrors || mirrors).map((m) => m.slice());
+    const start = from ? from.slice() : arrows.map(() => 0);
+    const startExits = settle(linesFor(ms0), start);
+    const keyOf = (o, ms) => o.join(',') + '|' + shapes(ms);
+    const startKey = keyOf(start, ms0);
     const best = new Map([[startKey, startExits.length]]);
     const prev = new Map([[startKey, null]]);
+    const state = new Map([[startKey, { o: start, ms: ms0 }]]);
     const buckets = [];
     buckets[startExits.length] = [startKey];
     const pathTo = (key) => {
@@ -645,19 +763,26 @@
     for (let cost = 0; cost < buckets.length; cost++) {
       for (const key of buckets[cost] || []) {
         if (best.get(key) !== cost) continue;
-        const o = key.split(',').map(Number);
+        const { o, ms } = state.get(key);
         if (o.every((v) => v < 0)) {
           const path = pathTo(key);
-          return { solvable: true, par: cost, path, partialMoves: path.filter((p) => p.to >= 0).length, states: best.size };
+          return {
+            solvable: true, par: cost, path, states: best.size,
+            partialMoves: path.filter((p) => p.turn === undefined && p.to >= 0).length,
+            turns: path.filter((p) => p.turn !== undefined).length,
+          };
         }
+        const lines = linesFor(ms);
         const occ = solidMap(n, lines, o, -1);
-        const tryState = (next, move) => {
-          const exits = settle(next);
-          const k = next.join(',');
+        const any = world ? anyMap(n, lines, o) : undefined;
+        const tryState = (next, nextMs, move) => {
+          const exits = settle(linesFor(nextMs), next);
+          const k = keyOf(next, nextMs);
           const c = cost + 1 + exits.length;
           if (best.has(k) && best.get(k) <= c) return;
           best.set(k, c);
           prev.set(k, { prev: key, move, exits });
+          state.set(k, { o: next, ms: nextMs });
           (buckets[c] = buckets[c] || []).push(k);
         };
         for (let id = 0; id < lines.length; id++) {
@@ -670,18 +795,33 @@
               if (d === 0) continue;
               const next = o.slice();
               moveTwins(lines, next, id, t, d);
-              tryState(next, { line: id, to: next[id] });
+              tryState(next, ms, { line: id, to: next[id] });
             }
-          } else if (slides) {
-            const hi = reach(n, lines, o, id, occ).max;
-            const lo = reachBack(n, lines, o, id, occ).min;
-            for (let s = lo; s <= hi; s++) {
-              if (s === o[id] || s >= lines[id].exitAt) continue;
-              const next = o.slice();
-              next[id] = s;
-              tryState(next, { line: id, to: s });
-            }
+            continue;
           }
+          const r = reach(n, lines, o, id, occ, any);
+          // A free line on a plate or in a gate: leaving is a choice.
+          if (r.exit && world && !takeable(lines, o, id)) {
+            const next = o.slice();
+            next[id] = -1;
+            tryState(next, ms, { line: id, to: -1 });
+          }
+          if (!slides && !world) continue;
+          const lo = reachBack(n, lines, o, id, occ, any).min;
+          for (let s = lo; s <= r.max; s++) {
+            if (s === o[id] || s >= lines[id].exitAt) continue;
+            // Without slides, singles only shuffle when gates are involved.
+            if (!slides && !special) continue;
+            const next = o.slice();
+            next[id] = s;
+            tryState(next, ms, { line: id, to: s });
+          }
+        }
+        if (rotatable && !noTurns) {
+          ms.forEach((m, k) => {
+            if (!canTurn(n, lines, o, m)) return;
+            tryState(o.slice(), turnMirror(ms, k), { turn: k });
+          });
         }
         if (best.size > maxStates) return { solvable: false, gaveUp: true, states: best.size };
       }

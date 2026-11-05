@@ -318,53 +318,73 @@ function makeCombo(n, rng, { mirrors: mirrorCount = 0, colours = 0, turn = false
 
 /**
  * Twin eels: pairs of lines that always slide together. Start from a full,
- * solvable board (solid, or with see-through parts, with or without fixed
- * reflectors), then try many random choices of pairs and keep the one where
- * the twins matter most. A choice only counts if the board is still solvable
- * with twins, the usual way of clearing it no longer works, and it takes
- * more moves than the same board without twins.
- * "mirrors" is the number of twin pairs; `clear` adds see-through parts and
- * `reflectors` fixed reflectors.
+ * solvable board (solid or see-through, with fixed or turning reflectors, or
+ * with gates and plates), then try many random choices of pairs and keep the
+ * one where the twins matter most. A choice only counts if the board is still
+ * solvable with twins, the usual way of clearing it no longer works, it takes
+ * more moves than the same board without twins, and (with gates or turning
+ * reflectors) those are still needed: it can't be done with the gates shut,
+ * or without turning a reflector.
+ * "mirrors" is the number of twin pairs; `clear` adds see-through parts,
+ * `reflectors` reflectors (turnable with `turn`), `colours` gate colours.
  */
-function makeTwins(n, rng, { mirrors: pairCount = 1, clear = false, reflectors = 0, tries = 0, maxStates = 40000 } = {}) {
-  const base = clear ? makeSeeThrough(n, rng, { mirrors: reflectors }) : makeSolid(n, rng, { mirrors: reflectors });
+function makeTwins(n, rng, { mirrors: pairCount = 1, clear = false, reflectors = 0, turn = false, colours = 0, tries = 0, maxStates = 40000 } = {}) {
+  let base;
+  if (turn && colours) base = makeCombo(n, rng, { mirrors: reflectors, turn: true, colours });
+  else if (colours && clear) base = makeCombo(n, rng, { colours });
+  else if (colours) base = makeGates(n, rng, { mirrors: colours });
+  else if (turn) base = makeRotate(n, rng, { mirrors: reflectors });
+  else base = clear ? makeSeeThrough(n, rng, { mirrors: reflectors }) : makeSolid(n, rng, { mirrors: reflectors });
   if (!base) return null;
   const arrows = base.arrows;
-  const mirrors = base.mirrors || [];
+  const extras = base.extras || {};
+  const world = { mirrors: base.mirrors || [], rotatable: !!extras.rotatable, gates: extras.gates || [], plates: extras.plates || [] };
+  const hasClear = arrows.some((a) => (a.clear || []).length);
   // Big boards with no see-through parts: single lines only ever need to
   // leave, so search just the twins' slides (much quicker).
-  const slides = clear || n <= 12;
-  const plain = solveTwins(n, arrows, { twins: [], mirrors, maxStates, slides });
+  const slides = hasClear || n <= 12 || world.gates.length > 0;
+  const plain = solveTwins(n, arrows, { twins: [], ...world, maxStates, slides });
   if (!plain.solvable) return null;
   tries = tries || (n <= 10 ? 80 : n <= 20 ? 40 : 24);
-  let best = null;
+  const found = [];
   for (let t = 0; t < tries; t++) {
     const ids = shuffle([...arrows.keys()], rng).slice(0, pairCount * 2);
     if (ids.length < pairCount * 2) return null;
     const twins = [];
     for (let k = 0; k < pairCount; k++) twins.push([ids[2 * k], ids[2 * k + 1]].sort((a, b) => a - b));
-    const r = solveTwins(n, arrows, { twins, mirrors, maxStates, slides });
+    const r = solveTwins(n, arrows, { twins, ...world, maxStates, slides });
     if (!r.solvable) continue;
-    if (playPath(n, arrows, { twins, mirrors }, plain.path)) continue; // the usual way still works
+    if (playPath(n, arrows, { twins, ...world }, plain.path)) continue; // the usual way still works
     const extra = r.par - plain.par;
     if (extra < 1) continue;
     // More extra moves, more slides of twins, and more dead ends to think through.
-    const score = 4 * extra + 2 * r.partialMoves + Math.log2(1 + r.states);
-    if (!best || score > best.score) best = { twins, r, extra, score };
+    found.push({ twins, r, extra, score: 4 * extra + 2 * r.partialMoves + Math.log2(1 + r.states) });
   }
-  if (!best) return null;
-  return {
-    arrows,
-    mirrors,
-    extras: { twins: best.twins },
-    par: best.r.par,
-    partial: best.r.partialMoves,
-    states: best.r.states,
-    rounds: base.rounds,
-    initialFree: base.initialFree,
-    // With a known way through, so hints can follow it on big boards.
-    stats: { twins: pairCount, extra: best.extra, solution: pathToText(best.r.path) },
-  };
+  found.sort((a, b) => b.score - a.score);
+  for (const best of found.slice(0, 6)) {
+    // The board's own mechanic must still be needed with the twins.
+    if (world.gates.length) {
+      const shut = solveTwins(n, arrows, { twins: best.twins, ...world, plates: [], maxStates, slides });
+      if (shut.solvable || shut.gaveUp) continue;
+    }
+    if (world.rotatable) {
+      const still = solveTwins(n, arrows, { twins: best.twins, ...world, noTurns: true, maxStates, slides });
+      if (still.solvable || still.gaveUp) continue;
+    }
+    return {
+      arrows,
+      mirrors: world.mirrors,
+      extras: { ...extras, twins: best.twins },
+      par: best.r.par,
+      partial: best.r.partialMoves,
+      states: best.r.states,
+      rounds: base.rounds,
+      initialFree: base.initialFree,
+      // With a known way through, so hints can follow it on big boards.
+      stats: { twins: pairCount, extra: best.extra, turns: best.r.turns, gates: world.gates.length, solution: pathToText(best.r.path) },
+    };
+  }
+  return null;
 }
 
 module.exports = { makeRotate, makeGates, makeCombo, makeTwins, mulberry32 };

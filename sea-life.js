@@ -78,6 +78,40 @@
         '<path class="fin" d="M120 50 C116 60 106 64 98 64 C104 58 108 54 110 50Z"/></svg>',
       size: (w) => [w, w * 0.35],
     },
+    // A shark: pointed snout, tall dorsal fin, a tail that sweeps side to side.
+    shark: {
+      w: 1.1, speed: 22, weight: 1,
+      html: () => '<svg viewBox="0 0 200 76" class="sharkswim"><path d="M30 42 C60 28 120 22 160 30 C178 34 190 38 198 42 C188 46 176 50 160 52 C120 58 60 56 30 42Z"/>' +
+        '<path class="dorsal" d="M98 27 L116 3 L128 28Z"/><path class="tail" d="M34 42 L4 14 L14 42 L4 70Z"/>' +
+        '<path d="M122 52 L104 72 L134 53Z"/><path class="fin" d="M150 36 L148 46 M155 35 L153 46 M160 35 L158 46"/>' +
+        '<path class="fin" d="M174 46 Q181 48 188 45"/><circle class="eye" cx="177" cy="38" r="2.4"/></svg>',
+      size: (w) => [w, w * 0.38],
+    },
+    // An octopus: a round head with big eyes over curling, waving arms. It
+    // drifts upwards like a jellyfish (and squirts ink if startled).
+    octopus: {
+      w: 0.3, speed: 34, weight: 2, rises: true,
+      html: () => '<svg viewBox="0 0 80 100" class="octo"><g class="arms">' +
+        '<path d="M22 50 C12 64 26 76 12 90 C10 92 8 92 7 90"/><path d="M29 54 C24 70 36 82 27 96"/>' +
+        '<path d="M37 56 C36 72 44 84 38 98"/><path d="M44 56 C46 72 38 84 45 98"/>' +
+        '<path d="M51 54 C56 70 44 82 53 96"/><path d="M58 50 C68 64 54 76 68 90 C70 92 72 92 73 90"/></g>' +
+        '<path class="mantle" d="M40 6 C58 6 66 22 64 38 C62 50 52 56 40 56 C28 56 18 50 16 38 C14 22 22 6 40 6Z"/>' +
+        '<circle class="eye" cx="32" cy="40" r="3.2"/><circle class="eye" cx="48" cy="40" r="3.2"/></svg>',
+      size: (w) => [w, w * 1.25],
+    },
+    // A scuba diver: mask, air tank and kicking fins, breathing out bubbles.
+    diver: {
+      w: 0.5, speed: 50, weight: 1,
+      html: () => '<svg viewBox="0 0 160 70" class="diver">' +
+        '<g class="leg1"><path class="limb" d="M46 36 L16 28"/><path d="M17 28 L2 18 L5 32Z"/></g>' +
+        '<g class="leg2"><path class="limb" d="M46 40 L16 46"/><path d="M17 46 L2 56 L5 42Z"/></g>' +
+        '<path d="M40 34 C60 26 100 26 118 31 C125 33 125 42 118 44 C100 48 60 46 40 40Z"/>' +
+        '<path d="M62 18 h44 a6 6 0 0 1 0 12 h-44 a6 6 0 0 1 0 -12z"/>' +
+        '<path class="limb" d="M108 38 L140 46"/><circle cx="131" cy="32" r="10"/>' +
+        '<path class="mask" d="M129 26 h11 a2 2 0 0 1 2 2 v6 a2 2 0 0 1 -2 2 h-11z"/>' +
+        '<g class="breath"><circle cx="138" cy="20" r="3"/><circle cx="141" cy="14" r="2.2"/><circle cx="137" cy="8" r="1.6"/></g></svg>',
+      size: (w) => [w, w * 0.44],
+    },
   };
   const bag = Object.entries(KINDS).flatMap(([name, k]) => Array(k.weight).fill(name));
   let alive = 0;
@@ -139,6 +173,16 @@
   }
 
   // ---------- Tap a creature and it darts away ----------
+  /** A puff of dark ink that spreads and fades where a startled octopus was. */
+  function squirtInk(x, y, size) {
+    const ink = document.createElement('div');
+    ink.className = 'ink';
+    const s = Math.max(60, size * 1.4);
+    ink.style.cssText = `left:${x - s / 2}px;top:${y - s / 2}px;width:${s}px;height:${s}px`;
+    layer.appendChild(ink);
+    ink.animate([{ transform: 'scale(0.3)', opacity: 0.85 }, { transform: 'scale(1.6)', opacity: 0 }], { duration: 1600, easing: 'ease-out' }).onfinish = () => ink.remove();
+  }
+
   /** Startled: a quick zig-zag dash away from the finger and off the screen. */
   function scare(el, tapX, tapY) {
     if (el.classList.contains('scared')) return;
@@ -150,7 +194,8 @@
     let d = Math.hypot(dx, dy);
     if (d < 1) { const a = rand(0, Math.PI * 2); dx = Math.cos(a); dy = Math.sin(a); d = 1; }
     dx /= d; dy /= d;
-    if (el._kind === 'jelly') {
+    if (el._kind === 'octopus') squirtInk(r.left - box.left + r.width / 2, r.top - box.top + r.height * 0.45, r.width);
+    if (KINDS[el._kind] && KINDS[el._kind].rises) {
       // Jellyfish can only push themselves along, so they dart mostly upwards.
       dy = -Math.abs(dy) - 0.8;
       d = Math.hypot(dx, dy); dx /= d; dy /= d;

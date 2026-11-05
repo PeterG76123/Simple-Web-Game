@@ -54,4 +54,10 @@ module.exports = {
   twinsmirror: wrap((n, rng, { mirrors }) => makeTwins(n, rng, { mirrors, reflectors: reflectorsFor(n) })),
   // Twins with see-through lines and fixed reflectors.
   twinsmix: wrap((n, rng, { mirrors }) => makeTwins(n, rng, { mirrors, clear: true, reflectors: reflectorsFor(n) })),
+  // Twins with turning reflectors.
+  twinsturn: wrap((n, rng, { mirrors }) => makeTwins(n, rng, { mirrors, turn: true, reflectors: Math.max(1, reflectorsFor(n) - 1) })),
+  // Twins with gates and plates (one gate colour on small boards, two from 9x9).
+  twinsgates: wrap((n, rng, { mirrors }) => makeTwins(n, rng, { mirrors, colours: n <= 8 ? 1 : 2 })),
+  // Twins with everything: see-through lines, turning reflectors and gates.
+  twinsall: wrap((n, rng, { mirrors }) => makeTwins(n, rng, { mirrors, turn: true, reflectors: Math.max(1, reflectorsFor(n) - 1), colours: n <= 9 ? 1 : 2 })),
 };

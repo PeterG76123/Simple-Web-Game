@@ -100,15 +100,23 @@ t.groups.forEach((g, gi) => {
     if (short) fail(`${name}: ${short} lines shorter than 3 squares`);
     if (gi === 0 && hasClear) fail(`${name} has see-through parts`);
     if (gi < 2 && mirrors.length) fail(`${name} has reflectors`);
-    if (gi !== 4 && gates.length) fail(`${name} has gates`);
+    if (gi !== 4 && gi !== 5 && gates.length) fail(`${name} has gates`);
     if (gi !== 5 && twins.length) fail(`${name} has twin eels`);
     if (gi === 5 && !twins.length) fail(`${name} has no twin eels`);
     if (gi === 5) {
       // The twins must matter: the same board without them takes fewer moves.
-      const alone = n > 12 && !hasClear
-        ? globalThis.ArrowRules.solveTwins(n, level.lines, { twins: [], mirrors, slides: false })
-        : solve(n, level.lines, { maxStates: 400000, mirrors });
+      const plainWorld = { mirrors, rotatable: level.rotatable, gates, plates, maxStates: 400000, slides: world.slides !== false };
+      const alone = globalThis.ArrowRules.solveTwins(n, level.lines, { twins: [], ...plainWorld });
       if (alone.solvable && alone.par >= result.par) fail(`${name}: the twins make no difference`);
+      // Gates and turning reflectors, when present, must still be needed.
+      if (gates.length) {
+        const shut = globalThis.ArrowRules.solveTwins(n, level.lines, { twins, ...plainWorld, plates: [] });
+        if (shut.solvable || shut.gaveUp) fail(`${name} doesn't need its gates`);
+      }
+      if (level.rotatable) {
+        const still = globalThis.ArrowRules.solveTwins(n, level.lines, { twins, ...plainWorld, noTurns: true });
+        if (still.solvable || still.gaveUp) fail(`${name}: couldn't prove turning is needed`);
+      }
     }
     if (gi < 3 && level.rotatable) fail(`${name} has turnable reflectors`);
     // Groups 4 and 5: see-through parts, when present, must be used: the best

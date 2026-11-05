@@ -357,6 +357,8 @@
    * on big boards. Returns { k, taps } or null.
    */
   function turnThatFrees(level) {
+    // With twins a freed line may still be held by its twin: leave it to the search.
+    if (state.twins && state.twins.length) return null;
     // Not with gates: the quick search takes lines off freely, which can
     // close a gate.
     if (!state.rotatable || state.gates.length) return null;
@@ -720,8 +722,8 @@
     const twin = partnerOf(line);
     if (twin) {
       const t = twinReach(state.n, state.lines, offsets, line.id, twin.id);
-      r = { max: line.rest + t.fwd, exit: t.out[0], blocker: t.blocker, gate: -1, twinLeaves: t.out[1] };
-      back = { min: line.rest - t.back, blocker: t.backBlocker, gate: -1 };
+      r = { max: line.rest + t.fwd, exit: t.out[0], blocker: t.blocker, gate: t.gate, twinLeaves: t.out[1] };
+      back = { min: line.rest - t.back, blocker: t.backBlocker, gate: t.backGate };
       twin.mode = 'drag';
     }
     drag = {
