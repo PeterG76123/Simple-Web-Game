@@ -1,2 +1,3 @@
 {"level":"6|11|21URRR,10DDDLD,02UU,53DDLU,52LD,51LLD,05RURD,23RDD|223|RT0306","lines":8,"partial":2,"rounds":4,"initialFree":4,"states":141,"twins":1,"extra":1,"turns":2,"gates":0,"solution":"1:x 4:x 5:x 7:x t0 t0 0:1 3:5 2:x 3:x 0:x"}
 {"level":"6|12|31RU,01URRR,55LLU,11DDDDRU,32LDR,05UUU,50DDL,43RDL|210|RT0005","lines":8,"partial":3,"rounds":4,"initialFree":3,"states":77,"twins":1,"extra":3,"turns":2,"gates":0,"solution":"2:x 6:x 4:x t0 t0 0:3 1:3 3:x 0:4 0:x 1:x 7:x"}
+{"level":"6|10|43RU,10DRU,42ULURRD,24LLUUUU,12RDRU,05RRRU,55ULD|132|RT0102","lines":7,"partial":1,"rounds":5,"initialFree":3,"states":30,"twins":1,"extra":1,"turns":2,"gates":0,"solution":"5:x 6:x 3:x 4:x t0 t0 0:3 1:x 0:x 2:x"}
