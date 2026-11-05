@@ -33,6 +33,11 @@ const fail = (msg) => { ok = false; console.log(`  FAIL: ${msg}`); };
 const only = (name) => { const a = process.argv.find((x) => x.startsWith(`--${name}=`)); return a ? Number(a.split('=')[1]) : null; };
 const onlyTier = only('tier');
 const onlyGroup = only('group');
+// --cache=FILE: skip levels that passed before (listed in FILE), and add each
+// level that passes now. Handy for re-checking after a few levels change.
+const cacheArg = process.argv.find((x) => x.startsWith('--cache='));
+const cacheFile = cacheArg ? cacheArg.split('=')[1] : null;
+const passed = new Set(cacheFile && require('fs').existsSync(cacheFile) ? require('fs').readFileSync(cacheFile, 'utf8').split('\n').filter(Boolean) : []);
 
 tiers.forEach((t, ti) => {
 if (onlyTier !== null && ti !== onlyTier) return;
@@ -44,6 +49,15 @@ t.groups.forEach((g, gi) => {
   if (ratings.length !== g.levels.length) fail(`${t.name} ${g.name}: ${ratings.length} ratings for ${g.levels.length} levels`);
   ratings.forEach((r, i) => { if (i && r < ratings[i - 1]) fail(`${t.name} ${g.name}: level ${i + 1} is rated easier than level ${i}`); });
   g.levels.forEach((raw, i) => {
+    const cacheKey = `${t.name}|${gi}|${typeof raw === 'string' ? raw : JSON.stringify(raw)}`;
+    if (passed.has(cacheKey)) { console.log(`  ${t.name[0]}${gi + 1}-${i + 1}  passed before`); return; }
+    const okBefore = ok;
+    ok = true;
+    checkLevel(raw, i);
+    if (ok && cacheFile) require('fs').appendFileSync(cacheFile, cacheKey + '\n');
+    ok = okBefore && ok;
+  });
+  function checkLevel(raw, i) {
     const level = typeof raw === 'string' ? decodeLevel(raw) : raw;
     const n = level.size;
     const name = `${t.name[0]}${gi + 1}-${i + 1}`;
@@ -187,7 +201,7 @@ t.groups.forEach((g, gi) => {
       });
       console.log(grid.map((r) => '        ' + r.join('')).join('\n'));
     }
-  });
+  }
 });
 });
 console.log(ok ? 'All levels OK' : 'Some levels failed');
