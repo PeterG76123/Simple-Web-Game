@@ -110,38 +110,40 @@ module.exports = {
       maxSize: 20,
       pool: 2,
       groups: [
-        { name: 'Solid lines', slots: twice(range(11, 20)).map((n) => s(n)) },
-        { name: 'See-through lines', slots: twice(range(11, 20)).map((n) => c(n)) },
+        // 25 per group: two of each size, then five more on the biggest boards.
+        { name: 'Solid lines', slots: [...twice(range(11, 20)), 18, 19, 19, 20, 20].map((n) => s(n)) },
+        { name: 'See-through lines', slots: [...twice(range(11, 20)), 18, 19, 19, 20, 20].map((n) => c(n)) },
         {
           name: 'Reflectors',
           // Alternating solid and see-through, 3 to 6 reflectors.
-          slots: range(11, 20).flatMap((n) => {
+          slots: [...range(11, 20).flatMap((n) => {
             const m = 3 + Math.floor((n - 11) / 3);
             return [s(n, m), c(n, Math.min(m, 5))];
-          }),
+          }), s(19, 6), c(19, 5), s(20, 6), c(20, 5), s(20, 6)],
         },
         {
           name: 'Turning reflectors',
           slots: range(11, 20).flatMap((n) => {
             const m = 4 + Math.floor((n - 11) / 4);
             return n <= 13 ? [r(n, m), r(n, m)] : n <= 18 ? [r(n, m), rc(n, m)] : [rc(n, m), rc(n, m)];
-          }),
+          }).concat([rc(18, 5), rc(19, 6), rc(19, 6), rc(20, 6), rc(20, 6)]),
         },
         {
           name: 'Gates and plates',
           slots: range(11, 20).flatMap((n) => {
             const c = n <= 14 ? 2 : 3;
             return n <= 13 ? [g(n, c), g(n, c)] : n <= 16 ? [g(n, c), gc(n, c)] : n <= 18 ? [gc(n, c), all(n, 4)] : [all(n, 5), all(n, 5)];
-          }),
+          }).concat([gc(18, 3), all(18, 4), all(19, 5), all(20, 5), all(20, 5)]),
         },
         {
           name: 'Twin eels',
-          phases: [10, 10],
+          phases: [10, 15],
           slots: [
             tw(11, 2), tw(12, 2), tw(12, 2), tw(13, 2), tw(14, 2), tw(15, 2), tw(16, 3), tw(17, 3), tw(18, 3), tw(20, 3),
             // Turning reflectors and gates join in on the smaller boards (bigger
             // ones are too slow to search with twins).
             twc(11, 2), twg(11, 2), twr(11, 2), twg(12, 2), twr(12, 2), twc(13, 2), twm(14, 3), twc(14, 2), twm(16, 3), twm(18, 3),
+            twr(12, 3), twg(12, 3), twm(19, 3), twm(20, 3), twm(20, 4),
           ],
         },
       ],
@@ -152,35 +154,38 @@ module.exports = {
       maxSize: 30,
       pool: 2,
       groups: [
-        { name: 'Solid lines', slots: twice(range(21, 30)).map((n) => s(n)) },
-        { name: 'See-through lines', slots: twice(range(21, 30)).map((n) => c(n)) },
+        // 25 per group: two of each size, then five more on the biggest boards.
+        { name: 'Solid lines', slots: [...twice(range(21, 30)), 28, 29, 29, 30, 30].map((n) => s(n)) },
+        { name: 'See-through lines', slots: [...twice(range(21, 30)), 28, 29, 29, 30, 30].map((n) => c(n)) },
         {
           name: 'Reflectors',
           // Alternating solid and see-through, 5 to 9 reflectors.
-          slots: range(21, 30).flatMap((n) => {
+          slots: [...range(21, 30).flatMap((n) => {
             const m = 5 + Math.floor((n - 21) / 2);
             return [s(n, m), c(n, Math.min(m, 6))];
-          }),
+          }), s(29, 9), c(29, 6), s(30, 9), c(30, 6), s(30, 9)],
         },
         {
           name: 'Turning reflectors',
           slots: range(21, 30).flatMap((n) => {
             const m = 6 + Math.floor((n - 21) / 4);
             return n <= 23 ? [r(n, m), rc(n, m)] : [rc(n, m), rc(n, m)];
-          }),
+          }).concat([rc(28, 7), rc(29, 8), rc(29, 8), rc(30, 8), rc(30, 8)]),
         },
         {
           name: 'Gates and plates',
-          slots: range(21, 30).flatMap((n) => (n <= 23 ? [g(n, 3), gc(n, 3)] : n <= 26 ? [gc(n, 3), gc(n, 3)] : [all(n, 6 + Math.floor((n - 27) / 2)), all(n, 7)])),
+          slots: range(21, 30).flatMap((n) => (n <= 23 ? [g(n, 3), gc(n, 3)] : n <= 26 ? [gc(n, 3), gc(n, 3)] : [all(n, 6 + Math.floor((n - 27) / 2)), all(n, 7)]))
+            .concat([all(28, 7), all(29, 7), all(29, 7), all(30, 7), all(30, 7)]),
         },
         {
           name: 'Twin eels',
-          phases: [10, 10],
+          phases: [10, 15],
           // Reflectors join twins on boards up to 27x27 (bigger ones are too
           // slow to search with both).
           slots: [
             tw(21, 3), tw(22, 3), tw(23, 3), tw(24, 3), tw(25, 3), tw(26, 3), tw(27, 4), tw(28, 4), tw(29, 4), tw(30, 4),
             twm(21, 3), twm(22, 3), twm(23, 3), twm(24, 3), twm(24, 3), twm(25, 3), twm(25, 4), twm(26, 4), twm(26, 4), twm(27, 4),
+            twm(25, 4), twm(26, 4), twm(27, 4), twm(27, 4), twm(27, 4),
           ],
         },
       ],
