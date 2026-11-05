@@ -474,7 +474,9 @@
         const occ = solidMap(n, lines, offsets, -1);
         for (let id = 0; id < lines.length; id++) {
           if (offsets[id] < 0) continue;
-          const hi = reach(n, lines, offsets, id, occ).max;
+          // A line never stops with its head past the edge (in the game it
+          // swims right off).
+          const hi = Math.min(reach(n, lines, offsets, id, occ).max, lines[id].ray.length);
           const lo = reachBack(n, lines, offsets, id, occ).min;
           for (let s = lo; s <= hi; s++) {
             if (s === offsets[id]) continue;
@@ -808,7 +810,10 @@
           }
           if (!slides && !world) continue;
           const lo = reachBack(n, lines, o, id, occ, any).min;
-          for (let s = lo; s <= r.max; s++) {
+          // As in the game: a single line never stops with its head past the
+          // edge (dragged that far, it swims right off).
+          const hi = Math.min(r.max, lines[id].ray.length);
+          for (let s = lo; s <= hi; s++) {
             if (s === o[id] || s >= lines[id].exitAt) continue;
             // Without slides, singles only shuffle when gates are involved.
             if (!slides && !special) continue;
@@ -940,7 +945,9 @@
           if (offsets[id] < 0) continue;
           const r = reach(n, lines, offsets, id, occ, any);
           const lo = reachBack(n, lines, offsets, id, occ, any).min;
-          const hi = r.exit ? Math.min(r.max, lines[id].exitAt - 1) : r.max;
+          // As in the game, a line never stops with its head past the edge
+          // (dragged that far, it swims right off).
+          const hi = Math.min(r.max, lines[id].ray.length);
           // With slides: false only turns and lines leaving are searched (a
           // much smaller search, used on big boards; it can only overcount).
           for (let s2 = lo; slides && s2 <= hi; s2++) {
@@ -1066,6 +1073,9 @@
       } else {
         const b = reachBack(n, lines, offsets, id);
         if (step.to < b.min || step.to > r.max) return false;
+        // A single line can't stop with its head past the edge (in the game,
+        // dragged that far it swims right off).
+        if (step.to > lines[id].ray.length) return false;
         offsets[id] = step.to;
       }
     }

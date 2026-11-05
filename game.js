@@ -839,8 +839,11 @@
       return;
     }
 
-    if (r.exit && line.offset >= line.ray.length + 0.5) {
-      // The head is past the edge and nothing stops it: let it slide out.
+    // The head is past the edge and nothing stops it: let it slide out. A twin
+    // only goes when dragged the pair's whole way, since how far it moves
+    // decides where its twin ends up.
+    const goes = twin ? line.offset >= r.max - 0.5 : line.offset >= line.ray.length + 0.5;
+    if (r.exit && goes) {
       line.rest = -1;
       line.mode = 'exit';
       line.speed = EXIT_SPEED_START;
