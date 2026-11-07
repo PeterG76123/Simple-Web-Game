@@ -681,6 +681,11 @@
     sfx('turn');
   }
 
+  /** Startles the sea creature (sea-life.js) behind a screen point, if there is one. */
+  function scareCreature(x, y) {
+    if (window.ArrowSeaLife) window.ArrowSeaLife.scareAt(x, y);
+  }
+
   function onPointerDown(evt) {
     if (!state) return;
     pointers.set(evt.pointerId, { x: evt.clientX, y: evt.clientY });
@@ -706,10 +711,14 @@
         evt.preventDefault();
         turnAt(k);
       } else if (view.scale > 1.001) {
-        // An empty square while zoomed in: drag to look around the board.
+        // An empty square while zoomed in: drag to look around the board (a
+        // quick tap that doesn't move startles a sea creature behind it).
         evt.preventDefault();
-        pan = { id: evt.pointerId, x: evt.clientX, y: evt.clientY, viewX: view.x, viewY: view.y };
+        pan = { id: evt.pointerId, x: evt.clientX, y: evt.clientY, viewX: view.x, viewY: view.y, time: performance.now(), moved: 0 };
         canvas.classList.add('panning');
+      } else {
+        // Nothing on the board here: a sea creature behind it may take fright.
+        scareCreature(evt.clientX, evt.clientY);
       }
       return;
     }
@@ -746,6 +755,7 @@
       return;
     }
     if (pan && evt.pointerId === pan.id) {
+      pan.moved = Math.max(pan.moved || 0, Math.hypot(evt.clientX - pan.x, evt.clientY - pan.y));
       view.x = pan.viewX + (evt.clientX - pan.x);
       view.y = pan.viewY + (evt.clientY - pan.y);
       clampView();
@@ -819,6 +829,8 @@
       return;
     }
     if (pan && evt.pointerId === pan.id) {
+      // A tap, not a drag: startle any sea creature behind that spot.
+      if ((pan.moved || 0) < 8 && pan.time && performance.now() - pan.time < TAP_MAX_MS) scareCreature(evt.clientX, evt.clientY);
       pan = null;
       canvas.classList.remove('panning');
       return;

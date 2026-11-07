@@ -226,17 +226,26 @@
     if (window.ArrowAudio) window.ArrowAudio.play('flee', { size: Math.max(r.width, r.height) });
   }
 
-  // A tap on the open water (not on a button, the board or a dialog) startles
-  // the creature under it.
-  document.addEventListener('pointerdown', (e) => {
-    if (!wanted() || !e.target.closest || e.target.closest('button, a, input, label, canvas, .overlay, summary')) return;
+  /** Startles the creature at screen point (x, y), if any. Returns true if one fled. */
+  function scareAt(x, y) {
+    if (!wanted()) return false;
     const hit = [...layer.querySelectorAll('.creature:not(.scared)')].reverse().find((el) => {
       const r = el.getBoundingClientRect();
       const mx = r.width * 0.12, my = r.height * 0.12;
-      return e.clientX >= r.left + mx && e.clientX <= r.right - mx && e.clientY >= r.top + my && e.clientY <= r.bottom - my;
+      return x >= r.left + mx && x <= r.right - mx && y >= r.top + my && y <= r.bottom - my;
     });
-    if (hit) scare(hit, e.clientX, e.clientY);
+    if (hit) scare(hit, x, y);
+    return !!hit;
+  }
+
+  // A tap on the open water (not on a button, the board or a dialog) startles
+  // the creature under it. The board itself asks via ArrowSeaLife.scareAt when
+  // a tap lands on an empty spot (eels and reflectors always come first).
+  document.addEventListener('pointerdown', (e) => {
+    if (!e.target.closest || e.target.closest('button, a, input, label, canvas, .overlay, summary')) return;
+    scareAt(e.clientX, e.clientY);
   });
+  window.ArrowSeaLife = { scareAt };
 
   // Turned off: the creatures there now fade away.
   if (Settings) Settings.onChange((name, on) => {
