@@ -850,6 +850,7 @@
       const entry = { id: line.id, from };
       if (twin) entry.twin = moveTwinBy(twin, twinFrom, line.exitAt - from);
       state.history.push(entry);
+      if (twin) twinCarriesOn(twin);
       sfx('exit');
     } else {
       const to = Math.min(Math.round(line.offset), r.max, line.exitAt - 1);
@@ -875,6 +876,31 @@
   }
 
   /** Tap: slide all the way off if nothing is in the way, otherwise bump and spring back. */
+  /**
+   * A twin whose partner has just swum off is free again: if its own way out
+   * is clear it carries on out too, rather than stopping where the pair's
+   * slide left it (perhaps half off the board). That's its own move, as when
+   * done by hand. One that's still fully on the board and resting on a plate
+   * or in a gate stays put, as it may be holding a gate open.
+   */
+  function twinCarriesOn(twin) {
+    if (twin.rest < 0) return;
+    const n = state.n;
+    const hanging = twin.rest > twin.ray.length; // head past the edge
+    if (!hanging && (state.gates.length || state.plates.length)) {
+      const special = new Set([...state.gates, ...state.plates].map(([x, y]) => y * n + x));
+      for (let j = 0; j < twin.len; j++) {
+        const [x, y] = twin.track[twin.rest + j];
+        if (x >= 0 && y >= 0 && x < n && y < n && special.has(y * n + x)) return;
+      }
+    }
+    if (!reach(n, state.lines, restOffsets(), twin.id).exit) return;
+    state.history.push({ id: twin.id, from: twin.rest });
+    twin.rest = -1;
+    twin.mode = 'exit';
+    twin.speed = Math.max(twin.speed || 0, EXIT_SPEED_START);
+  }
+
   function sendOut(line, r, twin) {
     if (r.exit) {
       const entry = { id: line.id, from: line.rest };
@@ -884,6 +910,7 @@
       line.rest = -1;
       line.mode = 'exit';
       line.speed = EXIT_SPEED_START;
+      if (twin) twinCarriesOn(twin);
       updateHud();
       sfx('exit');
     } else if (twin && r.twinLeaves) {
