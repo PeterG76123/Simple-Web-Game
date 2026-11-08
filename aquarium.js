@@ -98,7 +98,7 @@
       <div class="tank-items" id="tankItems"></div>
       <div class="tank-bubbles" aria-hidden="true"><span style="--x:12%;--t:7s;--d:-1s"></span><span style="--x:30%;--t:9s;--d:-4s"></span><span style="--x:58%;--t:6s;--d:-2s"></span><span style="--x:77%;--t:8s;--d:-6s"></span><span style="--x:90%;--t:10s;--d:-3s"></span></div>
     </div>
-    <p class="aq-tip">Drag to move things (starfish stick anywhere). Tap a fish to startle it, or hold it to sell. Tap a plant or decoration to sell it.</p>
+    <p class="aq-tip">Drag to move fish, plants and decor. Tap and hold to sell.</p>
     <nav class="aq-bar" aria-label="Buy for your aquarium">
       <button class="action-btn" data-cat="fish"><span class="aq-bar-icon" aria-hidden="true">🐟</span><span>Fish</span></button>
       <button class="action-btn" data-cat="plant"><span class="aq-bar-icon" aria-hidden="true">🌿</span><span>Plants</span></button>
@@ -463,18 +463,24 @@
   }
 
   // Plants and decorations slide along the sand (starfish stick anywhere, even
-  // on the glass); a tap (no slide) offers to sell.
+  // on the glass); press and hold (no slide) offers to sell.
   function makeDraggable(el, item, w, h, free) {
     let start = null;
     el.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       el.setPointerCapture(e.pointerId);
       if (free && !el.style.top) { el.style.top = `${el.offsetTop}px`; el.style.bottom = ''; }
-      start = { x: e.clientX, y: e.clientY, left: parseFloat(el.style.left), top: parseFloat(el.style.top), moved: 0 };
+      start = { x: e.clientX, y: e.clientY, left: parseFloat(el.style.left), top: parseFloat(el.style.top), moved: 0, menu: false };
+      start.hold = setTimeout(() => {
+        if (!start || start.moved >= 6) return;
+        start.menu = true;
+        el.classList.remove('dragging');
+        itemMenu(item);
+      }, 600);
       el.classList.add('dragging');
     });
     el.addEventListener('pointermove', (e) => {
-      if (!start) return;
+      if (!start || start.menu) return;
       const dx = e.clientX - start.x, dy = e.clientY - start.y;
       start.moved = Math.max(start.moved, free ? Math.hypot(dx, dy) : Math.abs(dx));
       const tw = tank.clientWidth, th = tank.clientHeight;
@@ -484,8 +490,9 @@
     const end = () => {
       if (!start) return;
       el.classList.remove('dragging');
+      clearTimeout(start.hold);
       const tw = tank.clientWidth, th = tank.clientHeight;
-      if (start.moved < 6) itemMenu(item);
+      if (start.menu || start.moved < 6) { /* held: the sell sheet is open; tapped: nothing to do */ }
       else {
         const x = tw > w ? parseFloat(el.style.left) / (tw - w) : 0.5;
         W.moveInTank(item.uid, x, free && th > h ? parseFloat(el.style.top) / (th - h) : undefined);
