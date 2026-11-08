@@ -20,6 +20,8 @@
     hints50: '50 hints',
     hints150: '150 hints',
     starter: 'Starter bundle',
+    pearls500: `${(cfg('pearls.packs.pearls500') || 500).toLocaleString()} pearls`,
+    pearls3000: `${(cfg('pearls.packs.pearls3000') || 3000).toLocaleString()} pearls`,
   };
 
   // ---------- A small dialog of our own (on top of everything) ----------
@@ -96,6 +98,8 @@
       item('hints10', '10 hints', 'A handful for tricky spots', p.hints10) +
       item('hints50', '50 hints', 'Best value for regulars', p.hints50) +
       item('hints150', '150 hints', 'Never be stuck again', p.hints150) +
+      item('pearls500', NAMES.pearls500, 'For fish and plants in your aquarium', p.pearls500) +
+      item('pearls3000', NAMES.pearls3000, 'Fill your tank with sharks and treasure', p.pearls3000) +
       '</div><button class="shop-restore">Restore purchases</button>';
     dialog('Shop', el, [{ label: 'Done', primary: true, action: () => close() }], { wide: true });
     onClose = then || null;

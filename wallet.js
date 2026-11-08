@@ -8,8 +8,9 @@
  *   ArrowWallet.addHints(n)        hints bought or earned
  *   ArrowWallet.levelFinished()    after each level; true if an ad is due now
  *
- * A `coins` balance is kept too (not used yet), ready for spending in the
- * game later.
+ * Pearls are the in-game currency for the aquarium (aquarium.js): earned
+ * by finishing levels and a daily gift, spent on fish, plants and
+ * decorations, which are kept here too (`tank`).
  */
 (function (root) {
   'use strict';
@@ -22,7 +23,9 @@
 
   const BLANK = {
     day: '', freeUsed: 0, rewardedToday: 0, dailyBonusTaken: false,
-    owned: 0, coins: 0,
+    owned: 0, coins: 0, pearls: 0, dailyPearlsTaken: false,
+    // The aquarium: what's in it (new players start with a fish and a plant).
+    tank: null,
     adsRemoved: false, starterBought: false, starterOffered: false,
     levelsFinished: 0, levelsSinceAd: 0, lastAdAt: 0,
     purchases: [],
@@ -42,6 +45,7 @@
     w.freeUsed = 0;
     w.rewardedToday = 0;
     w.dailyBonusTaken = false;
+    w.dailyPearlsTaken = false;
     save();
   };
 
@@ -76,6 +80,8 @@
       if (product === 'hints50') w.owned += 50;
       if (product === 'hints150') w.owned += 150;
       if (product === 'starter') { w.adsRemoved = true; w.starterBought = true; w.owned += cfg('starter.hints'); }
+      if (product === 'pearls500') w.pearls += cfg('pearls.packs.pearls500') || 500;
+      if (product === 'pearls3000') w.pearls += cfg('pearls.packs.pearls3000') || 3000;
       w.purchases.push({ product, at: Date.now() });
       save();
     },
@@ -97,8 +103,49 @@
     },
     adShown() { w.levelsSinceAd = 0; w.lastAdAt = Date.now(); save(); },
 
-    coins: () => w.coins,
-    addCoins(n) { w.coins += n; save(); },
+    // Pearls (the aquarium's currency).
+    pearls: () => w.pearls,
+    addPearls(n) { w.pearls += n; save(); },
+    spendPearls(n) {
+      if (w.pearls < n) return false;
+      w.pearls -= n;
+      save();
+      return true;
+    },
+    /** Today's gift of pearls, once a day (returns how many, or 0). */
+    takeDailyPearls() {
+      roll();
+      if (w.dailyPearlsTaken) return 0;
+      w.dailyPearlsTaken = true;
+      const n = cfg('pearls.daily');
+      w.pearls += n;
+      save();
+      return n;
+    },
+    // What's in the aquarium: { items: [{ uid, type, x, color }] } (x: 0-1 across the tank).
+    tank() {
+      if (!w.tank) {
+        w.tank = { items: [{ uid: 1, type: 'guppy', x: 0.3, color: 0 }, { uid: 2, type: 'seagrass', x: 0.7, color: 2 }], next: 3 };
+        save();
+      }
+      return w.tank;
+    },
+    addToTank(type, x, color) {
+      const t = Wallet.tank();
+      const item = { uid: t.next++, type, x, color };
+      t.items.push(item);
+      save();
+      return item;
+    },
+    moveInTank(uid, x) {
+      const item = Wallet.tank().items.find((i) => i.uid === uid);
+      if (item) { item.x = x; save(); }
+    },
+    removeFromTank(uid) {
+      const t = Wallet.tank();
+      t.items = t.items.filter((i) => i.uid !== uid);
+      save();
+    },
   };
   root.ArrowWallet = Wallet;
 })(window);

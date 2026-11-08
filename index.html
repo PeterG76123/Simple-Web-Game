@@ -6,7 +6,7 @@
   <title>Eel Escape</title>
   <meta name="description" content="An underwater puzzle game: guide each tangled glowing eel off the board the way its head points, using see-through jellyfish eels, pearl reflectors and wreck gates." />
   <link rel="stylesheet" href="fonts/fonts.css" />
-  <link rel="stylesheet" href="style.css?v=f689301d" />
+  <link rel="stylesheet" href="style.css?v=375cb409" />
 </head>
 <body>
   <!-- The whole game lives in one phone-shaped screen: full screen on a phone,
@@ -29,6 +29,7 @@
   <!-- Front screen -->
   <section id="menu" class="screen active" aria-label="Main menu">
     <button id="menuShopBtn" class="btn ghost icon-btn corner-btn corner-left" aria-label="Shop" title="Shop"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 8.5h13l-1.2 11.5H6.7L5.5 8.5Z"/><path d="M9 10V7a3 3 0 0 1 6 0v3"/></svg></button>
+    <button id="menuAquariumBtn" class="btn ghost icon-btn corner-btn corner-left corner-left2" aria-label="Aquarium" title="My aquarium"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 12c3-4.5 9-4.5 12 0-3 4.5-9 4.5-12 0Z"/><path d="M6 12 2.5 8.8v6.4L6 12Z"/><circle cx="14.6" cy="11.3" r="0.6" fill="currentColor"/></svg></button>
     <button id="menuSettingsBtn" class="btn ghost icon-btn corner-btn" data-open-settings aria-label="Settings" title="Settings"><svg class="gear" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M19.1 10.6 L21.7 10.7 L21.7 13.3 L19.1 13.4 L18.0 16.0 L19.8 18.0 L18.0 19.8 L16.0 18.0 L13.4 19.1 L13.3 21.7 L10.7 21.7 L10.6 19.1 L8.0 18.0 L6.0 19.8 L4.2 18.0 L6.0 16.0 L4.9 13.4 L2.3 13.3 L2.3 10.7 L4.9 10.6 L6.0 8.0 L4.2 6.0 L6.0 4.2 L8.0 6.0 L10.6 4.9 L10.7 2.3 L13.3 2.3 L13.4 4.9 L16.0 6.0 L18.0 4.2 L19.8 6.0 L18.0 8.0Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></button>
     <div class="menu-card">
       <div class="logo" aria-hidden="true">
@@ -140,8 +141,8 @@
   <canvas id="bubbleLayer" class="bubble-layer" aria-hidden="true"></canvas>
   </div>
 
-  <script src="config.js?v=a3dc2988"></script>
-  <script src="wallet.js?v=28ed70a3"></script>
+  <script src="config.js?v=8fb71af6"></script>
+  <script src="wallet.js?v=d4b35bfc"></script>
   <script src="settings.js?v=b86c4aea"></script>
   <script src="audio.js?v=d98d81c4"></script>
   <script src="rules.js?v=59879564"></script>
@@ -150,7 +151,8 @@
   <script src="intro.js?v=2849be33"></script>
   <script src="sea-life.js?v=25960128"></script>
   <script src="ads.js?v=80cda9ea"></script>
-  <script src="shop.js?v=15adf261"></script>
-  <script src="game.js?v=5fa097e5"></script>
+  <script src="shop.js?v=30a61905"></script>
+  <script src="aquarium.js?v=98852d9b"></script>
+  <script src="game.js?v=87252704"></script>
 </body>
 </html>

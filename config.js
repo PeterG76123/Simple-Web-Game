@@ -38,8 +38,23 @@
     skip: { enabled: true, tiers: [2] },
     // The starter bundle, offered once after this many levels are finished.
     starter: { afterLevels: 10, hints: 25 },
+    // Pearls, for the aquarium. Per level finished, by difficulty (Easy,
+    // Medium, Hard), plus bonuses for a first clear and a best-possible solve.
+    pearls: {
+      perLevel: [10, 20, 30],
+      firstClear: [10, 15, 20],
+      bestSolve: [5, 10, 15],
+      // A gift each day the game is opened.
+      daily: 25,
+      // Watch an ad on the win screen to double that level's pearls.
+      doubleByAd: true,
+      // Pearl packs in the shop.
+      packs: { pearls500: 500, pearls3000: 3000 },
+    },
+    // Aquarium item prices in pearls (any not listed use aquarium.js's own).
+    aquariumPrices: {},
     // Prices as shown (the stores set the real ones).
-    prices: { removeAds: '$3.99', hints10: '$0.99', hints50: '$2.99', hints150: '$5.99', starter: '$4.99' },
+    prices: { removeAds: '$3.99', hints10: '$0.99', hints50: '$2.99', hints150: '$5.99', starter: '$4.99', pearls500: '$0.99', pearls3000: '$4.99' },
   };
 
   const CACHE_KEY = 'arrow-escape-remote-config-v1';

@@ -1118,7 +1118,8 @@
       state.finished = true;
       const next = state.group + 1;
       state.unlockedGroup = next < groupsNow().length && !isGroupUnlocked(next) ? next : -1;
-      if (!isCompleted(state.group, state.index)) {
+      const firstClear = !isCompleted(state.group, state.index);
+      if (firstClear) {
         progress.completed.push(`${tier}-${state.group}-${state.index}`);
         saveProgress();
       }
@@ -1126,6 +1127,7 @@
       updateHud();
       // Count it (for ad timing and the starter offer); an ad may be due before the next level.
       state.adDue = window.ArrowWallet ? window.ArrowWallet.levelFinished() : false;
+      awardPearls(firstClear);
       burstBubbles();
       sfx('win');
       setTimeout(showWinDialog, 650);
@@ -1639,6 +1641,44 @@
 
   function hideDialog() { overlay.hidden = true; }
 
+  // Adds "Double pearls (watch an ad)" after the main button, while it's on offer.
+  function withDouble(buttons) {
+    const on = window.ArrowConfig && window.ArrowConfig.get('pearls.doubleByAd') !== false;
+    if (!on || !state.pearls || state.pearlsDoubled || !window.ArrowAds) return buttons;
+    const out = buttons.slice();
+    out.splice(1, 0, { label: `Double pearls (watch an ad)`, action: doublePearls });
+    return out;
+  }
+
+  /** Pearls for the aquarium: per level by difficulty, plus first-clear and best-solve bonuses. */
+  function awardPearls(firstClear) {
+    const W = window.ArrowWallet;
+    const C = window.ArrowConfig;
+    state.pearls = 0;
+    state.pearlsDoubled = false;
+    if (!W || !C) return;
+    const t = state.tier;
+    const pick = (name) => Number((C.get(`pearls.${name}`) || [])[t]) || 0;
+    const best = state.history.length <= levelAt(state.group, state.index).par;
+    state.pearls = pick('perLevel') + (firstClear ? pick('firstClear') : 0) + (best ? pick('bestSolve') : 0);
+    if (state.pearls > 0) W.addPearls(state.pearls);
+  }
+
+  /** Watch an ad on the win screen to double that level's pearls (stands in for the between-levels ad). */
+  async function doublePearls() {
+    hideDialog();
+    const W = window.ArrowWallet;
+    if (await window.ArrowAds.showRewarded()) {
+      W.addPearls(state.pearls);
+      state.pearls *= 2;
+      state.pearlsDoubled = true;
+      W.adShown();
+      state.adDue = false;
+      if (window.ArrowShop) window.ArrowShop.toast(`Doubled! +${state.pearls / 2} more pearls`);
+    }
+    showWinDialog();
+  }
+
   function showWinDialog() {
     const { group, index } = state;
     const levels = groupsNow()[group].levels;
@@ -1650,6 +1690,7 @@
     const nextGroup = group + 1 < groupsNow().length && isGroupUnlocked(group + 1) ? group + 1 : -1;
     const startNextGroup = { label: `Go to ${groupTitle(nextGroup)}`, action: () => startLevel(nextGroup, 0) };
 
+    if (state.pearls > 0) detail += ` +${state.pearls} pearls${state.pearlsDoubled ? ' (doubled)' : ''} for your aquarium.`;
     if (state.unlockedGroup >= 0) detail += ` You’ve unlocked ${groupTitle(state.unlockedGroup)}: ${groupBlurb(state.unlockedGroup).toLowerCase()}.`;
 
     if (index + 1 < levels.length) {
@@ -1657,14 +1698,14 @@
       if (state.unlockedGroup >= 0) buttons.push(startNextGroup);
       buttons.push({ label: 'Play again', action: () => startLevel(group, index, { fresh: true }) });
       buttons.push({ label: 'Menu', action: goToMenu });
-      showDialog(state.unlockedGroup >= 0 ? 'New group unlocked!' : 'Level complete!', detail, buttons.map((b) => ({ ...b, action: () => afterLevel(b.action) })));
+      showDialog(state.unlockedGroup >= 0 ? 'New group unlocked!' : 'Level complete!', detail, withDouble(buttons.map((b) => ({ ...b, action: () => afterLevel(b.action) }))));
     } else {
       const buttons = [];
       if (nextGroup >= 0) buttons.push({ ...startNextGroup, primary: true });
       buttons.push({ label: 'Back to menu', primary: nextGroup < 0, action: goToMenu });
       buttons.push({ label: 'Play again', action: () => startLevel(group, index, { fresh: true }) });
       const last = group + 1 >= groupsNow().length;
-      showDialog(`${groupTitle(group)} complete!`, `${detail} ${last ? `You untangled every ${TIERS[tier].name} level.` : ''}`.trim(), buttons.map((b) => ({ ...b, action: () => afterLevel(b.action) })));
+      showDialog(`${groupTitle(group)} complete!`, `${detail} ${last ? `You untangled every ${TIERS[tier].name} level.` : ''}`.trim(), withDouble(buttons.map((b) => ({ ...b, action: () => afterLevel(b.action) }))));
     }
   }
 

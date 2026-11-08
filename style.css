@@ -981,3 +981,123 @@ h1 {
   .dialog, .ocean::before, .ocean span { animation: none; }
   .ocean span { display: none; }
 }
+
+/* ---------- The aquarium (aquarium.js) ---------- */
+.corner-btn.corner-left2 { left: calc(max(14px, env(safe-area-inset-left, 0px)) + 54px); }
+@media (orientation: landscape) and (max-height: 560px) {
+  #menu .corner-btn.corner-left2 { left: calc(max(14px, env(safe-area-inset-left, 0px)) + 108px); }
+}
+#aquarium {
+  flex-direction: column;
+  gap: 10px;
+  padding: max(14px, env(safe-area-inset-top, 0px)) max(14px, env(safe-area-inset-right, 0px)) max(14px, env(safe-area-inset-bottom, 0px)) max(14px, env(safe-area-inset-left, 0px));
+}
+.aq-head { display: flex; align-items: center; gap: 10px; flex: none; }
+.aq-head h2 { flex: 1; margin: 0; text-align: center; font-family: var(--font-display); font-weight: 600; font-size: 1.5rem; color: var(--text); }
+.aq-back { width: 44px; height: 44px; padding: 0; font-size: 1.3rem; }
+.pearl-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 12px; border-radius: 999px;
+  border: 1px solid var(--glass-edge); background: var(--glass); color: var(--text);
+  font: inherit; font-family: var(--font-display); font-weight: 700; cursor: pointer;
+}
+.pearl {
+  display: inline-block; width: 16px; height: 16px; border-radius: 50%; flex: none; vertical-align: -2px;
+  background: radial-gradient(circle at 35% 30%, #fff 0 18%, #f4e9ff 30%, #c9b6e8 70%, #8f7bb8 100%);
+  box-shadow: 0 0 8px rgba(230, 210, 255, 0.7);
+}
+.pearl-price { display: inline-flex; align-items: center; gap: 5px; }
+.pearl-price .pearl { width: 14px; height: 14px; }
+.shop-item[aria-disabled="true"] { opacity: 0.5; }
+
+.tank {
+  position: relative; flex: 1; min-height: 0; overflow: hidden;
+  border-radius: 24px;
+  border: 2px solid rgba(160, 230, 255, 0.45);
+  background: linear-gradient(180deg, #0b4f7d 0%, #073a63 45%, #04223f 100%);
+  box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.45), 0 0 24px rgba(94, 242, 255, 0.18);
+}
+.tank-rays {
+  position: absolute; inset: 0; pointer-events: none; opacity: 0.5;
+  background: repeating-linear-gradient(100deg, transparent 0 40px, rgba(180, 240, 255, 0.07) 40px 70px, transparent 70px 120px);
+  animation: tank-rays 14s ease-in-out infinite alternate;
+}
+@keyframes tank-rays { from { transform: translateX(-20px) skewX(-4deg); } to { transform: translateX(20px) skewX(4deg); } }
+.tank-sand { position: absolute; left: 0; right: 0; bottom: 0; width: 100%; height: 14%; }
+.tank-sand path { fill: #b89a62; fill-opacity: 0.45; }
+.tank-sand .sand-ripple { fill: none; stroke: #e8d3a0; stroke-opacity: 0.4; stroke-width: 2; vector-effect: non-scaling-stroke; }
+.tank-items { position: absolute; inset: 0; }
+.tank-bubbles span {
+  position: absolute; bottom: 4%; left: var(--x); width: 8px; height: 8px; border-radius: 50%;
+  border: 1.5px solid rgba(200, 245, 255, 0.7); pointer-events: none;
+  animation: tank-bubble var(--t) linear infinite; animation-delay: var(--d);
+}
+@keyframes tank-bubble {
+  0% { transform: translate(0, 0); opacity: 0; }
+  10% { opacity: 0.8; }
+  50% { transform: translate(8px, -40vh); }
+  100% { transform: translate(-6px, -85vh); opacity: 0; }
+}
+
+.aq-item { position: absolute; color: var(--accent); }
+.aq-item svg, .aq-thumb svg, .aq-preview svg, .aq-facing { width: 100%; height: 100%; display: block; overflow: visible; }
+.aq-item svg, .aq-preview svg { filter: drop-shadow(0 0 6px currentColor); }
+.aq-item svg *, .aq-thumb svg *, .aq-preview svg * {
+  fill: currentColor; fill-opacity: 0.22; stroke: currentColor; stroke-width: 2.5;
+  vector-effect: non-scaling-stroke; stroke-linecap: round; stroke-linejoin: round;
+}
+.aq-item svg g, .aq-thumb svg g, .aq-preview svg g { fill-opacity: 1; }
+.aq-item svg .eye, .aq-thumb svg .eye, .aq-preview svg .eye { fill: #fff !important; fill-opacity: 0.9 !important; stroke: none !important; }
+svg.aq-fish .tail, svg.aq-fish .fin, svg.aq-fish .stripe, svg.aq-jelly .tentacles path, svg.aq-octo .arms path,
+svg.aq-plant path, svg.aq-decor .fin { fill: none !important; }
+svg.aq-plant .leaf, svg.aq-anemone > path { fill: currentColor !important; fill-opacity: 0.3 !important; }
+svg.aq-fish .stripe { stroke: #ff5d8f; stroke-width: 3; }
+.aq-plant-item, .aq-decor-item { cursor: grab; touch-action: none; z-index: 1; }
+.aq-plant-item.dragging, .aq-decor-item.dragging { cursor: grabbing; filter: brightness(1.3); z-index: 3; }
+.aq-fish-item { left: 0; top: 0; z-index: 2; cursor: pointer; will-change: transform; }
+.aq-facing { transition: transform 0.35s ease; }
+
+/* Fish move their tails and fins. */
+.aq-fish-item svg.aq-fish .tail { transform-box: fill-box; transform-origin: right center; animation: tail-wag 0.7s ease-in-out infinite alternate; }
+.aq-fish-item svg.aq-jelly .bell { transform-origin: 20px 24px; animation: jelly-pulse 2.2s ease-in-out infinite; }
+.aq-fish-item svg.aq-jelly .tentacles { transform-origin: 20px 24px; animation: jelly-trail 2.2s ease-in-out infinite; }
+.aq-fish-item svg.aq-octo .mantle { transform-origin: 40px 30px; animation: jelly-pulse 2.4s ease-in-out infinite; }
+.aq-fish-item svg.aq-octo .arms path { transform-origin: 40px 52px; animation: arm-wave 1.8s ease-in-out infinite alternate; }
+.aq-fish-item svg.aq-octo .arms path:nth-child(2n) { animation-direction: alternate-reverse; animation-duration: 2.1s; }
+.aq-fish-item svg.aq-turtle .flipper.front { transform-origin: 52px 18px; animation: flipper 1.8s ease-in-out infinite alternate; }
+.aq-fish-item svg.aq-turtle .flipper.back { transform-origin: 52px 38px; animation: flipper 1.8s ease-in-out infinite alternate-reverse; }
+.aq-fish-item svg.aq-manta { transform-origin: 50% 50%; animation: manta-flap 2.6s ease-in-out infinite; }
+
+/* Plants sway from their roots (kelp bends at each joint). */
+svg.aq-plant .blade { transform-origin: 50% 100%; transform-box: fill-box; animation: plant-sway 3.6s ease-in-out infinite alternate; }
+svg.aq-plant .blade.b2 { animation-duration: 4.4s; }
+svg.aq-plant .blade.b3 { animation-duration: 3.1s; }
+svg.aq-kelp .seg.s1 { transform-origin: 15px 96px; animation: kelp-sway 5s ease-in-out infinite alternate; }
+svg.aq-kelp .seg.s2 { transform-origin: 15px 64px; animation: kelp-sway 4s ease-in-out infinite alternate; }
+svg.aq-kelp .seg.s3 { transform-origin: 15px 32px; animation: kelp-sway 3.2s ease-in-out infinite alternate; }
+svg.aq-anemone .tentacle { transform-origin: 30px 34px; animation: anemone-wave 2.8s ease-in-out infinite alternate; }
+svg.aq-anemone .tentacle.t2, svg.aq-anemone .tentacle.t4 { animation-duration: 3.4s; animation-direction: alternate-reverse; }
+@keyframes plant-sway { from { transform: rotate(-7deg); } to { transform: rotate(7deg); } }
+@keyframes kelp-sway { from { transform: rotate(-6deg); } to { transform: rotate(6deg); } }
+@keyframes anemone-wave { from { transform: rotate(-6deg) scaleY(0.94); } to { transform: rotate(6deg) scaleY(1.04); } }
+
+/* The treasure chest's lid creaks open and lets out bubbles. */
+svg.aq-chest .lid { transform-origin: 6px 26px; animation: chest-lid 6s ease-in-out infinite; }
+svg.aq-chest .bubbles circle { fill: none !important; animation: chest-bubble 6s ease-out infinite; }
+svg.aq-chest .bubbles circle:nth-child(2) { animation-delay: 0.3s; }
+svg.aq-chest .bubbles circle:nth-child(3) { animation-delay: 0.6s; }
+@keyframes chest-lid { 0%, 60%, 100% { transform: rotate(0); } 70%, 85% { transform: rotate(-22deg); } }
+@keyframes chest-bubble { 0%, 68% { opacity: 0; transform: translateY(8px); } 75% { opacity: 1; } 95%, 100% { opacity: 0; transform: translateY(-10px); } }
+
+.aq-tip { margin: 0; flex: none; text-align: center; color: var(--muted); font-size: 0.85rem; }
+.aq-bar { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; flex: none; }
+.aq-bar .action-btn { min-height: 64px; }
+.aq-bar-icon { font-size: 1.5rem; line-height: 1; }
+.aq-thumb { flex: none; width: 52px; height: 40px; display: flex; align-items: center; justify-content: center; }
+.aq-thumb svg { max-width: 100%; max-height: 100%; }
+.aq-buy .shop-item-text { flex: 1; }
+.aq-preview { width: 140px; height: 110px; margin: 4px auto 14px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .tank *, .tank-rays { animation: none !important; }
+}

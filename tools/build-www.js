@@ -13,7 +13,7 @@ const out = path.join(root, 'www');
 const FILES = [
   'index.html', 'style.css', 'privacy.html', 'remote-config.json',
   'config.js', 'wallet.js', 'settings.js', 'audio.js', 'rules.js', 'levels-data.js',
-  'art.js', 'intro.js', 'sea-life.js', 'ads.js', 'shop.js', 'game.js',
+  'art.js', 'intro.js', 'sea-life.js', 'ads.js', 'shop.js', 'aquarium.js', 'game.js',
 ];
 const DIRS = ['fonts'];
 

@@ -52,6 +52,7 @@ python3 -m http.server 8000
 - `config.js` + `remote-config.json`: the monetisation settings (free hints, ad timing, prices…); the live copy of `remote-config.json` on the web site overrides the defaults without an app update
 - `wallet.js`: the player's hints, purchases and ad bookkeeping, saved on the device
 - `ads.js`: Google AdMob ads in the phone app; a stand-in test ad on the web
+- `aquarium.js`: the aquarium: buy fish, swaying plants and decorations with pearls and arrange them in your tank (simple outline art for now; each item's picture is its `svg` in the catalog)
 - `shop.js`: the shop, the out-of-hints offer and the starter bundle (purchases are a stand-in for now)
 - `fonts/`: the game's fonts (Fredoka, Nunito), bundled so nothing is fetched from Google
 - `privacy.html`: the privacy policy the app stores ask for
@@ -97,6 +98,7 @@ Levels are stored in a compact text format (about 80–150 characters for a 10×
 - **Ads between levels:** none for a player's first 10 finished levels; after that at most one every 2 levels and 3 minutes, shown when the player leaves the win screen. "Remove ads" stops these (ads a player chooses to watch stay).
 - **Skip a level:** on Hard, when out of hints, watch an ad to skip the level.
 - **Shop:** remove ads, three hint packs, and a starter bundle (no ads + 25 hints) that is also offered once after 10 levels. **Buying is a stand-in:** it confirms and gives the item; real purchases need the App Store / Google Play (e.g. RevenueCat or the stores' billing plugins).
+- **Pearls and the aquarium:** finishing a level earns pearls (10/20/30 by difficulty, plus bonuses for a first clear and a best-possible solve), a daily gift of 25, and pearl packs in the shop. On the win screen a player can watch an ad to double that level's pearls (this counts as the between-levels ad). Pearls buy fish, plants and decorations; tap one in the tank to sell it back for half.
 - **Tuning:** change `remote-config.json`, commit and push: every player picks it up on their next launch. Track retention (day 1 / day 7) and revenue per daily player when changing ad frequency or hint counts.
 
 ## The phone app (Capacitor)
