@@ -1624,6 +1624,7 @@
   }
   // ---------- Dialogs ----------
   function showDialog(title, text, buttons) {
+    $('dialogReward').hidden = true;
     $('dialogTitle').textContent = title;
     $('dialogText').textContent = text;
     const box = $('dialogButtons');
@@ -1660,7 +1661,8 @@
     const t = state.tier;
     const pick = (name) => Number((C.get(`pearls.${name}`) || [])[t]) || 0;
     const best = state.history.length <= levelAt(state.group, state.index).par;
-    state.pearls = pick('perLevel') + (firstClear ? pick('firstClear') : 0) + (best ? pick('bestSolve') : 0);
+    state.pearlParts = [['Level', pick('perLevel')], ['First clear', firstClear ? pick('firstClear') : 0], ['Best solve', best ? pick('bestSolve') : 0]].filter(([, n]) => n > 0);
+    state.pearls = state.pearlParts.reduce((a, [, n]) => a + n, 0);
     if (state.pearls > 0) W.addPearls(state.pearls);
   }
 
@@ -1674,12 +1676,29 @@
       state.pearlsDoubled = true;
       W.adShown();
       state.adDue = false;
-      if (window.ArrowShop) window.ArrowShop.toast(`Doubled! +${state.pearls / 2} more pearls`);
     }
     showWinDialog();
   }
 
+  /** The pearls earned, big, with a pearl icon, under the win message. */
+  function showPearlReward() {
+    const box = $('dialogReward');
+    if (!state.pearls) return;
+    const parts = state.pearlParts.map(([name, n]) => `${name} +${n}`);
+    if (state.pearlsDoubled) parts.push('Doubled ×2');
+    box.innerHTML = `<div class="reward-main"><span class="pearl big" aria-hidden="true"></span><span class="reward-num">+${state.pearls}</span><span class="reward-unit">pearls</span></div>` +
+      `<div class="reward-parts">${parts.join(' · ')}</div>`;
+    box.setAttribute('aria-label', `${state.pearls} pearls earned for your aquarium`);
+    box.classList.toggle('doubled', !!state.pearlsDoubled);
+    box.hidden = false;
+  }
+
   function showWinDialog() {
+    showWinDialogInner();
+    showPearlReward();
+  }
+
+  function showWinDialogInner() {
     const { group, index } = state;
     const levels = groupsNow()[group].levels;
     const moves = state.history.length;
@@ -1690,7 +1709,6 @@
     const nextGroup = group + 1 < groupsNow().length && isGroupUnlocked(group + 1) ? group + 1 : -1;
     const startNextGroup = { label: `Go to ${groupTitle(nextGroup)}`, action: () => startLevel(nextGroup, 0) };
 
-    if (state.pearls > 0) detail += ` +${state.pearls} pearls${state.pearlsDoubled ? ' (doubled)' : ''} for your aquarium.`;
     if (state.unlockedGroup >= 0) detail += ` You’ve unlocked ${groupTitle(state.unlockedGroup)}: ${groupBlurb(state.unlockedGroup).toLowerCase()}.`;
 
     if (index + 1 < levels.length) {

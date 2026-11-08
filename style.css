@@ -983,10 +983,60 @@ h1 {
 }
 
 /* ---------- The aquarium (aquarium.js) ---------- */
-.corner-btn.corner-left2 { left: calc(max(14px, env(safe-area-inset-left, 0px)) + 54px); }
-@media (orientation: landscape) and (max-height: 560px) {
-  #menu .corner-btn.corner-left2 { left: calc(max(14px, env(safe-area-inset-left, 0px)) + 108px); }
+/* The menu's aquarium button, with the pearl count. */
+.aq-menu-btn {
+  flex: none;
+  width: 100%;
+  max-width: 440px;
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px 8px 10px;
+  border-radius: 20px;
+  border: 1px solid rgba(230, 210, 255, 0.45);
+  background: linear-gradient(180deg, rgba(120, 90, 200, 0.28), rgba(40, 30, 90, 0.35)), var(--glass);
+  box-shadow: 0 0 18px rgba(200, 170, 255, 0.22);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.1s;
 }
+.aq-menu-btn:active { transform: scale(0.98); }
+.aq-menu-btn:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.aq-menu-tank { flex: none; width: 52px; height: 40px; }
+.aq-menu-tank svg { width: 100%; height: 100%; overflow: visible; }
+.aq-menu-tank rect { fill: rgba(40, 140, 210, 0.35); stroke: #9fe8ff; stroke-width: 2; }
+.aq-menu-tank .sand { fill: #b89a62; fill-opacity: 0.6; stroke: none; }
+.aq-menu-tank .weed { fill: none; stroke: #5dff9b; stroke-width: 2; stroke-linecap: round; }
+.aq-menu-tank .fishy { fill: #ffb03a; fill-opacity: 0.35; stroke: #ffb03a; stroke-width: 1.8; stroke-linejoin: round; }
+.aq-menu-tank .eye { fill: #fff; }
+.aq-menu-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.aq-menu-text strong { font-family: var(--font-display); font-weight: 600; font-size: 1.1rem; }
+.aq-menu-text span { color: var(--muted); font-size: 0.8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pearl-chip.static { cursor: inherit; background: rgba(0, 0, 0, 0.25); font-size: 1.05rem; }
+@media (orientation: landscape) and (max-height: 560px) {
+  .menu-card .aq-menu-btn { align-self: end; }
+}
+
+/* The pearls earned, on the win screen. */
+.dialog-reward {
+  margin: -6px 0 18px;
+  padding: 10px 12px;
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(150, 120, 220, 0.25), rgba(60, 40, 120, 0.25));
+  border: 1px solid rgba(230, 210, 255, 0.4);
+  animation: reward-pop 0.45s cubic-bezier(.2, 1.6, .4, 1) both;
+}
+.reward-main { display: flex; align-items: center; justify-content: center; gap: 10px; }
+.pearl.big { width: 34px; height: 34px; box-shadow: 0 0 16px rgba(230, 210, 255, 0.9); animation: pearl-shine 2.4s ease-in-out infinite; }
+.reward-num { font-family: var(--font-display); font-weight: 700; font-size: 2rem; color: #f4e9ff; text-shadow: 0 0 12px rgba(220, 190, 255, 0.8); line-height: 1; }
+.reward-unit { font-family: var(--font-display); font-weight: 600; font-size: 1.1rem; color: #d9c8f5; }
+.reward-parts { margin-top: 4px; text-align: center; color: var(--muted); font-size: 0.82rem; }
+.dialog-reward.doubled .reward-num { color: #ffd166; text-shadow: 0 0 14px rgba(255, 209, 102, 0.8); }
+@keyframes reward-pop { from { transform: scale(0.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@keyframes pearl-shine { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.25); } }
 #aquarium {
   flex-direction: column;
   gap: 10px;

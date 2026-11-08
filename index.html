@@ -6,7 +6,7 @@
   <title>Eel Escape</title>
   <meta name="description" content="An underwater puzzle game: guide each tangled glowing eel off the board the way its head points, using see-through jellyfish eels, pearl reflectors and wreck gates." />
   <link rel="stylesheet" href="fonts/fonts.css" />
-  <link rel="stylesheet" href="style.css?v=375cb409" />
+  <link rel="stylesheet" href="style.css?v=5fc2102b" />
 </head>
 <body>
   <!-- The whole game lives in one phone-shaped screen: full screen on a phone,
@@ -29,7 +29,6 @@
   <!-- Front screen -->
   <section id="menu" class="screen active" aria-label="Main menu">
     <button id="menuShopBtn" class="btn ghost icon-btn corner-btn corner-left" aria-label="Shop" title="Shop"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 8.5h13l-1.2 11.5H6.7L5.5 8.5Z"/><path d="M9 10V7a3 3 0 0 1 6 0v3"/></svg></button>
-    <button id="menuAquariumBtn" class="btn ghost icon-btn corner-btn corner-left corner-left2" aria-label="Aquarium" title="My aquarium"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 12c3-4.5 9-4.5 12 0-3 4.5-9 4.5-12 0Z"/><path d="M6 12 2.5 8.8v6.4L6 12Z"/><circle cx="14.6" cy="11.3" r="0.6" fill="currentColor"/></svg></button>
     <button id="menuSettingsBtn" class="btn ghost icon-btn corner-btn" data-open-settings aria-label="Settings" title="Settings"><svg class="gear" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M19.1 10.6 L21.7 10.7 L21.7 13.3 L19.1 13.4 L18.0 16.0 L19.8 18.0 L18.0 19.8 L16.0 18.0 L13.4 19.1 L13.3 21.7 L10.7 21.7 L10.6 19.1 L8.0 18.0 L6.0 19.8 L4.2 18.0 L6.0 16.0 L4.9 13.4 L2.3 13.3 L2.3 10.7 L4.9 10.6 L6.0 8.0 L4.2 6.0 L6.0 4.2 L8.0 6.0 L10.6 4.9 L10.7 2.3 L13.3 2.3 L13.4 4.9 L16.0 6.0 L18.0 4.2 L19.8 6.0 L18.0 8.0Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></button>
     <div class="menu-card">
       <div class="logo" aria-hidden="true">
@@ -46,6 +45,11 @@
       <div class="level-area">
         <div id="levelGrid" class="level-grid"></div>
       </div>
+      <button id="menuAquariumBtn" class="aq-menu-btn" aria-label="My aquarium: spend your pearls on fish and plants">
+        <span class="aq-menu-tank" aria-hidden="true"><svg viewBox="0 0 48 36"><rect x="2" y="3" width="44" height="31" rx="6"/><path class="sand" d="M2 28 C12 25 20 29 30 26 C38 24 42 27 46 26 L46 34 L2 34Z"/><path class="weed" d="M9 31 C7 25 11 21 8 15 M13 31 C14 26 11 22 13 18"/><path class="fishy" d="M20 15 C25 9 33 9 37 15 C33 21 25 21 20 15Z M20 15 L15 11 L16 15 L15 19Z"/><circle class="eye" cx="33" cy="14" r="1.3"/></svg></span>
+        <span class="aq-menu-text"><strong>My aquarium</strong><span>Spend pearls on fish &amp; plants</span></span>
+        <span class="pearl-chip static"><span class="pearl" aria-hidden="true"></span><span id="menuPearls">0</span></span>
+      </button>
 
     </div>
   </section>
@@ -133,6 +137,7 @@
     <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dialogTitle">
       <h2 id="dialogTitle"></h2>
       <p id="dialogText"></p>
+      <div id="dialogReward" class="dialog-reward" hidden></div>
       <div id="dialogButtons" class="dialog-buttons"></div>
     </div>
   </div>
@@ -152,7 +157,7 @@
   <script src="sea-life.js?v=25960128"></script>
   <script src="ads.js?v=80cda9ea"></script>
   <script src="shop.js?v=30a61905"></script>
-  <script src="aquarium.js?v=98852d9b"></script>
-  <script src="game.js?v=87252704"></script>
+  <script src="aquarium.js?v=1d15f6fe"></script>
+  <script src="game.js?v=e3f8f4db"></script>
 </body>
 </html>

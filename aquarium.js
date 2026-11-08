@@ -110,7 +110,13 @@
   const tank = screen.querySelector('#tank');
   const layer = screen.querySelector('#tankItems');
 
-  const showPearls = () => { screen.querySelector('.pearl-count').textContent = W.pearls().toLocaleString(); };
+  const menuPearls = document.getElementById('menuPearls');
+  const showPearls = () => {
+    const n = W.pearls().toLocaleString();
+    screen.querySelector('.pearl-count').textContent = n;
+    if (menuPearls) menuPearls.textContent = n;
+  };
+  showPearls();
   W.onChange(showPearls);
 
   let fish = [];
