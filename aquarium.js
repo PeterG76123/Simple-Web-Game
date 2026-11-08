@@ -98,7 +98,7 @@
       <div class="tank-items" id="tankItems"></div>
       <div class="tank-bubbles" aria-hidden="true"><span style="--x:12%;--t:7s;--d:-1s"></span><span style="--x:30%;--t:9s;--d:-4s"></span><span style="--x:58%;--t:6s;--d:-2s"></span><span style="--x:77%;--t:8s;--d:-6s"></span><span style="--x:90%;--t:10s;--d:-3s"></span></div>
     </div>
-    <p class="aq-tip">Drag anything to move it (starfish stick anywhere). Tap one to sell it.</p>
+    <p class="aq-tip">Drag to move things (starfish stick anywhere). Tap a fish to startle it, or hold it to sell. Tap a plant or decoration to sell it.</p>
     <nav class="aq-bar" aria-label="Buy for your aquarium">
       <button class="action-btn" data-cat="fish"><span class="aq-bar-icon" aria-hidden="true">🐟</span><span>Fish</span></button>
       <button class="action-btn" data-cat="plant"><span class="aq-bar-icon" aria-hidden="true">🌿</span><span>Plants</span></button>
@@ -128,7 +128,7 @@
     tetra: { speed: 0.17, accel: 0.45, zone: [0.15, 0.7], school: true, spread: 0.8, retarget: [1.5, 3] },
     angel: { speed: 0.06, accel: 0.08, zone: [0.2, 0.62], school: true, spread: 1.6, retarget: [3, 6], pause: [1, 3] },
     puffer: { speed: 0.05, accel: 0.12, zone: [0.35, 0.8], retarget: [2, 4], pause: [1.5, 4], puffs: true },
-    seahorse: { speed: 0.025, accel: 0.05, zone: [0.55, 0.85], retarget: [4, 8], pause: [2, 5], nearPlants: true },
+    seahorse: { speed: 0.03, accel: 0.06, zone: [0.55, 0.85], retarget: [4, 8], pause: [2, 5], nearPlants: true, school: true, spread: 0.7, catchUp: 2.5 },
     moonjelly: { jelly: true },
     turtle: { speed: 0.07, accel: 0.05, zone: [0.05, 0.7], wide: true, retarget: [5, 9], tilt: 1 },
     octopus: { octo: true },
@@ -256,10 +256,22 @@
             f.vy = Math.min(14, f.vy + 30 * dt);
             if (Math.random() < dt * 0.06) { f.jet = 6; f.vy = -rand(90, 130); f.vx = rand(-30, 30); }
           }
+        } else if (f.scared > 0) {
+          // Darting away in a fright, zig-zagging, faster than it ever swims.
+          f.scared -= dt;
+          f.zig -= dt;
+          if (f.zig <= 0) { f.zig = rand(0.12, 0.3); f.fleeA += rand(-0.8, 0.8); }
+          const fast = tw * (0.55 + 0.3 * (f.w / tw < 0.15 ? 1 : 0));
+          f.vx += (Math.cos(f.fleeA) * fast - f.vx) * Math.min(1, dt * 8);
+          f.vy += (Math.sin(f.fleeA) * fast * 0.7 - f.vy) * Math.min(1, dt * 8);
+          // Bounce off the glass.
+          if ((f.x <= f.w / 2 + 1 && f.vx < 0) || (f.x >= tw - f.w / 2 - 1 && f.vx > 0)) f.fleeA = Math.PI - f.fleeA;
+          if ((f.y <= f.h / 2 + 1 && f.vy < 0) || (f.y >= floor - f.h / 2 - 1 && f.vy > 0)) f.fleeA = -f.fleeA;
+          if (f.scared <= 0) { f.el.classList.remove('scared'); f.wait = 0; newTarget(f, tw, th); }
         } else {
           const speed = m.speed * tw, accel = m.accel * tw;
           let gx, gy;
-          if (f.leader && !f.leader.held) {
+          if (f.leader && !f.leader.held && !(f.leader.scared > 0)) {
             // Followers keep their own spot near the leader (behind it, a little to the side).
             const s = f.w * (m.spread || 1);
             gx = f.leader.x - f.leader.dir * s * (0.6 + Math.abs(f.offset[0])) ;
@@ -278,13 +290,17 @@
           if (m.swoop) gy += Math.sin(f.phase * 0.8) * th * 0.06;
           // Steer towards the goal, slowing on arrival.
           const dx = gx - f.x, dy = gy - f.y, d = Math.hypot(dx, dy) || 1;
-          const want = Math.min(speed * (f.leader ? 1.4 : 1), d * 1.5);
+          const want = Math.min(speed * (f.leader ? m.catchUp || 1.4 : 1), d * 1.5);
           let ax = (dx / d) * want - f.vx, ay = (dy / d) * want * 0.7 - f.vy;
-          // Keep a little space from fish of the same kind.
+          // Keep a little space from the others, and steer round fish ahead.
           for (const o of fish) {
-            if (o === f || o.c !== f.c) continue;
+            if (o === f) continue;
             const ox = f.x - o.x, oy = f.y - o.y, od = Math.hypot(ox, oy);
-            if (od > 0 && od < f.w * 0.8) { ax += (ox / od) * speed * 0.8; ay += (oy / od) * speed * 0.8; }
+            const room = o.c === f.c ? f.w * 0.8 : (f.w + o.w) * 0.45 + (f.h + o.h) * 0.2;
+            if (od > 0 && od < room) {
+              const push = (1 - od / room) * speed * (o.c === f.c ? 0.8 : 1.6);
+              ax += (ox / od) * push; ay += (oy / od) * push * 1.3;
+            }
           }
           const a = Math.hypot(ax, ay), lim = accel * dt;
           if (a > lim) { ax *= lim / a; ay *= lim / a; }
@@ -303,6 +319,14 @@
         f.x = Math.min(tw - f.w / 2, Math.max(f.w / 2, f.x));
         f.y = Math.min(floor - f.h / 2, Math.max(f.h / 2, f.y));
       }
+    }
+    collide(dt);
+    for (const f of fish) {
+      const m = f.m;
+      if (!f.held) {
+        f.x = Math.min(tw - f.w / 2, Math.max(f.w / 2, f.x));
+        f.y = Math.min(floor - f.h / 2, Math.max(f.h / 2, f.y));
+      }
       // Turn round only when really heading the other way.
       if (!m.jelly && !m.octo) {
         if (f.vx > 4) f.dir = 1; else if (f.vx < -4) f.dir = -1;
@@ -316,30 +340,117 @@
     raf = screen.classList.contains('active') ? requestAnimationFrame(frame) : 0;
   }
 
-  // Fish can be picked up and put somewhere else; a tap (no move) offers to sell.
+  // ---------- Bumping into each other ----------
+  // Fish are treated as ellipses a little smaller than their pictures.
+  const body = (f) => [f.w * 0.42 * (f.puff || 1), f.h * 0.38 * (f.puff || 1)];
+  const sizeScore = (f) => f.w * f.h * (f.puff || 1);
+
+  /** Pushes overlapping fish apart, and lets them react to the bump. */
+  function collide(dt) {
+    for (const f of fish) if (f.bumpCd > 0) f.bumpCd -= dt;
+    for (let i = 0; i < fish.length; i++) {
+      for (let j = i + 1; j < fish.length; j++) {
+        const a = fish[i], b = fish[j];
+        const [arx, ary] = body(a), [brx, bry] = body(b);
+        const dx = b.x - a.x, dy = b.y - a.y;
+        // Overlap of two ellipses, roughly: distance in "sum of radii" units.
+        const rx = arx + brx, ry = ary + bry;
+        const n = Math.hypot(dx / rx, dy / ry);
+        if (n >= 1) continue;
+        const d = Math.hypot(dx, dy) || 0.01;
+        const ux = d > 0.01 ? dx / d : 1, uy = d > 0.01 ? dy / d : 0;
+        const depth = (1 - n) * Math.hypot(rx * ux, ry * uy);
+        // The bigger (or the one being held) barely moves; the smaller one gets shoved.
+        const sa = a.held ? 1e9 : sizeScore(a), sb = b.held ? 1e9 : sizeScore(b);
+        const ka = sb / (sa + sb), kb = sa / (sa + sb);
+        a.x -= ux * depth * ka; a.y -= uy * depth * ka;
+        b.x += ux * depth * kb; b.y += uy * depth * kb;
+        // Knock their speeds apart along the line between them.
+        const rel = (b.vx - a.vx) * ux + (b.vy - a.vy) * uy;
+        if (rel < 0) {
+          a.vx += ux * rel * ka * 1.2; a.vy += uy * rel * ka * 1.2;
+          b.vx -= ux * rel * kb * 1.2; b.vy -= uy * rel * kb * 1.2;
+        }
+        react(a, b, sa, sb);
+        react(b, a, sb, sa);
+      }
+    }
+  }
+
+  /** What a fish does when it bumps into another. */
+  function react(f, o, mine, theirs) {
+    if (f.held || f.bumpCd > 0 || f.m.jelly) return;
+    f.bumpCd = rand(0.8, 1.5);
+    if (f.m.octo) { if (theirs > mine * 1.5 && Math.random() < 0.5) { f.jet = 6; f.vy = -110; } return; }
+    if (o.c === f.c && f.m.school) return; // schoolmates just jostle
+    if (f.m.puffs) { f.puffing = 2.5; return; } // a bumped puffer puffs up
+    if (theirs > mine * 2 || o.c.id === 'shark') {
+      // Startled by something bigger: dart away (and the school with it).
+      f.scared = rand(0.6, 1); f.zig = 0;
+      f.fleeA = Math.atan2(f.y - o.y, f.x - o.x) + rand(-0.3, 0.3);
+      f.el.classList.add('scared');
+    } else if (!f.leader) {
+      // About the same size: turn and go somewhere else.
+      f.wait = 0;
+      newTarget(f, tank.clientWidth, tank.clientHeight);
+      if (Math.sign(f.tx - f.x) === Math.sign(o.x - f.x)) f.tx = Math.min(tank.clientWidth - f.w / 2, Math.max(f.w / 2, f.x - (f.tx - f.x)));
+    }
+  }
+
+  /** A fright: the fish (and its school) dart away from (px, py), in tank coordinates. */
+  function scare(f, px, py) {
+    const flee = (o, delay) => {
+      const go = () => {
+        if (o.m.jelly) { o.vy = -70; o.timer = 2.2; return; }
+        if (o.m.octo) { o.jet = 6; o.vy = -150; o.vx = (o.x < px ? -1 : 1) * 50; return; }
+        o.scared = rand(1.2, 1.8);
+        o.zig = 0;
+        o.fleeA = Math.atan2(o.y - py, o.x - px) + rand(-0.4, 0.4);
+        o.el.classList.add('scared');
+      };
+      if (delay) setTimeout(go, delay); else go();
+    };
+    flee(f, 0);
+    for (const o of fish) if (o !== f && o.c === f.c && f.m.school) flee(o, rand(60, 220));
+    if (root.ArrowAudio) root.ArrowAudio.play('flee', { size: Math.max(f.w, f.h) });
+  }
+
+  // Tap a fish to startle it; drag one to move it; press and hold to sell it.
   function makeFishDraggable(f) {
     const el = f.el;
     let start = null;
     el.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       el.setPointerCapture(e.pointerId);
-      start = { x: e.clientX, y: e.clientY, fx: f.x, fy: f.y, moved: 0 };
+      start = { x: e.clientX, y: e.clientY, fx: f.x, fy: f.y, moved: 0, menu: false };
+      start.hold = setTimeout(() => {
+        if (!start || start.moved >= 6) return;
+        start.menu = true;
+        f.held = false;
+        el.classList.remove('dragging');
+        itemMenu(f.item);
+      }, 600);
       f.held = true;
       el.classList.add('dragging');
     });
     el.addEventListener('pointermove', (e) => {
-      if (!start) return;
+      if (!start || start.menu) return;
       const dx = e.clientX - start.x, dy = e.clientY - start.y;
       start.moved = Math.max(start.moved, Math.hypot(dx, dy));
+      if (start.moved < 6) return;
       f.x = start.fx + dx; f.y = start.fy + dy;
       f.vx = 0; f.vy = 0;
     });
-    const end = () => {
+    const end = (e) => {
       if (!start) return;
+      clearTimeout(start.hold);
       el.classList.remove('dragging');
       f.held = false;
-      if (start.moved < 6) itemMenu(f.item);
-      else {
+      if (start.menu) { /* the sell sheet is open */ }
+      else if (start.moved < 6) {
+        const r = tank.getBoundingClientRect();
+        scare(f, (e.clientX || start.x) - r.left, (e.clientY || start.y) - r.top);
+      } else {
         // Let go: off it goes from here (a follower may become a leader for a while).
         f.wait = 0;
         newTarget(f, tank.clientWidth, tank.clientHeight);
