@@ -131,7 +131,7 @@
       save();
       return n;
     },
-    // What's in the aquarium: { items: [{ uid, type, x, color }] } (x: 0-1 across the tank).
+    // What's in the aquarium: { items: [{ uid, type, x, y?, color }] } (x, y: 0-1 across / down the tank; y only for things stuck anywhere).
     tank() {
       if (!w.tank) {
         w.tank = { items: [{ uid: 1, type: 'guppy', x: 0.3, color: 0 }, { uid: 2, type: 'seagrass', x: 0.7, color: 2 }], next: 3 };
@@ -146,9 +146,9 @@
       save();
       return item;
     },
-    moveInTank(uid, x) {
+    moveInTank(uid, x, y) {
       const item = Wallet.tank().items.find((i) => i.uid === uid);
-      if (item) { item.x = x; save(); }
+      if (item) { item.x = x; if (y !== undefined) item.y = y; save(); }
     },
     removeFromTank(uid) {
       const t = Wallet.tank();

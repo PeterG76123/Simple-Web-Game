@@ -61,7 +61,7 @@
     // Decorations
     { id: 'shell', kind: 'decor', name: 'Spiral shell', price: 40, w: 0.1, ratio: 0.8,
       svg: '<svg viewBox="0 0 50 40" class="aq-decor"><path d="M6 38 C4 22 16 6 32 8 C46 10 50 26 40 34 C32 40 22 34 24 26 C26 20 34 20 34 26"/><path class="fin" d="M4 38 L46 38"/></svg>' },
-    { id: 'starfish', kind: 'decor', name: 'Starfish', price: 50, w: 0.09, ratio: 0.95,
+    { id: 'starfish', kind: 'decor', name: 'Starfish', price: 50, w: 0.09, ratio: 0.95, sticks: true,
       svg: '<svg viewBox="0 0 50 48" class="aq-decor"><path d="M25 2 L31 18 L48 18 L34 28 L40 46 L25 35 L10 46 L16 28 L2 18 L19 18Z"/><circle class="fin" cx="25" cy="24" r="3"/></svg>' },
     { id: 'rockarch', kind: 'decor', name: 'Rock arch', price: 120, w: 0.22, ratio: 0.6,
       svg: '<svg viewBox="0 0 80 48" class="aq-decor aq-rock"><path d="M4 48 C2 22 18 6 40 6 C62 6 78 22 76 48 L60 48 C60 32 52 22 40 22 C28 22 20 32 20 48Z"/><path class="fin" d="M18 14 C22 12 26 12 28 14 M50 12 C54 11 58 12 60 15"/></svg>' },
@@ -98,7 +98,7 @@
       <div class="tank-items" id="tankItems"></div>
       <div class="tank-bubbles" aria-hidden="true"><span style="--x:12%;--t:7s;--d:-1s"></span><span style="--x:30%;--t:9s;--d:-4s"></span><span style="--x:58%;--t:6s;--d:-2s"></span><span style="--x:77%;--t:8s;--d:-6s"></span><span style="--x:90%;--t:10s;--d:-3s"></span></div>
     </div>
-    <p class="aq-tip">Drag plants and decorations along the sand. Tap one to sell it.</p>
+    <p class="aq-tip">Drag anything to move it (starfish stick anywhere). Tap one to sell it.</p>
     <nav class="aq-bar" aria-label="Buy for your aquarium">
       <button class="action-btn" data-cat="fish"><span class="aq-bar-icon" aria-hidden="true">🐟</span><span>Fish</span></button>
       <button class="action-btn" data-cat="plant"><span class="aq-bar-icon" aria-hidden="true">🌿</span><span>Plants</span></button>
@@ -119,6 +119,24 @@
   showPearls();
   W.onChange(showPearls);
 
+  // ---------- How each kind of fish moves ----------
+  // speed/accel in tank-widths per second; zone: the band of the tank (0 top, 1 sand) it likes;
+  // school: same-kind fish stick together (spread: how far apart, in body lengths);
+  // pause: stops now and then; wide: picks far-off targets (long, slow crossings).
+  const MOVES = {
+    guppy: { speed: 0.2, accel: 0.5, zone: [0.1, 0.75], school: true, spread: 1.1, retarget: [0.8, 2], darts: true },
+    tetra: { speed: 0.17, accel: 0.45, zone: [0.15, 0.7], school: true, spread: 0.8, retarget: [1.5, 3] },
+    angel: { speed: 0.06, accel: 0.08, zone: [0.2, 0.62], school: true, spread: 1.6, retarget: [3, 6], pause: [1, 3] },
+    puffer: { speed: 0.05, accel: 0.12, zone: [0.35, 0.8], retarget: [2, 4], pause: [1.5, 4], puffs: true },
+    seahorse: { speed: 0.025, accel: 0.05, zone: [0.55, 0.85], retarget: [4, 8], pause: [2, 5], nearPlants: true },
+    moonjelly: { jelly: true },
+    turtle: { speed: 0.07, accel: 0.05, zone: [0.05, 0.7], wide: true, retarget: [5, 9], tilt: 1 },
+    octopus: { octo: true },
+    manta: { speed: 0.08, accel: 0.06, zone: [0.15, 0.6], wide: true, retarget: [5, 9], swoop: true },
+    shark: { speed: 0.11, accel: 0.07, zone: [0.1, 0.55], patrol: true, retarget: [6, 10] },
+  };
+  const DEFAULT_MOVE = { speed: 0.08, accel: 0.15, zone: [0.15, 0.7], retarget: [2, 5] };
+
   let fish = [];
   let raf = 0;
   let last = 0;
@@ -128,6 +146,8 @@
     const w = c.w * tw;
     return [w, w * c.ratio];
   }
+  // A steady per-item number in [0, 1) (so things don't jump about between redraws).
+  const steady = (uid, salt) => ((Math.sin(uid * 12.9898 + salt * 78.233) * 43758.5453) % 1 + 1) % 1;
 
   /** Draws everything in the tank afresh. */
   function render() {
@@ -136,91 +156,229 @@
     const colors = palette();
     const tw = tank.clientWidth, th = tank.clientHeight;
     const sand = th * 0.1;
-    // Plants and decorations first (behind the fish), back to front by size.
     const items = W.tank().items.filter((i) => byId[i.type]);
+    // Plants and decorations first (behind the fish).
     for (const item of items.filter((i) => byId[i.type].kind !== 'fish')) {
       const c = byId[item.type];
       const [w, h] = sizeOf(c);
       const el = document.createElement('div');
-      el.className = `aq-item aq-${c.kind}-item`;
-      el.style.cssText = `width:${w}px;height:${h}px;left:${item.x * (tw - w)}px;bottom:${sand * rand(0.35, 0.75)}px;color:${colors[item.color % colors.length]}`;
+      el.className = `aq-item aq-${c.kind}-item${c.sticks ? ' aq-sticker' : ''}`;
+      const left = item.x * (tw - w);
+      const place = c.sticks && item.y != null
+        ? `top:${item.y * (th - h)}px`
+        : `bottom:${sand * (0.35 + 0.4 * steady(item.uid, 1))}px`;
+      el.style.cssText = `width:${w}px;height:${h}px;left:${left}px;${place};color:${colors[item.color % colors.length]}`;
       el.innerHTML = c.svg;
+      if (c.sticks) el.firstElementChild.style.transform = `rotate(${Math.round(steady(item.uid, 2) * 72)}deg)`;
       el.dataset.uid = item.uid;
-      el.querySelectorAll('.blade, .seg, .tentacle').forEach((g) => { g.style.animationDelay = `${rand(-3, 0).toFixed(2)}s`; });
+      el.querySelectorAll('.blade, .seg, .tentacle').forEach((g) => { g.style.animationDelay = `${(-3 * steady(item.uid, 3 + g.getAttribute('class').length)).toFixed(2)}s`; });
       layer.appendChild(el);
-      makeDraggable(el, item, w);
+      makeDraggable(el, item, w, h, !!c.sticks);
     }
+    const plantsX = items.filter((i) => byId[i.type].kind === 'plant').map((i) => i.x);
     for (const item of items.filter((i) => byId[i.type].kind === 'fish')) {
       const c = byId[item.type];
+      const m = MOVES[c.id] || DEFAULT_MOVE;
       const [w, h] = sizeOf(c);
       const el = document.createElement('div');
       el.className = 'aq-item aq-fish-item';
       el.style.cssText = `width:${w}px;height:${h}px;color:${colors[item.color % colors.length]}`;
       el.innerHTML = `<div class="aq-facing">${c.svg}</div>`;
       layer.appendChild(el);
+      const zoneY = (z) => Math.min(th * 0.9 - h / 2, Math.max(h / 2, th * z));
       const f = {
-        el, c, item, w, h,
-        x: item.x * (tw - w), y: rand(th * 0.08, th * 0.7 - h),
-        vx: (Math.random() < 0.5 ? -1 : 1) * rand(18, 40) * (c.w > 0.2 ? 0.6 : 1),
+        el, c, m, item, w, h, plantsX,
+        x: w / 2 + item.x * (tw - w), y: zoneY(rand(m.zone ? m.zone[0] : 0.3, m.zone ? m.zone[1] : 0.6)),
+        vx: (Math.random() < 0.5 ? -1 : 1) * 10, vy: 0,
+        dir: 1, tilt: 0, puff: 1, puffT: rand(4, 10),
+        wait: 0, timer: 0, tx: 0, ty: 0,
         phase: rand(0, Math.PI * 2),
+        jet: 0, // octopus: >0 while jetting upwards
+        offset: [rand(-1, 1), rand(-1, 1)],
       };
-      if (c.drifts) f.vy = rand(-8, -4);
-      el.addEventListener('click', () => itemMenu(item));
+      f.dir = f.vx > 0 ? 1 : -1;
+      newTarget(f, tw, th);
+      makeFishDraggable(f);
       fish.push(f);
     }
+    // Schools: the first fish of each schooling kind leads; the rest follow it.
+    const leaders = {};
+    for (const f of fish) {
+      if (!f.m.school) continue;
+      if (!leaders[f.c.id]) leaders[f.c.id] = f;
+      else f.leader = leaders[f.c.id];
+    }
     showPearls();
+  }
+
+  /** Picks somewhere new for a fish to head for. */
+  function newTarget(f, tw, th) {
+    const m = f.m;
+    const minX = f.w / 2, maxX = tw - f.w / 2;
+    const minY = f.h / 2, maxY = th * 0.9 - f.h / 2;
+    const band = m.zone || [0.2, 0.7];
+    let tx = rand(minX, maxX);
+    if (m.wide || m.patrol) tx = f.x < tw / 2 ? rand(tw * 0.75, maxX) : rand(minX, tw * 0.25);
+    if (m.nearPlants && f.plantsX.length) tx = f.plantsX[Math.floor(Math.random() * f.plantsX.length)] * tw + rand(-20, 20);
+    if (m.darts && Math.random() < 0.5) tx = f.x + rand(-0.25, 0.25) * tw;
+    f.tx = Math.min(maxX, Math.max(minX, tx));
+    f.ty = Math.min(maxY, Math.max(minY, th * rand(band[0], band[1])));
+    if (m.patrol) f.ty = Math.min(maxY, Math.max(minY, f.y + rand(-0.08, 0.08) * th));
+    f.timer = rand(...(m.retarget || [2, 5]));
   }
 
   function frame(now) {
     const dt = Math.min(0.05, (now - last) / 1000);
     last = now;
     const tw = tank.clientWidth, th = tank.clientHeight;
+    const floor = th * 0.9;
     for (const f of fish) {
+      const m = f.m;
       f.phase += dt;
-      if (motionOK) {
-        if (f.c.drifts) {
-          // Jellies and octopuses drift up slowly, then sink back.
-          f.y += f.vy * dt;
-          if (f.y < th * 0.05) f.vy = Math.abs(f.vy);
-          if (f.y > th * 0.68 - f.h) f.vy = -Math.abs(f.vy);
-          f.x += Math.sin(f.phase * 0.4) * 6 * dt;
+      if (motionOK && !f.held) {
+        if (m.jelly) {
+          // Pulses upwards in little pushes, then sinks slowly.
+          f.timer -= dt;
+          if (f.timer <= 0) { f.vy = f.y < th * 0.15 ? 4 : -rand(35, 55); f.timer = 2.2; }
+          f.vy = Math.min(10, f.vy + 30 * dt);
+          f.vx = Math.sin(f.phase * 0.35) * 8;
+        } else if (m.octo) {
+          // Creeps along the sand, and now and then jets up and floats back down.
+          if (f.jet > 0) {
+            f.jet -= dt;
+            f.vy = Math.min(14, f.vy + 50 * dt);
+            if (f.y >= floor - f.h / 2 - 1 && f.vy > 0) f.jet = 0;
+          } else {
+            f.timer -= dt;
+            if (f.timer <= 0) { f.tx = rand(f.w / 2, tw - f.w / 2); f.timer = rand(4, 8); }
+            f.vx += Math.max(-8 * dt, Math.min(8 * dt, Math.sign(f.tx - f.x) * 12 - f.vx));
+            if (Math.abs(f.tx - f.x) < 4) f.vx *= 0.9;
+            f.vy = Math.min(14, f.vy + 30 * dt);
+            if (Math.random() < dt * 0.06) { f.jet = 6; f.vy = -rand(90, 130); f.vx = rand(-30, 30); }
+          }
         } else {
-          f.x += f.vx * dt;
-          if (f.x < 0) { f.x = 0; f.vx = Math.abs(f.vx); }
-          if (f.x > tw - f.w) { f.x = tw - f.w; f.vx = -Math.abs(f.vx); }
-          // Now and then a fish changes its mind.
-          if (Math.random() < dt * 0.08) f.vx = -f.vx;
+          const speed = m.speed * tw, accel = m.accel * tw;
+          let gx, gy;
+          if (f.leader && !f.leader.held) {
+            // Followers keep their own spot near the leader (behind it, a little to the side).
+            const s = f.w * (m.spread || 1);
+            gx = f.leader.x - f.leader.dir * s * (0.6 + Math.abs(f.offset[0])) ;
+            gy = f.leader.y + f.offset[1] * s * 0.9;
+          } else {
+            f.timer -= dt;
+            if (f.wait > 0) { f.wait -= dt; gx = f.x; gy = f.y; }
+            else {
+              if (f.timer <= 0 || Math.hypot(f.tx - f.x, f.ty - f.y) < f.w * 0.3) {
+                if (m.pause && f.timer > 0) f.wait = rand(...m.pause);
+                newTarget(f, tw, th);
+              }
+              gx = f.tx; gy = f.ty;
+            }
+          }
+          if (m.swoop) gy += Math.sin(f.phase * 0.8) * th * 0.06;
+          // Steer towards the goal, slowing on arrival.
+          const dx = gx - f.x, dy = gy - f.y, d = Math.hypot(dx, dy) || 1;
+          const want = Math.min(speed * (f.leader ? 1.4 : 1), d * 1.5);
+          let ax = (dx / d) * want - f.vx, ay = (dy / d) * want * 0.7 - f.vy;
+          // Keep a little space from fish of the same kind.
+          for (const o of fish) {
+            if (o === f || o.c !== f.c) continue;
+            const ox = f.x - o.x, oy = f.y - o.y, od = Math.hypot(ox, oy);
+            if (od > 0 && od < f.w * 0.8) { ax += (ox / od) * speed * 0.8; ay += (oy / od) * speed * 0.8; }
+          }
+          const a = Math.hypot(ax, ay), lim = accel * dt;
+          if (a > lim) { ax *= lim / a; ay *= lim / a; }
+          f.vx += ax; f.vy += ay;
+          if (m.darts && Math.random() < dt * 0.3 && !f.leader) { f.vx *= 2.2; }
+          // Puffers puff up now and then.
+          if (m.puffs) {
+            f.puffT -= dt;
+            if (f.puffT <= 0) { f.puffT = rand(6, 12); f.puffing = 2.5; }
+            if (f.puffing > 0) f.puffing -= dt;
+            const goal = f.puffing > 0 ? 1.35 : 1;
+            f.puff += (goal - f.puff) * Math.min(1, dt * 6);
+          }
         }
+        f.x += f.vx * dt; f.y += f.vy * dt;
+        f.x = Math.min(tw - f.w / 2, Math.max(f.w / 2, f.x));
+        f.y = Math.min(floor - f.h / 2, Math.max(f.h / 2, f.y));
       }
-      const bob = Math.sin(f.phase * (f.c.bob ? 1.6 : 1.1)) * (f.c.bob ? 6 : 3);
-      f.el.style.transform = `translate(${f.x}px, ${f.y + bob}px)`;
-      f.el.firstElementChild.style.transform = `scaleX(${f.c.drifts || f.vx > 0 ? 1 : -1})`;
+      // Turn round only when really heading the other way.
+      if (!m.jelly && !m.octo) {
+        if (f.vx > 4) f.dir = 1; else if (f.vx < -4) f.dir = -1;
+        const goalTilt = Math.max(-22, Math.min(22, Math.atan2(f.vy, Math.abs(f.vx) + 8) * 180 / Math.PI)) * (m.tilt || 0.8);
+        f.tilt += (goalTilt - f.tilt) * Math.min(1, dt * 4);
+      }
+      const bob = m.nearPlants ? Math.sin(f.phase * 1.6) * 5 : m.jelly || m.octo ? 0 : Math.sin(f.phase * 1.1) * 2;
+      f.el.style.transform = `translate(${f.x - f.w / 2}px, ${f.y - f.h / 2 + bob}px)`;
+      f.el.firstElementChild.style.transform = `scaleX(${f.dir}) rotate(${f.tilt}deg) scale(${f.puff})`;
     }
     raf = screen.classList.contains('active') ? requestAnimationFrame(frame) : 0;
   }
 
-  // Plants and decorations slide along the sand; a tap (no slide) offers to sell.
-  function makeDraggable(el, item, w) {
+  // Fish can be picked up and put somewhere else; a tap (no move) offers to sell.
+  function makeFishDraggable(f) {
+    const el = f.el;
     let start = null;
     el.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       el.setPointerCapture(e.pointerId);
-      start = { x: e.clientX, left: parseFloat(el.style.left), moved: 0 };
+      start = { x: e.clientX, y: e.clientY, fx: f.x, fy: f.y, moved: 0 };
+      f.held = true;
       el.classList.add('dragging');
     });
     el.addEventListener('pointermove', (e) => {
       if (!start) return;
-      const dx = e.clientX - start.x;
-      start.moved = Math.max(start.moved, Math.abs(dx));
-      const tw = tank.clientWidth;
-      el.style.left = `${Math.max(0, Math.min(tw - w, start.left + dx))}px`;
+      const dx = e.clientX - start.x, dy = e.clientY - start.y;
+      start.moved = Math.max(start.moved, Math.hypot(dx, dy));
+      f.x = start.fx + dx; f.y = start.fy + dy;
+      f.vx = 0; f.vy = 0;
     });
     const end = () => {
       if (!start) return;
       el.classList.remove('dragging');
-      const tw = tank.clientWidth;
+      f.held = false;
+      if (start.moved < 6) itemMenu(f.item);
+      else {
+        // Let go: off it goes from here (a follower may become a leader for a while).
+        f.wait = 0;
+        newTarget(f, tank.clientWidth, tank.clientHeight);
+        if (f.m.octo) { f.jet = 0; }
+      }
+      start = null;
+    };
+    el.addEventListener('pointerup', end);
+    el.addEventListener('pointercancel', end);
+  }
+
+  // Plants and decorations slide along the sand (starfish stick anywhere, even
+  // on the glass); a tap (no slide) offers to sell.
+  function makeDraggable(el, item, w, h, free) {
+    let start = null;
+    el.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      el.setPointerCapture(e.pointerId);
+      if (free && !el.style.top) { el.style.top = `${el.offsetTop}px`; el.style.bottom = ''; }
+      start = { x: e.clientX, y: e.clientY, left: parseFloat(el.style.left), top: parseFloat(el.style.top), moved: 0 };
+      el.classList.add('dragging');
+    });
+    el.addEventListener('pointermove', (e) => {
+      if (!start) return;
+      const dx = e.clientX - start.x, dy = e.clientY - start.y;
+      start.moved = Math.max(start.moved, free ? Math.hypot(dx, dy) : Math.abs(dx));
+      const tw = tank.clientWidth, th = tank.clientHeight;
+      el.style.left = `${Math.max(0, Math.min(tw - w, start.left + dx))}px`;
+      if (free) el.style.top = `${Math.max(0, Math.min(th - h, start.top + dy))}px`;
+    });
+    const end = () => {
+      if (!start) return;
+      el.classList.remove('dragging');
+      const tw = tank.clientWidth, th = tank.clientHeight;
       if (start.moved < 6) itemMenu(item);
-      else W.moveInTank(item.uid, tw > w ? parseFloat(el.style.left) / (tw - w) : 0.5);
+      else {
+        const x = tw > w ? parseFloat(el.style.left) / (tw - w) : 0.5;
+        W.moveInTank(item.uid, x, free && th > h ? parseFloat(el.style.top) / (th - h) : undefined);
+      }
       start = null;
     };
     el.addEventListener('pointerup', end);
