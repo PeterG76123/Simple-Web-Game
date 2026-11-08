@@ -35,19 +35,21 @@
   // ---------- The scenery behind (and in front of) each tank ----------
   const ROCK = 'class="rock"';
   const SCENES = {
-    goldfish: { back: '', front: '' },
+    goldfish: { back: '', mid: '', front: '' },
     tropical: {
       back:
         `<svg class="scene-piece" style="left:0;width:46%" viewBox="0 0 160 120"><path ${ROCK} d="M0 120 L0 60 C10 40 30 30 50 34 C60 18 84 14 100 26 C116 22 134 34 138 52 C150 60 158 80 160 120Z"/><path ${ROCK} d="M60 120 C64 96 84 86 104 92 C120 96 130 108 132 120Z"/><path class="rock-line" d="M30 60 C40 56 50 58 58 64 M90 40 C98 38 106 40 112 46 M14 90 C22 86 30 88 36 92"/></svg>` +
         `<svg class="scene-piece" style="right:0;width:36%" viewBox="0 0 120 100"><path ${ROCK} d="M0 100 C4 70 20 50 44 48 C60 30 92 30 108 52 C116 66 120 84 120 100Z"/><path ${ROCK} d="M40 100 C44 84 60 76 76 80 C88 84 94 92 96 100Z"/><path class="rock-line" d="M56 44 C64 42 72 44 78 48 M20 76 C26 72 34 72 40 76"/></svg>` +
         // The deep-sea diver in his brass helmet, with bubbles rising.
         `<div class="scene-piece diver" style="left:46%;width:21%"><span class="diver-bubbles"><i></i><i></i><i></i><i></i><i></i></span><svg viewBox="0 0 60 110"><path class="hose" d="M30 8 C30 -2 44 -6 58 2"/><path class="suit" d="M14 48 L46 48 L48 80 L12 80Z"/><path class="suit" d="M14 80 L16 104 L28 104 L28 80Z M32 80 L32 104 L44 104 L46 80Z"/><path class="suit" d="M14 50 L4 72 L10 75 L18 58Z M46 50 L56 70 L50 73 L42 58Z"/><path class="brass" d="M12 104 L30 104 L30 110 L12 110Z M30 104 L48 104 L48 110 L30 110Z"/><path class="brass" d="M14 38 L46 38 L50 48 L10 48Z"/><path class="belt" d="M12 66 L48 66"/><circle class="brass" cx="30" cy="24" r="16"/><circle class="glass" cx="30" cy="26" r="7"/><circle class="glass" cx="16" cy="24" r="3"/><circle class="glass" cx="44" cy="24" r="3"/><path class="glare" d="M26 23 C27 21 29 20 31 20"/></svg></div>`,
+      mid: '',
       front: '',
     },
     marine: {
+      // The dark inside of the cave sits on the sand; the rock is drawn in front of
+      // everything, so a crab in the cave is seen through the opening.
+      mid: `<svg class="scene-piece cave" style="left:0;width:52%" viewBox="0 0 200 140"><path class="cave-dark" d="M64 140 C64 106 80 90 100 90 C120 90 136 106 136 140Z"/><circle class="cave-mouth" cx="100" cy="124" r="1"/></svg>`,
       back:
-        // The dark inside of the cave (the rock itself is drawn in front).
-        `<svg class="scene-piece" style="left:0;width:52%" viewBox="0 0 200 140"><path class="cave-dark" d="M64 140 C64 106 80 90 100 90 C120 90 136 106 136 140Z"/><circle class="cave-mouth" cx="100" cy="128" r="1"/></svg>` +
         `<svg class="scene-piece" style="right:0;width:44%" viewBox="0 0 160 120"><path ${ROCK} d="M10 120 C14 90 30 70 60 68 C76 50 110 48 130 66 C146 76 156 96 158 120Z"/>` +
         `<path class="coral" style="--k:#ff6ab0" d="M38 72 C38 54 72 54 72 72Z"/><path class="coral-line" style="--k:#ff6ab0" d="M44 68 C48 62 52 66 56 60 C60 66 64 60 68 66"/>` +
         `<path class="coral-branch" style="--k:#b07aff" d="M104 56 L104 30 M104 44 L94 32 M104 40 L114 26 M94 32 L90 22 M114 26 L118 16"/>` +
@@ -55,7 +57,7 @@
         `<path class="coral" style="--k:#ff8a3a" d="M132 66 C126 50 132 36 146 34 C150 46 146 60 136 68Z"/><path class="coral-line" style="--k:#ff8a3a" d="M134 64 L142 40 M136 62 L132 46 M138 60 L148 46"/></svg>` +
         `<svg class="scene-piece" style="left:42%;width:16%" viewBox="0 0 60 40"><path class="coral" style="--k:#3ad6ff" d="M6 40 C6 24 26 20 30 30 C34 20 54 24 54 40Z"/><path class="coral-branch" style="--k:#ff5a7a" d="M30 30 L30 8 M30 18 L22 10 M30 14 L38 6"/></svg>`,
       front:
-        `<svg class="scene-piece" style="left:0;width:52%" viewBox="0 0 200 140"><path ${ROCK} d="M0 140 C0 96 14 52 56 30 C92 10 150 14 178 48 C194 70 200 104 200 140 L136 140 C136 106 120 90 100 90 C80 90 64 106 64 140Z"/>` +
+        `<svg class="scene-piece cave" style="left:0;width:52%" viewBox="0 0 200 140"><path ${ROCK} d="M0 140 C0 96 14 52 56 30 C92 10 150 14 178 48 C194 70 200 104 200 140 L136 140 C136 106 120 90 100 90 C80 90 64 106 64 140Z"/>` +
         `<path class="rock-line" d="M30 70 C40 64 52 66 60 72 M150 50 C160 50 168 56 172 62 M20 110 C28 104 40 106 46 112 M160 100 C168 96 178 98 184 104"/>` +
         `<path class="coral" style="--k:#ff6ab0" d="M70 30 C70 14 100 12 104 26Z"/><path class="coral-line" style="--k:#ff6ab0" d="M74 26 C80 18 86 24 92 16 C96 22 100 18 102 24"/>` +
         `<path class="coral-branch" style="--k:#5dff9b" d="M140 30 L140 6 M140 18 L130 8 M140 14 L150 4"/><path class="coral-branch" style="--k:#ffd23a" d="M40 46 L36 28 M44 44 L46 24 M48 46 L54 30"/></svg>`,
@@ -83,6 +85,7 @@
       <div class="tank-scene" id="sceneBack" aria-hidden="true"></div>
       <!-- The sand is in front of the scenery, so rocks sink into it. -->
       <svg class="tank-sand" viewBox="0 0 400 60" preserveAspectRatio="none" aria-hidden="true"><path d="M0 22 C40 12 80 18 120 14 C170 9 210 20 260 16 C310 12 350 20 400 14 L400 60 L0 60Z"/><path class="sand-ripple" d="M20 34 C60 30 90 36 130 32 M200 40 C240 36 270 42 310 38 M90 50 C130 46 160 52 200 48"/></svg>
+      <div class="tank-scene" id="sceneMid" aria-hidden="true"></div>
       <div class="tank-items" id="tankItems"></div>
       <div class="tank-scene tank-front" id="sceneFront" aria-hidden="true"></div>
       <div class="tank-bubbles" aria-hidden="true"><span style="--x:12%;--t:7s;--d:-1s"></span><span style="--x:30%;--t:9s;--d:-4s"></span><span style="--x:58%;--t:6s;--d:-2s"></span><span style="--x:77%;--t:8s;--d:-6s"></span><span style="--x:90%;--t:10s;--d:-3s"></span></div>
@@ -102,6 +105,7 @@
   const tank = screen.querySelector('#tank');
   const layer = screen.querySelector('#tankItems');
   const sceneBack = screen.querySelector('#sceneBack');
+  const sceneMid = screen.querySelector('#sceneMid');
   const sceneFront = screen.querySelector('#sceneFront');
   const lockedBox = screen.querySelector('#aqLocked');
 
@@ -135,6 +139,10 @@
     const w = c.w * tw;
     return [w, w * c.ratio];
   }
+  // The ground: a strip of sand with depth, from its back edge (at the foot of the rocks and
+  // the cave's door) to the front of the tank. Things further forward are drawn in front.
+  const ground = (th) => ({ top: th * 0.9, bot: th * 0.985 });
+  const groundZ = (fy, G) => 10 + Math.round(Math.max(0, Math.min(1, (fy - G.top) / (G.bot - G.top))) * 80);
   // A steady per-item number in [0, 1) (so things don't jump about between redraws).
   const steady = (uid, salt) => ((Math.sin(uid * 12.9898 + salt * 78.233) * 43758.5453) % 1 + 1) % 1;
 
@@ -143,6 +151,7 @@
     const t = tankById[cur];
     TANKS.forEach((x) => tank.classList.toggle(`tank-${x.id}`, x.id === cur));
     sceneBack.innerHTML = SCENES[cur].back;
+    sceneMid.innerHTML = SCENES[cur].mid;
     sceneFront.innerHTML = SCENES[cur].front;
     screen.querySelector('#aqName').textContent = t.name;
     const i = TANKS.indexOf(t);
@@ -151,11 +160,13 @@
     screen.querySelector('#tankDots').innerHTML = TANKS.map((x) => `<i class="${x.id === cur ? 'on' : ''}${W.ownsTank(x.id) ? '' : ' locked'}"></i>`).join('');
     screen.querySelectorAll('.aq-bar .action-btn').forEach((b) => { b.disabled = !owned(); });
     // Where the cave mouth is, if this tank has one.
-    const mouth = sceneBack.querySelector('.cave-mouth');
+    // The cave: its door (at the back of the ground) and how far it goes in behind the rock.
+    const rock = sceneMid.querySelector('.cave');
     cave = null;
-    if (mouth) {
-      const r = mouth.getBoundingClientRect(), tr = tank.getBoundingClientRect();
-      cave = { x: r.left + r.width / 2 - tr.left, y: r.top + r.height / 2 - tr.top };
+    if (rock) {
+      const r = rock.getBoundingClientRect(), tr = tank.getBoundingClientRect();
+      const at = (u) => r.left - tr.left + (u / 200) * r.width;
+      cave = { x: at(100), doorL: at(68), doorR: at(132), inL: at(24), inR: at(176) };
     }
   }
 
@@ -209,9 +220,12 @@
       const el = document.createElement('div');
       el.className = `aq-item aq-${c.kind}-item${c.sticks ? ' aq-sticker' : ''}`;
       const left = item.x * (tw - w);
-      const place = c.sticks && item.y != null
-        ? `top:${item.y * (th - h)}px`
-        : `bottom:${sand * (0.35 + 0.4 * steady(item.uid, 1))}px`;
+      // Things on the ground stand at their depth (item.d: 0 back, 1 front); starfish stick anywhere.
+      const G = ground(th);
+      const fy = G.top + (item.d != null ? item.d : 0.15 + 0.6 * steady(item.uid, 1)) * (G.bot - G.top);
+      const place = c.sticks
+        ? (item.y != null ? `top:${item.y * (th - h)}px` : `top:${fy - h * 0.92}px`)
+        : `top:${fy - h * 0.92}px;z-index:${groundZ(fy, G)}`;
       el.style.cssText = `width:${w}px;height:${h}px;left:${left}px;${place};color:${colorOf(c, item, pal)}`;
       el.innerHTML = c.svg;
       if (c.sticks) el.firstElementChild.style.transform = `rotate(${Math.round(steady(item.uid, 2) * 72)}deg)`;
@@ -244,7 +258,12 @@
         jet: 0, // octopus: >0 while jetting upwards
         offset: [rand(-1, 1), rand(-1, 1)],
       };
-      if (m.crawl) f.y = th * 0.9 - h / 2 + h * 0.12;
+      if (m.crawl) {
+        const G = ground(th);
+        f.fy = G.top + (0.2 + 0.6 * steady(item.uid, 5)) * (G.bot - G.top);
+        f.y = f.fy - h * 0.38;
+        f.inCave = false;
+      }
       f.dir = f.vx > 0 ? 1 : -1;
       newTarget(f, tw, th);
       makeFishDraggable(f);
@@ -277,48 +296,75 @@
     f.timer = rand(...(m.retarget || [2, 5]));
   }
 
-  /** Snails and crabs: walk along the sand (crabs dash into the cave when frightened). */
+  /** Snails and crabs: walk about on the ground. Crabs can go into the cave (through
+   * its door, at the back of the ground) and hide inside, behind the rock. */
   function crawl(f, dt, tw, th) {
     const m = f.m;
-    f.y = th * 0.9 - f.h / 2 + f.h * 0.12;
-    f.vy = 0;
-    if (f.hidden > 0) {
-      // Tucked away in the cave; out again after a while.
-      f.hidden -= dt;
-      f.vx = 0;
-      if (f.hidden <= 0) { f.el.classList.remove('in-cave'); f.timer = 0; newTarget(f, tw, th); f.tx = f.x + (f.x < tw / 2 ? 1 : -1) * tw * 0.2; }
-      return;
-    }
-    if (f.retract > 0) { f.retract -= dt; f.vx = 0; if (f.retract <= 0) f.el.classList.remove('retract'); return; }
-    let tx, speed = m.speed * tw;
-    if (f.fleeing) {
-      tx = f.fleeX;
-      speed *= 7;
-      if (Math.abs(tx - f.x) < 3) {
-        f.fleeing = false;
-        if (m.crab && cave && Math.abs(cave.x - f.x) < 6) { f.hidden = rand(5, 9); f.el.classList.add('in-cave'); }
+    const G = ground(th);
+    if (f.fy == null) f.fy = G.top + (G.bot - G.top) / 2;
+    if (f.retract > 0) { f.retract -= dt; f.vx = 0; if (f.retract <= 0) f.el.classList.remove('retract'); place(); return; }
+    let tx = f.x, tfy = f.fy, speed = m.speed * tw;
+    const hideSpot = () => (Math.random() < 0.5 ? rand(cave.inL, cave.doorL - f.w * 0.5) : rand(cave.doorR + f.w * 0.5, cave.inR));
+    if (f.inCave && cave) {
+      tfy = G.top;
+      if (f.hidden > 0) {
+        f.hidden -= dt;
+        if (f.hidden <= 0) f.plan = 'leave';
+      } else if (f.plan === 'leave') {
+        tx = cave.x; speed *= 1.5;
+        if (Math.abs(f.x - cave.x) < 3) { f.inCave = false; f.plan = null; f.wait = 0; f.tx = cave.x; f.tfy = G.top + rand(0.3, 0.8) * (G.bot - G.top); f.timer = rand(2, 4); }
+      } else {
+        if (f.hideX == null || f.plan !== 'hide') { f.plan = 'hide'; f.hideX = hideSpot(); }
+        tx = f.hideX; speed *= 5;
+        if (Math.abs(f.x - f.hideX) < 3) { f.hidden = rand(5, 9); f.plan = null; f.hideX = null; }
       }
+    } else if (f.plan === 'hide' && cave) {
+      // Off to the cave door, then in.
+      tx = cave.x; tfy = G.top; speed *= f.fleeing ? 7 : 1.5;
+      if (Math.abs(f.x - cave.x) < 4 && f.fy - G.top < 3) { f.inCave = true; f.fleeing = false; f.hideX = hideSpot(); }
+    } else if (f.fleeing) {
+      tx = f.fleeX; speed *= 7;
+      if (Math.abs(tx - f.x) < 3) f.fleeing = false;
     } else {
-      // Food that has reached the sand.
-      const snack = !f.full && nearestFood(f, th * 0.86);
-      if (lure) tx = lure.x;
-      else if (snack) {
+      // Food that has landed on the sand.
+      const snack = !f.full && nearestFood(f, G.top - 2);
+      if (lure) { tx = lure.x; tfy = Math.max(G.top, Math.min(G.bot, lure.y)); }
+      else if (snack && snack.landed) {
         const [mx] = mouthOf(f, f.x < snack.x ? 1 : -1);
-        tx = snack.x - (mx - f.x);
+        tx = snack.x - (mx - f.x); tfy = snack.y;
         speed *= 2;
         const [ex] = mouthOf(f);
-        if (Math.abs(ex - snack.x) < 5 && snack.y > th * 0.86) eat(f, snack);
+        if (Math.abs(ex - snack.x) < 5 && Math.abs(f.fy - snack.y) < 6) eat(f, snack);
       } else {
         f.timer -= dt;
-        if (f.wait > 0) { f.wait -= dt; tx = f.x; }
+        if (f.wait > 0) f.wait -= dt;
         else {
-          if (f.timer <= 0 || Math.abs(f.tx - f.x) < 3) { if (m.pause) f.wait = rand(...m.pause); newTarget(f, tw, th); }
-          tx = f.tx;
+          if (f.timer <= 0 || Math.hypot(f.tx - f.x, (f.tfy || f.fy) - f.fy) < 3) {
+            if (m.pause) f.wait = rand(...m.pause);
+            newTarget(f, tw, th);
+            f.tfy = G.top + rand(0.05, 1) * (G.bot - G.top);
+            // Now and then a crab wanders into the cave by itself.
+            if (m.crab && cave && Math.random() < 0.15) f.plan = 'hide';
+          }
+          tx = f.tx; tfy = f.tfy;
         }
       }
     }
-    const want = Math.max(-speed, Math.min(speed, (tx - f.x) * 3));
-    f.vx += Math.max(-speed * 4 * dt, Math.min(speed * 4 * dt, want - f.vx));
+    // Walk towards (tx, tfy), easing in and out.
+    const dx = tx - f.x, dy = tfy - f.fy, d = Math.hypot(dx, dy);
+    const v = d > 0.5 ? Math.min(speed, d * 3) : 0;
+    const wantX = d ? (dx / d) * v : 0, wantY = d ? (dy / d) * v : 0;
+    const k = Math.min(1, dt * 6);
+    f.vx += (wantX - f.vx) * k; f.vfy = (f.vfy || 0) + (wantY - (f.vfy || 0)) * k;
+    f.x += f.vx * dt; f.fy += f.vfy * dt;
+    place();
+    function place() {
+      if (f.inCave && cave) { f.fy = G.top; f.x = Math.max(cave.inL, Math.min(cave.inR, f.x)); }
+      else { f.fy = Math.max(G.top, Math.min(G.bot, f.fy)); f.x = Math.max(f.w / 2, Math.min(tw - f.w / 2, f.x)); }
+      // (In the cave it stands just inside, its feet hidden by the rock's edge.)
+      f.y = f.fy - f.h * (f.inCave ? 0.62 : 0.38);
+      f.vy = 0;
+    }
   }
 
   function frame(now) {
@@ -428,7 +474,7 @@
           let ax = (dx / d) * want - f.vx, ay = (dy / d) * want * (boost > 1 ? 1 : 0.7) - f.vy;
           // Keep a little space from the others, and steer round fish ahead.
           for (const o of fish) {
-            if (o === f || o.m.crawl || o.hidden > 0) continue;
+            if (o === f || o.m.crawl) continue;
             const ox = f.x - o.x, oy = f.y - o.y, od = Math.hypot(ox, oy);
             const room = o.c === f.c ? f.w * 0.8 : (f.w + o.w) * 0.45 + (f.h + o.h) * 0.2;
             if (od > 0 && od < room) {
@@ -450,18 +496,25 @@
             f.puff += (goal - f.puff) * Math.min(1, dt * 6);
           }
         }
-        f.x += f.vx * dt; f.y += f.vy * dt;
-        f.x = Math.min(tw - f.w / 2, Math.max(f.w / 2, f.x));
-        f.y = Math.min(floor - f.h / 2 + (m.crawl ? f.h * 0.12 : 0), Math.max(f.h / 2, f.y));
+        if (!m.crawl) {
+          f.x += f.vx * dt; f.y += f.vy * dt;
+          f.x = Math.min(tw - f.w / 2, Math.max(f.w / 2, f.x));
+          f.y = Math.min(floor - f.h / 2, Math.max(f.h / 2, f.y));
+        }
       }
     }
     collide(dt);
     updateFood(dt, tw, th);
     for (const f of fish) {
       const m = f.m;
-      if (!f.held) {
+      if (!f.held && !m.crawl) {
         f.x = Math.min(tw - f.w / 2, Math.max(f.w / 2, f.x));
-        f.y = Math.min(floor - f.h / 2 + (m.crawl ? f.h * 0.12 : 0), Math.max(f.h / 2, f.y));
+        f.y = Math.min(floor - f.h / 2, Math.max(f.h / 2, f.y));
+      }
+      if (m.crawl) {
+        // On the ground: nearer the front draws in front. Inside the cave: behind its rock.
+        f.el.style.zIndex = f.held ? '' : f.inCave ? 2 : groundZ(f.fy, ground(th));
+        f.el.classList.toggle('in-cave', !!f.inCave);
       }
       // Turn round only when properly swimming the other way, and not too often.
       // (Crabs walk sideways and never turn.)
@@ -497,18 +550,18 @@
       el.className = 'aq-food';
       el.style.background = colors[i % colors.length];
       layer.appendChild(el);
-      food.push({ x: x + rand(-18, 18), y: y + rand(-6, 6), vy: rand(14, 24), sway: rand(0, 6), el, life: 8, age: 0 });
+      const G = ground(tank.clientHeight);
+      food.push({ x: x + rand(-18, 18), y: y + rand(-6, 6), vy: rand(14, 24), sway: rand(0, 6), el, life: 8, age: 0, land: G.top + rand(0.1, 0.9) * (G.bot - G.top) });
     }
     if (!quiet && root.ArrowAudio) root.ArrowAudio.play('sprinkle');
   }
   function updateFood(dt, tw, th) {
-    const sand = th * 0.92;
     for (const p of food) {
       p.sway += dt * 2;
       // Food that lands on the sand fades away after a few seconds (and nothing lingers more than half a minute).
       p.age += dt;
-      if (p.y < sand) { p.y += p.vy * dt; p.x += Math.sin(p.sway) * 6 * dt; }
-      else { p.life -= dt; }
+      if (p.y < p.land) { p.y = Math.min(p.land, p.y + p.vy * dt); p.x += Math.sin(p.sway) * 6 * dt; }
+      else { p.landed = true; p.life -= dt; }
       if (p.age > 30) p.life = Math.min(p.life, 3 - (p.age - 30));
       p.x = Math.min(tw - 3, Math.max(3, p.x));
       p.el.style.transform = `translate(${p.x - 3}px, ${p.y - 3}px)`;
@@ -614,12 +667,12 @@
     for (let i = 0; i < fish.length; i++) {
       for (let j = i + 1; j < fish.length; j++) {
         const a = fish[i], b = fish[j];
-        if (a.hidden > 0 || b.hidden > 0) continue;
+        if (a.inCave || b.inCave) continue;
         // Crawlers only jostle each other, sideways, along the sand.
         const crawlers = !!a.m.crawl + !!b.m.crawl;
         if (crawlers === 1) continue;
         const [arx, ary] = body(a), [brx, bry] = body(b);
-        const dx = b.x - a.x, dy = crawlers ? 0 : b.y - a.y;
+        const dx = b.x - a.x, dy = b.y - a.y;
         // Overlap of two ellipses, roughly: distance in "sum of radii" units.
         const rx = arx + brx, ry = ary + bry;
         const n = Math.hypot(dx / rx, dy / ry);
@@ -630,8 +683,9 @@
         // The bigger (or the one being held) barely moves; the smaller one gets shoved.
         const sa = a.held ? 1e9 : sizeScore(a), sb = b.held ? 1e9 : sizeScore(b);
         const ka = sb / (sa + sb), kb = sa / (sa + sb);
-        a.x -= ux * depth * ka; a.y -= uy * depth * ka;
-        b.x += ux * depth * kb; b.y += uy * depth * kb;
+        // (Crawlers just shuffle sideways.)
+        a.x -= ux * depth * ka; b.x += ux * depth * kb;
+        if (!crawlers) { a.y -= uy * depth * ka; b.y += uy * depth * kb; }
         // Knock their speeds apart along the line between them.
         const rel = (b.vx - a.vx) * ux + (b.vy - a.vy) * uy;
         if (rel < 0) {
@@ -671,9 +725,10 @@
         if (o.m.octo) { o.jet = 6; o.vy = -150; o.vx = (o.x < px ? -1 : 1) * 50; return; }
         if (o.m.crab) {
           // Crabs run for the cave (or, with no cave, scuttle off to the side).
-          if (o.hidden > 0) { o.hidden += 3; return; }
+          if (o.inCave) { o.hidden = Math.max(o.hidden || 0, 3) + 3; return; }
           o.fleeing = true;
-          o.fleeX = cave ? cave.x : o.x < px ? o.w / 2 : tank.clientWidth - o.w / 2;
+          if (cave) o.plan = 'hide';
+          else o.fleeX = o.x < px ? o.w / 2 : tank.clientWidth - o.w / 2;
           return;
         }
         if (o.m.crawl) { o.retract = 3; o.el.classList.add('retract'); return; } // snails pull in
@@ -696,7 +751,7 @@
     el.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       el.setPointerCapture(e.pointerId);
-      start = { x: e.clientX, y: e.clientY, fx: f.x, fy: f.y, moved: 0, menu: false };
+      start = { x: e.clientX, y: e.clientY, fx: f.x, fy: f.y, ffy: f.fy, moved: 0, menu: false };
       start.hold = setTimeout(() => {
         if (!start || start.moved >= 6) return;
         start.menu = true;
@@ -712,9 +767,19 @@
       const dx = e.clientX - start.x, dy = e.clientY - start.y;
       start.moved = Math.max(start.moved, Math.hypot(dx, dy));
       if (start.moved < 6) return;
-      f.x = start.fx + dx; f.y = start.fy + (f.m.crawl ? 0 : dy);
       f.vx = 0; f.vy = 0;
-      if (f.hidden > 0) { f.hidden = 0; el.classList.remove('in-cave'); }
+      if (!f.m.crawl) { f.x = start.fx + dx; f.y = start.fy + dy; return; }
+      // Crawlers are moved about the ground; a crab pushed up through the cave door goes
+      // into the cave, where it can only move sideways (pull it back down to bring it out).
+      const G = ground(tank.clientHeight);
+      const x = start.fx + dx, fy = start.ffy + dy;
+      const atDoor = cave && f.m.crab && x > cave.doorL && x < cave.doorR;
+      if (!f.inCave && atDoor && fy < G.top - 8) { f.inCave = true; f.plan = null; f.hidden = 0; }
+      else if (f.inCave && atDoor && fy > G.top + 8) { f.inCave = false; f.plan = null; f.hidden = 0; }
+      f.x = x; f.fy = fy;
+      if (f.inCave) { f.fy = G.top; f.x = Math.max(cave.inL, Math.min(cave.inR, f.x)); }
+      else { f.fy = Math.max(G.top, Math.min(G.bot, f.fy)); f.x = Math.max(f.w / 2, Math.min(tank.clientWidth - f.w / 2, f.x)); }
+      f.y = f.fy - f.h * (f.inCave ? 0.62 : 0.38);
     });
     const end = (e) => {
       if (!start) return;
@@ -730,6 +795,11 @@
         f.wait = 0;
         f.fleeing = false;
         newTarget(f, tank.clientWidth, tank.clientHeight);
+        if (f.m.crawl) {
+          f.tx = f.x; f.tfy = f.fy; f.wait = rand(1, 2);
+          // Let go inside the cave: hidden if behind the rock, else it goes and hides.
+          if (f.inCave) { if (f.x < cave.doorL || f.x > cave.doorR) f.hidden = rand(5, 9); else f.plan = 'hide'; }
+        }
         if (f.m.octo) { f.jet = 0; }
       }
       start = null;
@@ -738,8 +808,8 @@
     el.addEventListener('pointercancel', end);
   }
 
-  // Plants and decorations slide along the sand (starfish stick anywhere, even
-  // on the glass); press and hold (no slide) offers to sell.
+  // Plants and decorations can be put anywhere on the ground (starfish anywhere at all,
+  // even on the glass); press and hold (no slide) offers to sell.
   function makeDraggable(el, item, w, h, free) {
     let start = null;
     el.addEventListener('pointerdown', (e) => {
@@ -747,6 +817,7 @@
       el.setPointerCapture(e.pointerId);
       if (free && !el.style.top) { el.style.top = `${el.offsetTop}px`; el.style.bottom = ''; }
       start = { x: e.clientX, y: e.clientY, left: parseFloat(el.style.left), top: parseFloat(el.style.top), moved: 0, menu: false };
+      el.style.zIndex = '';
       start.hold = setTimeout(() => {
         if (!start || start.moved >= 6) return;
         start.menu = true;
@@ -758,20 +829,30 @@
     el.addEventListener('pointermove', (e) => {
       if (!start || start.menu) return;
       const dx = e.clientX - start.x, dy = e.clientY - start.y;
-      start.moved = Math.max(start.moved, free ? Math.hypot(dx, dy) : Math.abs(dx));
+      start.moved = Math.max(start.moved, Math.hypot(dx, dy));
       const tw = tank.clientWidth, th = tank.clientHeight;
       el.style.left = `${Math.max(0, Math.min(tw - w, start.left + dx))}px`;
       if (free) el.style.top = `${Math.max(0, Math.min(th - h, start.top + dy))}px`;
+      else {
+        // Anywhere on the ground: from its back edge to the front of the tank.
+        const G = ground(th);
+        const fy = Math.max(G.top, Math.min(G.bot, start.top + h * 0.92 + dy));
+        el.style.top = `${fy - h * 0.92}px`;
+      }
     });
     const end = () => {
       if (!start) return;
       el.classList.remove('dragging');
       clearTimeout(start.hold);
       const tw = tank.clientWidth, th = tank.clientHeight;
+      const G = ground(th);
+      const fy = parseFloat(el.style.top) + h * 0.92;
+      if (!free) el.style.zIndex = groundZ(fy, G);
       if (start.menu || start.moved < 6) { /* held: the sell sheet is open; tapped: nothing to do */ }
       else {
         const x = tw > w ? parseFloat(el.style.left) / (tw - w) : 0.5;
-        W.moveInTank(cur, item.uid, x, free && th > h ? parseFloat(el.style.top) / (th - h) : undefined);
+        if (free) W.moveInTank(cur, item.uid, x, th > h ? parseFloat(el.style.top) / (th - h) : undefined);
+        else W.moveInTank(cur, item.uid, x, undefined, Math.max(0, Math.min(1, (fy - G.top) / (G.bot - G.top))));
       }
       start = null;
     };

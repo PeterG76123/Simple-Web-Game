@@ -1078,7 +1078,7 @@ h1 {
 }
 @keyframes tank-rays { from { transform: translateX(-20px) skewX(-4deg); } to { transform: translateX(20px) skewX(4deg); } }
 .tank-sand { position: absolute; left: 0; right: 0; bottom: 0; width: 100%; height: 14%; }
-.tank-sand path { fill: #b89a62; fill-opacity: 0.45; }
+.tank-sand path { fill: #5a5a4c; }
 .tank-sand .sand-ripple { fill: none; stroke: #e8d3a0; stroke-opacity: 0.4; stroke-width: 2; vector-effect: non-scaling-stroke; }
 .tank-items { position: absolute; inset: 0; }
 .tank-bubbles span {
@@ -1106,13 +1106,13 @@ svg.aq-fish .tail, svg.aq-fish .fin, svg.aq-fish .stripe, svg.aq-jelly .tentacle
 svg.aq-plant path, svg.aq-decor .fin { fill: none !important; }
 svg.aq-plant .leaf, svg.aq-anemone > path { fill: currentColor !important; fill-opacity: 0.3 !important; }
 svg.aq-fish .stripe { stroke: #ff5d8f; stroke-width: 3; }
-.aq-plant-item, .aq-decor-item { cursor: grab; touch-action: none; z-index: 1; }
-.aq-plant-item.dragging, .aq-decor-item.dragging { cursor: grabbing; filter: brightness(1.3); z-index: 3; }
-.aq-fish-item { left: 0; top: 0; z-index: 2; cursor: grab; touch-action: none; will-change: transform; }
-.aq-fish-item.dragging { cursor: grabbing; z-index: 4; filter: brightness(1.3); }
+.aq-plant-item, .aq-decor-item { cursor: grab; touch-action: none; z-index: 10; }
+.aq-plant-item.dragging, .aq-decor-item.dragging { cursor: grabbing; filter: brightness(1.3); z-index: 300 !important; }
+.aq-fish-item { left: 0; top: 0; z-index: 100; cursor: grab; touch-action: none; will-change: transform; }
+.aq-fish-item.dragging { cursor: grabbing; z-index: 300 !important; filter: brightness(1.3); }
 .aq-facing { transform-origin: 50% 50%; }
 /* Starfish are stuck on the front glass: everything swims behind them. */
-.aq-sticker { z-index: 5; }
+.aq-sticker { z-index: 400 !important; }
 .aq-fish-item.scared svg * { animation-duration: 0.2s !important; }
 
 /* Fish move their tails and fins. */
@@ -1162,7 +1162,7 @@ svg.aq-chest .bubbles circle:nth-child(14) { --dx: -3px; --up: -65px; animation-
 .aq-tip { margin: 0; flex: none; text-align: center; color: var(--muted); font-size: 0.85rem; }
 .aq-bar { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; flex: none; }
 .tank { touch-action: none; }
-.aq-food { position: absolute; left: 0; top: 0; width: 6px; height: 6px; border-radius: 2px; z-index: 2; pointer-events: none; box-shadow: 0 0 5px rgba(255, 190, 90, 0.8); }
+.aq-food { position: absolute; left: 0; top: 0; width: 6px; height: 6px; border-radius: 2px; pointer-events: none; z-index: 150; box-shadow: 0 0 5px rgba(255, 190, 90, 0.8); }
 .aq-bar .action-btn { min-height: 64px; }
 .aq-bar-icon { font-size: 1.5rem; line-height: 1; }
 .aq-thumb { flex: none; width: 52px; height: 40px; display: flex; align-items: center; justify-content: center; }
@@ -1176,14 +1176,17 @@ svg.aq-chest .bubbles circle:nth-child(14) { --dx: -3px; --up: -65px; animation-
 
 /* ---------- Several tanks: scenery, title, locked tanks ---------- */
 .tank-tropical { background: linear-gradient(180deg, #0f6a66 0%, #0a4a50 45%, #052a31 100%); }
-.tank-tropical .tank-sand path { fill: #a8884e; fill-opacity: 0.55; }
+.tank-tropical .tank-sand path { fill: #64603f; }
 .tank-marine { background: linear-gradient(180deg, #1a8ad8 0%, #0c5aa6 45%, #06305e 100%); }
-.tank-marine .tank-sand path { fill: #f0e6c8; fill-opacity: 0.55; }
+.tank-marine .tank-sand path { fill: #8c979a; }
 .tank-scene { position: absolute; inset: 0; pointer-events: none; }
 .tank-front { z-index: 3; }
 .scene-piece { position: absolute; bottom: 5%; height: auto; overflow: visible; }
+/* The cave's rock stands on the back edge of the ground (its door opens onto the sand). */
+.scene-piece.cave { bottom: 10%; }
+#sceneMid { z-index: 1; }
 .scene-piece svg, svg.scene-piece { display: block; width: 100%; height: auto; overflow: visible; }
-.tank .rock { fill: #34445a; fill-opacity: 0.95; stroke: #8fa3bf; stroke-width: 2; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.tank .rock { fill: #3c4a5e; stroke: #8fa3bf; stroke-width: 2; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
 .tank-marine .rock { fill: #3a4660; }
 .tank .rock-line { fill: none; stroke: #8fa3bf; stroke-opacity: 0.5; stroke-width: 1.5; stroke-linecap: round; vector-effect: non-scaling-stroke; }
 .tank .cave-dark { fill: #010812; fill-opacity: 0.95; }
@@ -1193,8 +1196,8 @@ svg.aq-chest .bubbles circle:nth-child(14) { --dx: -3px; --up: -65px; animation-
 .tank .coral-branch { fill: none; stroke: var(--k); stroke-width: 4; stroke-linecap: round; vector-effect: non-scaling-stroke; }
 /* The deep-sea diver. */
 .diver svg * { stroke-width: 2; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
-.diver .brass { fill: #ffc65a; fill-opacity: 0.35; stroke: #ffc65a; }
-.diver .suit { fill: #9ab0c8; fill-opacity: 0.25; stroke: #9ab0c8; }
+.diver .brass { fill: #8a6a2a; stroke: #ffc65a; }
+.diver .suit { fill: #3e5266; stroke: #9ab0c8; }
 .diver .glass { fill: #08243a; stroke: #ffc65a; }
 .diver .glare { fill: none; stroke: #fff; stroke-opacity: 0.7; }
 .diver .hose { fill: none; stroke: #7a8a9a; stroke-width: 3; }
@@ -1207,12 +1210,12 @@ svg.aq-chest .bubbles circle:nth-child(14) { --dx: -3px; --up: -65px; animation-
 .diver-bubbles i:nth-child(5) { animation-delay: 2.5s; width: 5px; height: 5px; }
 @keyframes diver-bubble { 0% { opacity: 0.9; transform: translate(0, 0); } 50% { transform: translate(8px, -150px); } 100% { opacity: 0; transform: translate(-4px, -320px); } }
 
-.tank-dots { position: absolute; top: 10px; left: 0; right: 0; display: flex; justify-content: center; gap: 7px; z-index: 6; pointer-events: none; }
+.tank-dots { position: absolute; top: 10px; left: 0; right: 0; display: flex; justify-content: center; gap: 7px; z-index: 500; pointer-events: none; }
 .tank-dots i { width: 8px; height: 8px; border-radius: 50%; background: rgba(255, 255, 255, 0.35); }
 .tank-dots i.on { background: #fff; box-shadow: 0 0 6px rgba(255, 255, 255, 0.8); }
 .tank-dots i.locked { background: transparent; border: 1.5px solid rgba(255, 255, 255, 0.55); }
 .tank-dots i.locked.on { background: rgba(255, 255, 255, 0.6); }
-.aq-locked { position: absolute; inset: 0; z-index: 7; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(2, 10, 24, 0.3); }
+.aq-locked { position: absolute; inset: 0; z-index: 600; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(2, 10, 24, 0.3); }
 .aq-locked[hidden] { display: none; }
 .aq-locked-card { max-width: 300px; padding: 18px 18px 14px; border-radius: 22px; text-align: center; background: rgba(4, 24, 46, 0.82); border: 1px solid var(--glass-edge); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
 .aq-locked-card h3 { margin: 0 0 6px; font-family: var(--font-display); font-weight: 600; font-size: 1.4rem; color: var(--accent); }

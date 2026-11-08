@@ -174,9 +174,10 @@
       save();
       return item;
     },
-    moveInTank(id, uid, x, y) {
+    // (d: how far forward on the ground, 0-1, for things standing on it.)
+    moveInTank(id, uid, x, y, d) {
       const item = w.tanks[id] && w.tanks[id].items.find((i) => i.uid === uid);
-      if (item) { item.x = x; if (y !== undefined) item.y = y; save(); }
+      if (item) { item.x = x; if (y !== undefined) item.y = y; if (d !== undefined) item.d = d; save(); }
     },
     removeFromTank(id, uid) {
       const t = w.tanks[id];
