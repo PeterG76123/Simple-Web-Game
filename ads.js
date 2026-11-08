@@ -140,15 +140,20 @@
     // Start the consent / tracking prompts early in the app.
     init: () => { if (AdMob) setUp(); },
     // Lets players change their ad consent later (EU/UK), from Settings.
-    // (Clears the saved choice and shows Google's consent form again.)
+    // (Google's privacy options form.)
     privacyOptions: async () => {
       if (!AdMob) return;
       await setUp();
       try {
-        await AdMob.resetConsentInfo();
-        const info = await AdMob.requestConsentInfo();
-        if (info.isConsentFormAvailable) await AdMob.showConsentForm();
-      } catch (e) { /* no form where the law doesn't need one */ }
+        await AdMob.showPrivacyOptionsForm();
+      } catch (e) {
+        // Older plugin versions: clear the saved choice and ask again.
+        try {
+          await AdMob.resetConsentInfo();
+          const info = await AdMob.requestConsentInfo();
+          if (info.isConsentFormAvailable) await AdMob.showConsentForm();
+        } catch (e2) { /* no form where the law doesn't need one */ }
+      }
     },
   };
 })(window);

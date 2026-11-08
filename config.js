@@ -55,7 +55,15 @@
       // Pearl packs in the shop.
       packs: { pearls500: 500, pearls3000: 3000 },
     },
-    // Aquarium item prices in pearls (any not listed use aquarium.js's own).
+    // Real purchases, through RevenueCat (see store.js). keys: RevenueCat's public SDK keys
+    // for each app (Project settings > API keys: "goog_…" for Android, "appl_…" for iOS);
+    // left empty, the shop uses stand-in purchases. products: the store product IDs.
+    store: {
+      keys: { android: '', ios: '' },
+      adsEntitlement: 'no_ads',
+      products: { removeAds: 'remove_ads', starter: 'starter_bundle', hints10: 'hints_10', hints50: 'hints_50', hints150: 'hints_150', pearls500: 'pearls_500', pearls3000: 'pearls_3000' },
+    },
+    // Aquarium prices in pearls (any not listed use aquarium-items.js's own; tanks as "tank:marine").
     aquariumPrices: {},
     // Prices as shown (the stores set the real ones).
     prices: { removeAds: '$3.99', hints10: '$0.99', hints50: '$2.99', hints150: '$5.99', starter: '$4.99', pearls500: '$0.99', pearls3000: '$4.99' },

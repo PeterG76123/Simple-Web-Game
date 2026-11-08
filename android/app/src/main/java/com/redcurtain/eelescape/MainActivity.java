@@ -1,4 +1,4 @@
-package com.eelescape.game;
+package com.redcurtain.eelescape;
 
 import com.getcapacitor.BridgeActivity;
 

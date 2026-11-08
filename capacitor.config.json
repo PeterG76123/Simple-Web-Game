@@ -1,8 +1,13 @@
 {
-  "appId": "com.eelescape.game",
+  "appId": "com.redcurtain.eelescape",
   "appName": "Eel Escape",
   "webDir": "www",
   "backgroundColor": "#031127",
-  "android": { "backgroundColor": "#031127" },
-  "ios": { "backgroundColor": "#031127", "contentInset": "never" }
+  "android": {
+    "backgroundColor": "#031127"
+  },
+  "ios": {
+    "backgroundColor": "#031127",
+    "contentInset": "never"
+  }
 }

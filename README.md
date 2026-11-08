@@ -54,6 +54,7 @@ python3 -m http.server 8000
 - `ads.js`: Google AdMob ads in the phone app; a stand-in test ad on the web
 - `aquarium.js`: the aquarium screen: three tanks to buy with pearls and swipe between, fish that swim, school, feed and get startled, plants that sway, things to drag about and sell
 - `aquarium-items.js`: the tanks and everything that can go in them (10 fish, 5 plants, 5 decorations per tank; simple outline art for now: each item's picture is its `svg`)
+- `store.js`: real purchases through RevenueCat in the phone app (see Purchases below)
 - `shop.js`: the shop, the out-of-hints offer and the starter bundle (purchases are a stand-in for now)
 - `fonts/`: the game's fonts (Fredoka, Nunito), bundled so nothing is fetched from Google
 - `privacy.html`: the privacy policy the app stores ask for
@@ -107,17 +108,30 @@ Levels are stored in a compact text format (about 80–150 characters for a 10×
 The game is wrapped as an Android and iPhone app with [Capacitor](https://capacitorjs.com). The web files are copied into `www/` and packed into the app.
 
 1. `npm install`
-2. `npm run android` (needs Android Studio) or `npm run ios` (needs a Mac with Xcode; run `pod install` in `ios/App` the first time). These copy the game into `www/`, sync it into the native projects and open them.
+2. `npm run android` (needs Android Studio) or `npm run ios` (needs a Mac with Xcode; the iOS project uses Swift Package Manager, so no CocoaPods). These copy the game into `www/`, sync it into the native projects and open them.
 3. Run on a phone or emulator from Android Studio / Xcode.
 
-Both apps are locked to portrait. Ads use the `@capacitor-community/admob` plugin: on first launch the app shows Google's consent form where the law needs one (EU/UK) and, on iPhone, Apple's tracking prompt. Settings has a "Privacy choices" button to change consent later.
+**No Android Studio?** GitHub builds the Android app on every push (`.github/workflows/android.yml`): open the repository's **Actions** tab, pick the latest "Android build" run and download its artifact. It has `eel-escape-test.apk` (install it straight onto an Android phone: allow "install unknown apps" for your browser or file manager) and `eel-escape.aab` (the bundle for Google Play, signed once the upload-key secrets described in the workflow file are set).
+
+The app ID is `com.redcurtain.eelescape` (Capacitor 8; Android targets API 36). Both apps are locked to portrait. Ads use the `@capacitor-community/admob` plugin: on first launch the app shows Google's consent form where the law needs one (EU/UK) and, on iPhone, Apple's tracking prompt. Settings has a "Privacy choices" button to change consent later.
+
+### Purchases (RevenueCat)
+
+`store.js` makes real purchases through [RevenueCat](https://www.revenuecat.com) (`@revenuecat/purchases-capacitor`); until its keys are filled in, and on the web, the shop's stand-in purchases are used.
+
+1. In Google Play Console, create the app (`com.redcurtain.eelescape`), upload a first build (the `.aab`) to Internal testing, then create these **one-time products**: `remove_ads`, `starter_bundle`, `hints_10`, `hints_50`, `hints_150`, `pearls_500`, `pearls_3000`.
+2. In RevenueCat: create a project and an Android app for the package, connect Google Play (a service account with access to the Play Console), import the 7 products, mark `remove_ads` and `starter_bundle` as **non-consumable** (the rest consumable), and create an entitlement `no_ads` holding `remove_ads` and `starter_bundle`.
+3. Put the app's public SDK key (`goog_…`, under Project settings > API keys) in `config.js` at `store.keys.android` (and the `appl_…` key at `store.keys.ios` for the iPhone app).
+4. Add yourself as a **license tester** in Play Console (Settings > License testing) to buy without being charged.
+
+Prices shown in the shop come from the store (in the player's own currency); `prices` in the settings are only for the web version.
 
 ### Before release
 
-- [ ] Change the app ID `com.eelescape.game` in `capacitor.config.json` (and the Android / iOS projects) to one you own.
 - [ ] Create an AdMob account and app, then replace Google's **test** IDs: the app IDs in `android/app/src/main/AndroidManifest.xml` and `ios/App/App/Info.plist`, and the ad unit IDs in `ads.js` (or set `ads.units` in `remote-config.json`).
 - [ ] Add the remaining SKAdNetwork IDs AdMob lists to `Info.plist`.
-- [ ] Hook up real purchases (App Store / Google Play) in `shop.js`, including Restore purchases.
+- [ ] Set up RevenueCat and the store products, and fill in `store.keys` (see Purchases above).
+- [ ] Create an upload key and add it as GitHub secrets so Actions signs the Play bundle (see `.github/workflows/android.yml`).
 - [ ] Set `unlockAll` to `false` in `remote-config.json` so groups unlock as players progress.
 - [ ] Fill in `privacy.html` (release date, contact email) and give its web address to both stores; complete Google Play's Data safety form and Apple's privacy details.
 - [ ] Set the age rating for a general audience (not "designed for children").

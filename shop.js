@@ -76,7 +76,22 @@
   };
 
   // ---------- Buying (a stand-in for the stores) ----------
-  function buy(product, then) {
+  // A product's price: the store's own (in the player's currency) in the app, else the one in the settings.
+  const price = (product) => (root.ArrowStore ? root.ArrowStore.price(product) : cfg(`prices.${product}`));
+
+  async function buy(product, then) {
+    const S = root.ArrowStore;
+    if (S && S.live) {
+      // A real purchase, through Google Play / the App Store.
+      dialog('Just a moment', '<p class="shop-small">Connecting to the store…</p>', []);
+      const result = await S.buy(product);
+      if (result === 'cancelled') { close(true); if (then) then(); return; }
+      if (result !== 'ok') {
+        dialog('Purchase didn’t go through', '<p>Nothing was charged. Please try again in a moment.</p>',
+          [{ label: 'OK', primary: true, action: () => { close(true); if (then) then(); } }]);
+        return;
+      }
+    }
     W.grant(product);
     dialog('Purchase successful', `<p class="shop-done">✓ ${NAMES[product]} — thank you!</p>` +
       (product === 'removeAds' || product === 'starter' ? '<p class="shop-small">No more ads between levels. You can still watch ads for free hints.</p>' : ''),
@@ -86,20 +101,19 @@
   // ---------- The shop ----------
   function open(then) {
     const el = document.createElement('div');
-    const p = cfg('prices');
     const item = (id, title, sub, price, extra = '') =>
       `<button class="shop-item${extra}" data-buy="${id}"><span class="shop-item-text"><strong>${title}</strong><span>${sub}</span></span><span class="shop-price">${price}</span></button>`;
     el.innerHTML = hintLine() +
       '<div class="shop-list">' +
       (W.canTakeDailyBonus() ? `<button class="shop-item free" data-free="bonus"><span class="shop-item-text"><strong>Daily bonus</strong><span>Watch an ad for ${cfg('hints.dailyBonus')} hints (once a day)</span></span><span class="shop-price">Free</span></button>` : '') +
       (W.canWatchForHint() ? `<button class="shop-item free" data-free="hint"><span class="shop-item-text"><strong>Free hint</strong><span>Watch an ad for ${cfg('hints.perRewardedAd')} hint${cfg('hints.perRewardedAd') === 1 ? '' : 's'}</span></span><span class="shop-price">Free</span></button>` : '') +
-      (!W.starterBought() && !W.adsRemoved() ? item('starter', 'Starter bundle', `No ads + ${cfg('starter.hints')} hints`, p.starter, ' featured') : '') +
-      (W.adsRemoved() ? '<p class="shop-owned">✓ Ads removed</p>' : item('removeAds', 'Remove ads', 'No ads between levels, ever', p.removeAds)) +
-      item('hints10', '10 hints', 'A handful for tricky spots', p.hints10) +
-      item('hints50', '50 hints', 'Best value for regulars', p.hints50) +
-      item('hints150', '150 hints', 'Never be stuck again', p.hints150) +
-      item('pearls500', NAMES.pearls500, 'For fish and plants in your aquarium', p.pearls500) +
-      item('pearls3000', NAMES.pearls3000, 'Fill your tank with sharks and treasure', p.pearls3000) +
+      (!W.starterBought() && !W.adsRemoved() ? item('starter', 'Starter bundle', `No ads + ${cfg('starter.hints')} hints`, price('starter'), ' featured') : '') +
+      (W.adsRemoved() ? '<p class="shop-owned">✓ Ads removed</p>' : item('removeAds', 'Remove ads', 'No ads between levels, ever', price('removeAds'))) +
+      item('hints10', '10 hints', 'A handful for tricky spots', price('hints10')) +
+      item('hints50', '50 hints', 'Best value for regulars', price('hints50')) +
+      item('hints150', '150 hints', 'Never be stuck again', price('hints150')) +
+      item('pearls500', NAMES.pearls500, 'For fish and plants in your aquarium', price('pearls500')) +
+      item('pearls3000', NAMES.pearls3000, 'Fill your tank with sharks and treasure', price('pearls3000')) +
       '</div><button class="shop-restore">Restore purchases</button>';
     dialog('Shop', el, [{ label: 'Done', primary: true, action: () => close() }], { wide: true });
     onClose = then || null;
@@ -116,7 +130,15 @@
       }
       open(keep);
     }));
-    el.querySelector('.shop-restore').addEventListener('click', () => toast('Purchases restored'));
+    el.querySelector('.shop-restore').addEventListener('click', async () => {
+      const S = root.ArrowStore;
+      if (!S || !S.live) { toast('Purchases restored'); return; }
+      toast('Checking your purchases…');
+      const had = W.adsRemoved();
+      const found = await S.restore();
+      toast(found ? (had ? 'Ads are already removed' : 'Ads removed again. Welcome back!') : 'No purchases to restore');
+      if (found && !had) open(then);
+    });
   }
 
   // ---------- Out of hints ----------
@@ -141,7 +163,7 @@
     return new Promise((resolve) => {
       W.starterShown();
       dialog('Starter bundle', `<p class="shop-offer">No more ads between levels, plus <strong>${cfg('starter.hints')} hints</strong>.</p><p class="shop-small">A one-time offer for enjoying the deep.</p>`, [
-        { label: `Get it for ${cfg('prices.starter')}`, primary: true, action: () => buy('starter', resolve) },
+        { label: `Get it for ${price('starter')}`, primary: true, action: () => buy('starter', resolve) },
         { label: 'No thanks', action: () => close() },
       ]);
       onClose = resolve;
