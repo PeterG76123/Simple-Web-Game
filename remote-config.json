@@ -1,0 +1,9 @@
+{
+  "_note": "Live monetisation settings. Anything left out keeps its default (see config.js). Edit, commit and push: players pick it up on their next launch.",
+  "unlockAll": true,
+  "ads": { "graceLevels": 10, "minLevelsBetween": 2, "minSecondsBetween": 180 },
+  "hints": { "freePerDay": 3, "perRewardedAd": 1, "maxRewardedPerDay": 10, "dailyBonus": 3 },
+  "skip": { "enabled": true, "tiers": [2] },
+  "starter": { "afterLevels": 10, "hints": 25 },
+  "prices": { "removeAds": "$3.99", "hints10": "$0.99", "hints50": "$2.99", "hints150": "$5.99", "starter": "$4.99" }
+}

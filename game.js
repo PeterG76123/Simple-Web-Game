@@ -98,7 +98,7 @@
     const b = document.getElementById('hintBtn');
     const settingsOpen = window.ArrowSettings && window.ArrowSettings.isOpen && window.ArrowSettings.isOpen();
     const waiting = state && screens.game.classList.contains('active') && !state.finished && !state.hint && !state.thinking
-      && overlay.hidden && !settingsOpen && !introOpen() && !b.disabled && !document.hidden;
+      && overlay.hidden && !settingsOpen && !introOpen() && !(window.ArrowShop && window.ArrowShop.isOpen()) && !b.disabled && !document.hidden;
     if (!waiting) { lastActive = Math.max(lastActive, performance.now() - IDLE_MS / 2); return; }
     if (performance.now() - lastActive > IDLE_MS) b.classList.add('nudge');
   }, 1000);
@@ -150,9 +150,11 @@
   const completedIn = (g) => groupsNow()[g].levels.filter((_, i) => isCompleted(g, i)).length;
   // TESTING: every group and level is open. Set to false before release to
   // bring back unlocking (10 levels opens the next group, levels in order).
-  const UNLOCK_ALL = true;
-  const isGroupUnlocked = (g) => UNLOCK_ALL || g === 0 || completedIn(g - 1) >= UNLOCK_AFTER;
-  const isUnlocked = (g, i) => UNLOCK_ALL || (isGroupUnlocked(g) && (i === 0 || isCompleted(g, i - 1)));
+  // Every level open while testing: the unlockAll setting (config.js /
+  // remote-config.json). Set it to false for release.
+  const unlockAll = () => !window.ArrowConfig || window.ArrowConfig.get('unlockAll') !== false;
+  const isGroupUnlocked = (g) => unlockAll() || g === 0 || completedIn(g - 1) >= UNLOCK_AFTER;
+  const isUnlocked = (g, i) => unlockAll() || (isGroupUnlocked(g) && (i === 0 || isCompleted(g, i - 1)));
 
   // ---------- Theme colours for the canvas ----------
   let colors = {};
@@ -292,6 +294,7 @@
     $('remaining').textContent = left === 1 ? '1 eel left' : `${left} eels left`;
     $('undoBtn').disabled = moves === 0 || state.finished;
     $('hintBtn').disabled = state.finished || left === 0;
+    updateHintBadge();
     // Any move (or undo) makes the current hint out of date.
     if (state.hint && state.hint.moves !== moves) clearHint();
     rememberRun();
@@ -316,6 +319,19 @@
   function showHint() {
     if (!state || state.finished || drag || state.thinking) return;
     if (state.lines.every((l) => l.rest < 0)) return;
+    // The hint already showing (nothing has moved since): flash it again, free.
+    const shown = state.hint;
+    if (shown && shown.moves === state.history.length && (shown.id >= 0 || shown.turn !== undefined)) {
+      shown.start = performance.now();
+      sfx('hint');
+      return;
+    }
+    // Out of hints: watch an ad, visit the shop, or (on some difficulties) skip.
+    const W = window.ArrowWallet;
+    if (W && W.hintsLeft() <= 0) {
+      if (window.ArrowShop) window.ArrowShop.outOfHints({ onSkip: skipAllowed() ? skipLevel : undefined });
+      return;
+    }
     // Big boards can take a moment: say so, and let the message show first.
     state.thinking = true;
     setHintText('Working out the best move…');
@@ -325,8 +341,61 @@
       if (state !== asked || state.finished || drag) return;
       computeHint();
       const h = state.hint;
-      if (h && (h.id >= 0 || h.turn !== undefined)) sfx('hint');
+      if (h && (h.id >= 0 || h.turn !== undefined)) {
+        sfx('hint');
+        // A hint is only paid for when it actually shows a move.
+        if (W) W.useHint();
+        updateHintBadge();
+      }
     }, 30);
+  }
+
+  /** The number of hints left, on the Hint button. */
+  function updateHintBadge() {
+    const el = document.getElementById('hintCount');
+    if (!el || !window.ArrowWallet) return;
+    const left = window.ArrowWallet.hintsLeft();
+    el.textContent = left > 0 ? String(left) : '+';
+    el.classList.toggle('empty', left <= 0);
+    $('hintBtn').setAttribute('aria-label', left > 0 ? `Hint (${left} left)` : 'Hint (none left: get more)');
+  }
+  if (window.ArrowWallet) window.ArrowWallet.onChange(updateHintBadge);
+
+  /** Skipping a level (for watching an ad) is allowed on some difficulties. */
+  function skipAllowed() {
+    const skip = window.ArrowConfig && window.ArrowConfig.get('skip');
+    return !!(state && skip && skip.enabled && (skip.tiers || []).includes(state.tier));
+  }
+
+  /** Skips the current level: it counts as finished, and the next one opens. */
+  function skipLevel() {
+    if (!state) return;
+    const { group, index } = state;
+    if (!isCompleted(group, index)) {
+      progress.completed.push(`${tier}-${group}-${index}`);
+      saveProgress();
+    }
+    forgetRun(state.tier, group, index);
+    state.finished = true;
+    if (window.ArrowShop) window.ArrowShop.toast('Level skipped');
+    if (index + 1 < groupsNow()[group].levels.length) startLevel(group, index + 1);
+    else goToMenu();
+  }
+
+  /**
+   * Between levels: a full-screen ad if one is due, then (once, after a few
+   * levels) the starter bundle offer, then on to wherever the player chose.
+   */
+  async function afterLevel(next) {
+    hideDialog();
+    const W = window.ArrowWallet;
+    if (state && state.adDue && window.ArrowAds) {
+      state.adDue = false;
+      await window.ArrowAds.showInterstitial();
+      if (W) W.adShown();
+    }
+    if (W && W.starterDue() && window.ArrowShop) await window.ArrowShop.offerStarter();
+    next();
   }
 
   /**
@@ -1055,6 +1124,8 @@
       }
       if (state.unlockedGroup >= 0 && !isGroupUnlocked(state.unlockedGroup)) state.unlockedGroup = -1;
       updateHud();
+      // Count it (for ad timing and the starter offer); an ad may be due before the next level.
+      state.adDue = window.ArrowWallet ? window.ArrowWallet.levelFinished() : false;
       burstBubbles();
       sfx('win');
       setTimeout(showWinDialog, 650);
@@ -1586,14 +1657,14 @@
       if (state.unlockedGroup >= 0) buttons.push(startNextGroup);
       buttons.push({ label: 'Play again', action: () => startLevel(group, index, { fresh: true }) });
       buttons.push({ label: 'Menu', action: goToMenu });
-      showDialog(state.unlockedGroup >= 0 ? 'New group unlocked!' : 'Level complete!', detail, buttons);
+      showDialog(state.unlockedGroup >= 0 ? 'New group unlocked!' : 'Level complete!', detail, buttons.map((b) => ({ ...b, action: () => afterLevel(b.action) })));
     } else {
       const buttons = [];
       if (nextGroup >= 0) buttons.push({ ...startNextGroup, primary: true });
       buttons.push({ label: 'Back to menu', primary: nextGroup < 0, action: goToMenu });
       buttons.push({ label: 'Play again', action: () => startLevel(group, index, { fresh: true }) });
       const last = group + 1 >= groupsNow().length;
-      showDialog(`${groupTitle(group)} complete!`, `${detail} ${last ? `You untangled every ${TIERS[tier].name} level.` : ''}`.trim(), buttons);
+      showDialog(`${groupTitle(group)} complete!`, `${detail} ${last ? `You untangled every ${TIERS[tier].name} level.` : ''}`.trim(), buttons.map((b) => ({ ...b, action: () => afterLevel(b.action) })));
     }
   }
 
@@ -1716,7 +1787,7 @@
     if ((e.ctrlKey || e.metaKey) && e.key === 'z' && screens.game.classList.contains('active')) {
       e.preventDefault();
       undo();
-    } else if (e.key === 'h' && !e.ctrlKey && !e.metaKey && screens.game.classList.contains('active') && overlay.hidden && !introOpen() && !(window.ArrowSettings.isOpen && window.ArrowSettings.isOpen())) {
+    } else if (e.key === 'h' && !e.ctrlKey && !e.metaKey && screens.game.classList.contains('active') && overlay.hidden && !introOpen() && !(window.ArrowShop && window.ArrowShop.isOpen()) && !(window.ArrowSettings.isOpen && window.ArrowSettings.isOpen())) {
       showHint();
     }
   });

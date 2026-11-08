@@ -179,6 +179,11 @@
     }
   }
   ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown'].forEach((type) => document.addEventListener(type, unlock, { capture: true, passive: true }));
+  // Sound pauses while an ad plays (ads.js).
+  root.addEventListener('arrow-ad', (e) => {
+    if (!ctx) return;
+    if (e.detail && e.detail.playing) ctx.suspend(); else if (!document.hidden) ctx.resume().then(apply, () => {});
+  });
   document.addEventListener('visibilitychange', () => {
     if (!ctx) return;
     if (document.hidden) ctx.suspend(); else ctx.resume().then(apply, () => {});

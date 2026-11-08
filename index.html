@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;600;700&display=swap" />
-  <link rel="stylesheet" href="style.css?v=28bda4ab" />
+  <link rel="stylesheet" href="style.css?v=c7ebd4ab" />
 </head>
 <body>
   <!-- The whole game lives in one phone-shaped screen: full screen on a phone,
@@ -30,6 +30,7 @@
 
   <!-- Front screen -->
   <section id="menu" class="screen active" aria-label="Main menu">
+    <button id="menuShopBtn" class="btn ghost icon-btn corner-btn corner-left" aria-label="Shop" title="Shop"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 8.5h13l-1.2 11.5H6.7L5.5 8.5Z"/><path d="M9 10V7a3 3 0 0 1 6 0v3"/></svg></button>
     <button id="menuSettingsBtn" class="btn ghost icon-btn corner-btn" data-open-settings aria-label="Settings" title="Settings"><svg class="gear" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M19.1 10.6 L21.7 10.7 L21.7 13.3 L19.1 13.4 L18.0 16.0 L19.8 18.0 L18.0 19.8 L16.0 18.0 L13.4 19.1 L13.3 21.7 L10.7 21.7 L10.6 19.1 L8.0 18.0 L6.0 19.8 L4.2 18.0 L6.0 16.0 L4.9 13.4 L2.3 13.3 L2.3 10.7 L4.9 10.6 L6.0 8.0 L4.2 6.0 L6.0 4.2 L8.0 6.0 L10.6 4.9 L10.7 2.3 L13.3 2.3 L13.4 4.9 L16.0 6.0 L18.0 4.2 L19.8 6.0 L18.0 8.0Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></button>
     <div class="menu-card">
       <div class="logo" aria-hidden="true">
@@ -86,7 +87,7 @@
       <button id="menuBtn" class="action-btn" title="Back to the menu"><svg class="action-icon" viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 5.5 8 12l6.5 6.5"/></svg><span>Back</span></button>
       <button id="undoBtn" class="action-btn" title="Undo (Ctrl+Z)"><svg class="action-icon" viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg><span>Undo</span></button>
       <button id="restartBtn" class="action-btn" title="Start the level again"><svg class="action-icon" viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.35-5.65"/><path d="M20 4v5h-5"/></svg><span>Reset</span></button>
-      <button id="hintBtn" class="action-btn hint-btn" title="Hint (H)"><svg class="action-icon" viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 18h5M10.5 21h3"/><path d="M12 3a6 6 0 0 0-3.6 10.8c.7.6 1.1 1.3 1.1 2.2h5c0-.9.4-1.6 1.1-2.2A6 6 0 0 0 12 3Z"/></svg><span>Hint</span></button>
+      <button id="hintBtn" class="action-btn hint-btn" title="Hint (H)"><svg class="action-icon" viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 18h5M10.5 21h3"/><path d="M12 3a6 6 0 0 0-3.6 10.8c.7.6 1.1 1.3 1.1 2.2h5c0-.9.4-1.6 1.1-2.2A6 6 0 0 0 12 3Z"/></svg><span>Hint</span><span id="hintCount" class="hint-count" aria-hidden="true"></span></button>
     </nav>
   </section>
 
@@ -137,13 +138,17 @@
   <canvas id="bubbleLayer" class="bubble-layer" aria-hidden="true"></canvas>
   </div>
 
+  <script src="config.js?v=f8848b85"></script>
+  <script src="wallet.js?v=28ed70a3"></script>
   <script src="settings.js?v=b86c4aea"></script>
-  <script src="audio.js?v=4b984ea4"></script>
+  <script src="audio.js?v=d98d81c4"></script>
   <script src="rules.js?v=59879564"></script>
   <script src="levels-data.js?v=fdf7fd1a"></script>
   <script src="art.js?v=c2d56857"></script>
   <script src="intro.js?v=2849be33"></script>
   <script src="sea-life.js?v=25960128"></script>
-  <script src="game.js?v=96d13387"></script>
+  <script src="ads.js?v=15c93548"></script>
+  <script src="shop.js?v=15adf261"></script>
+  <script src="game.js?v=5fa097e5"></script>
 </body>
 </html>
