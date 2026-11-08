@@ -5,10 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Eel Escape</title>
   <meta name="description" content="An underwater puzzle game: guide each tangled glowing eel off the board the way its head points, using see-through jellyfish eels, pearl reflectors and wreck gates." />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;600;700&display=swap" />
-  <link rel="stylesheet" href="style.css?v=c7ebd4ab" />
+  <link rel="stylesheet" href="fonts/fonts.css" />
+  <link rel="stylesheet" href="style.css?v=f689301d" />
 </head>
 <body>
   <!-- The whole game lives in one phone-shaped screen: full screen on a phone,
@@ -121,6 +119,10 @@
           <small>Fish, turtles and whales swimming in the background</small></span>
           <input type="checkbox" id="setCreatures" class="switch" role="switch"></label>
       </div>
+      <div class="settings-links">
+        <button id="privacyChoices" class="link-btn" hidden>Privacy choices</button>
+        <a href="privacy.html" target="_blank" rel="noopener" class="link-btn">Privacy policy</a>
+      </div>
       <button id="settingsDone" class="btn primary">Done</button>
     </div>
   </div>
@@ -138,7 +140,7 @@
   <canvas id="bubbleLayer" class="bubble-layer" aria-hidden="true"></canvas>
   </div>
 
-  <script src="config.js?v=f8848b85"></script>
+  <script src="config.js?v=a3dc2988"></script>
   <script src="wallet.js?v=28ed70a3"></script>
   <script src="settings.js?v=b86c4aea"></script>
   <script src="audio.js?v=d98d81c4"></script>
@@ -147,7 +149,7 @@
   <script src="art.js?v=c2d56857"></script>
   <script src="intro.js?v=2849be33"></script>
   <script src="sea-life.js?v=25960128"></script>
-  <script src="ads.js?v=15c93548"></script>
+  <script src="ads.js?v=80cda9ea"></script>
   <script src="shop.js?v=15adf261"></script>
   <script src="game.js?v=5fa097e5"></script>
 </body>

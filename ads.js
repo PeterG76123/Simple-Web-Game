@@ -79,6 +79,8 @@
   }
 
   // ---------- The web: a stand-in test ad ----------
+  // (ads.webTestAds in the settings: false skips them on the web.)
+  const webTestAds = () => !root.ArrowConfig || root.ArrowConfig.get('ads.webTestAds') !== false;
   function webAd({ rewarded }) {
     return new Promise((resolve) => {
       const length = rewarded ? 5 : 3;
@@ -122,11 +124,31 @@
     });
   }
 
+  // The "Privacy choices" button in Settings shows only in the app.
+  const choices = document.getElementById('privacyChoices');
+  if (choices && native) {
+    choices.hidden = false;
+    choices.addEventListener('click', () => root.ArrowAds.privacyOptions());
+  }
+
+  if (native) setTimeout(() => root.ArrowAds && root.ArrowAds.init(), 800);
+
   root.ArrowAds = {
     native,
-    showInterstitial: () => (AdMob ? nativeInterstitial() : webAd({ rewarded: false })),
-    showRewarded: () => (AdMob ? nativeRewarded() : webAd({ rewarded: true })),
+    showInterstitial: () => (AdMob ? nativeInterstitial() : webTestAds() ? webAd({ rewarded: false }) : Promise.resolve()),
+    showRewarded: () => (AdMob ? nativeRewarded() : webTestAds() ? webAd({ rewarded: true }) : Promise.resolve(true)),
     // Start the consent / tracking prompts early in the app.
     init: () => { if (AdMob) setUp(); },
+    // Lets players change their ad consent later (EU/UK), from Settings.
+    // (Clears the saved choice and shows Google's consent form again.)
+    privacyOptions: async () => {
+      if (!AdMob) return;
+      await setUp();
+      try {
+        await AdMob.resetConsentInfo();
+        const info = await AdMob.requestConsentInfo();
+        if (info.isConsentFormAvailable) await AdMob.showConsentForm();
+      } catch (e) { /* no form where the law doesn't need one */ }
+    },
   };
 })(window);

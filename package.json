@@ -1,0 +1,22 @@
+{
+  "name": "eel-escape",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Eel Escape: an underwater puzzle game. The web version runs as plain files; this package wraps it as a phone app with Capacitor.",
+  "scripts": {
+    "build": "node tools/build-www.js",
+    "sync": "node tools/build-www.js && npx cap sync",
+    "android": "node tools/build-www.js && npx cap sync android && npx cap open android",
+    "ios": "node tools/build-www.js && npx cap sync ios && npx cap open ios",
+    "check": "node tools/check-levels.js"
+  },
+  "dependencies": {
+    "@capacitor-community/admob": "^6.0.0",
+    "@capacitor/android": "^6.1.0",
+    "@capacitor/core": "^6.1.0",
+    "@capacitor/ios": "^6.1.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.1.0"
+  }
+}

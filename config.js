@@ -21,6 +21,9 @@
       minLevelsBetween: 2,
       // ...and never more often than this.
       minSecondsBetween: 180,
+      // On the web (no real ads): show the stand-in test ads (for trying the
+      // flow), or skip them (full-screen ads skipped, rewards just given).
+      webTestAds: true,
     },
     hints: {
       // Free hints each day (unused ones don't carry over).

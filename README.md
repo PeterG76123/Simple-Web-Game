@@ -49,6 +49,12 @@ python3 -m http.server 8000
 - `sea-life.js`: the glowing creatures that swim across the background
 - `art.js`: pictures shared by the board and the demos (the reef-rock reflectors with their mother-of-pearl faces)
 - `intro.js`: each group's welcome popup, a looping demo of its new mechanic (also opened with the ? button)
+- `config.js` + `remote-config.json`: the monetisation settings (free hints, ad timing, prices…); the live copy of `remote-config.json` on the web site overrides the defaults without an app update
+- `wallet.js`: the player's hints, purchases and ad bookkeeping, saved on the device
+- `ads.js`: Google AdMob ads in the phone app; a stand-in test ad on the web
+- `shop.js`: the shop, the out-of-hints offer and the starter bundle (purchases are a stand-in for now)
+- `fonts/`: the game's fonts (Fredoka, Nunito), bundled so nothing is fetched from Google
+- `privacy.html`: the privacy policy the app stores ask for
 - `game.js`: dragging, drawing, undo, hints, groups and menus
 
 ## Making levels
@@ -84,3 +90,32 @@ Every level fills the whole board: there are no empty squares, and every line is
 8. **`node tools/stamp-versions.js`** adds version tags to the CSS and JS links in `index.html`, so browsers don't mix a new page with old cached scripts. Run it after changing any of those files.
 
 Levels are stored in a compact text format (about 80–150 characters for a 10×10 board), so thousands of levels stay small.
+
+## Money: hints, ads and the shop
+
+- **Hints:** 3 free a day (they don't carry over). Watch an ad for 1 more (up to 10 a day), take a once-a-day bonus of 3 for one ad, or buy packs. A hint is only charged when it shows a move, and pressing Hint again before moving is free.
+- **Ads between levels:** none for a player's first 10 finished levels; after that at most one every 2 levels and 3 minutes, shown when the player leaves the win screen. "Remove ads" stops these (ads a player chooses to watch stay).
+- **Skip a level:** on Hard, when out of hints, watch an ad to skip the level.
+- **Shop:** remove ads, three hint packs, and a starter bundle (no ads + 25 hints) that is also offered once after 10 levels. **Buying is a stand-in:** it confirms and gives the item; real purchases need the App Store / Google Play (e.g. RevenueCat or the stores' billing plugins).
+- **Tuning:** change `remote-config.json`, commit and push: every player picks it up on their next launch. Track retention (day 1 / day 7) and revenue per daily player when changing ad frequency or hint counts.
+
+## The phone app (Capacitor)
+
+The game is wrapped as an Android and iPhone app with [Capacitor](https://capacitorjs.com). The web files are copied into `www/` and packed into the app.
+
+1. `npm install`
+2. `npm run android` (needs Android Studio) or `npm run ios` (needs a Mac with Xcode; run `pod install` in `ios/App` the first time). These copy the game into `www/`, sync it into the native projects and open them.
+3. Run on a phone or emulator from Android Studio / Xcode.
+
+Both apps are locked to portrait. Ads use the `@capacitor-community/admob` plugin: on first launch the app shows Google's consent form where the law needs one (EU/UK) and, on iPhone, Apple's tracking prompt. Settings has a "Privacy choices" button to change consent later.
+
+### Before release
+
+- [ ] Change the app ID `com.eelescape.game` in `capacitor.config.json` (and the Android / iOS projects) to one you own.
+- [ ] Create an AdMob account and app, then replace Google's **test** IDs: the app IDs in `android/app/src/main/AndroidManifest.xml` and `ios/App/App/Info.plist`, and the ad unit IDs in `ads.js` (or set `ads.units` in `remote-config.json`).
+- [ ] Add the remaining SKAdNetwork IDs AdMob lists to `Info.plist`.
+- [ ] Hook up real purchases (App Store / Google Play) in `shop.js`, including Restore purchases.
+- [ ] Set `unlockAll` to `false` in `remote-config.json` so groups unlock as players progress.
+- [ ] Fill in `privacy.html` (release date, contact email) and give its web address to both stores; complete Google Play's Data safety form and Apple's privacy details.
+- [ ] Set the age rating for a general audience (not "designed for children").
+- [ ] App icons and splash screens (e.g. `npx @capacitor/assets generate`).
