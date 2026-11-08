@@ -1761,7 +1761,7 @@
   }
 
   function renderMenu() {
-    // Not every difficulty has every group (Mirror Lagoon is Easy only so far).
+    // (In case a difficulty is missing a group.)
     menuGroup = Math.max(0, Math.min(menuGroup, groupsNow().length - 1));
     const tierTabs = $('tierTabs');
     tierTabs.innerHTML = '';

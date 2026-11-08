@@ -126,6 +126,10 @@ The app ID is `com.redcurtain.eelescape` (Capacitor 8; Android targets API 36). 
 
 Prices shown in the shop come from the store (in the player's own currency); `prices` in the settings are only for the web version.
 
+### Icon, splash screen and store listing
+
+`node tools/make-art.js` draws the app icon, splash screen and Play Store feature graphic (into `assets/` and `store/`); `npx @capacitor/assets generate --android --ios --iconBackgroundColor '#031127' --splashBackgroundColor '#031127' --splashBackgroundColorDark '#031127'` then makes every size the apps need. `store/listing.md` has the Play listing text (name, descriptions) and the answers for Play Console's content forms; `store/screenshots/` has the phone screenshots.
+
 ### Before release
 
 - [ ] Create an AdMob account and app, then replace Google's **test** IDs: the app IDs in `android/app/src/main/AndroidManifest.xml` and `ios/App/App/Info.plist`, and the ad unit IDs in `ads.js` (or set `ads.units` in `remote-config.json`).
@@ -135,4 +139,3 @@ Prices shown in the shop come from the store (in the player's own currency); `pr
 - [ ] Set `unlockAll` to `false` in `remote-config.json` so groups unlock as players progress.
 - [ ] Fill in `privacy.html` (release date, contact email) and give its web address to both stores; complete Google Play's Data safety form and Apple's privacy details.
 - [ ] Set the age rating for a general audience (not "designed for children").
-- [ ] App icons and splash screens (e.g. `npx @capacitor/assets generate`).
