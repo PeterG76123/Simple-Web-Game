@@ -142,6 +142,8 @@
   // Food sinking in the tank ({ x, y, vy, el, life }), and the finger the fish follow ({ x, y } or null).
   let food = [];
   let lure = null;
+  // Seconds left of "feeding time" after the Feed button: everyone heads for the surface.
+  let feedTime = 0;
   let raf = 0;
   let last = 0;
 
@@ -237,6 +239,7 @@
     last = now;
     const tw = tank.clientWidth, th = tank.clientHeight;
     const floor = th * 0.9;
+    if (feedTime > 0) feedTime -= dt;
     for (const f of fish) {
       const m = f.m;
       f.phase += dt;
@@ -288,9 +291,13 @@
             // Food! Swim over, mouth first, and eat it.
             if (snack !== f.snack) { f.snack = snack; f.side = f.x < snack.x ? 1 : -1; }
             gx = snack.x - f.side * f.w * 0.38; gy = snack.y;
-            boost = 1.5;
+            boost = feedTime > 0 ? Math.min(6, Math.max(2.2, 0.16 / m.speed)) : 1.5;
             const mouthX = f.x + f.dir * f.w * 0.38;
             if (Math.hypot(mouthX - snack.x, f.y - snack.y) < Math.max(10, f.h * 0.4)) eat(f, snack);
+          } else if (feedTime > 0) {
+            // Feeding time: up to the surface, even if full (just in case).
+            gx = f.x + f.offset[0] * f.w; gy = th * 0.03 + f.h * (0.5 + Math.abs(f.offset[1]) * 0.6);
+            boost = Math.min(6, Math.max(2.2, 0.16 / m.speed));
           } else if (f.leader && !f.leader.held && !(f.leader.scared > 0)) {
             // Followers keep their own spot near the leader (behind it, a little to the side).
             const s = f.w * (m.spread || 1);
@@ -311,7 +318,7 @@
           // Steer towards the goal, slowing on arrival.
           const dx = gx - f.x, dy = gy - f.y, d = Math.hypot(dx, dy) || 1;
           const want = Math.min(speed * Math.max(boost, f.leader && boost === 1 ? m.catchUp || 1.4 : 1), d * 1.5);
-          let ax = (dx / d) * want - f.vx, ay = (dy / d) * want * 0.7 - f.vy;
+          let ax = (dx / d) * want - f.vx, ay = (dy / d) * want * (boost > 1 ? 1 : 0.7) - f.vy;
           // Keep a little space from the others, and steer round fish ahead.
           for (const o of fish) {
             if (o === f) continue;
@@ -322,7 +329,7 @@
               ax += (ox / od) * push; ay += (oy / od) * push * 1.3;
             }
           }
-          const a = Math.hypot(ax, ay), lim = accel * dt;
+          const a = Math.hypot(ax, ay), lim = accel * Math.min(4, Math.max(1, boost * 1.5)) * dt;
           if (a > lim) { ax *= lim / a; ay *= lim / a; }
           f.vx += ax; f.vy += ay;
           if (m.darts && Math.random() < dt * 0.3 && !f.leader) { f.vx *= 2.2; }
@@ -686,6 +693,9 @@
   // The Feed button sprinkles a pinch of food across the top of the water.
   screen.querySelector('#aqFeed').addEventListener('click', () => {
     const tw = tank.clientWidth;
+    feedTime = 5;
+    // The octopus shoots up too.
+    for (const f of fish) if (f.m.octo && !f.held) { f.jet = 6; f.vy = -rand(150, 190); }
     for (let i = 0; i < 3; i++) dropFood(rand(tw * 0.15, tw * 0.85), tank.clientHeight * 0.06, 4);
   });
   root.addEventListener('resize', () => { if (screen.classList.contains('active')) render(); });
