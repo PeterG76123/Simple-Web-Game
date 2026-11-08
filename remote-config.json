@@ -5,7 +5,7 @@
   "hints": { "freePerDay": 3, "perRewardedAd": 1, "maxRewardedPerDay": 10, "dailyBonus": 3 },
   "skip": { "enabled": true, "tiers": [2] },
   "starter": { "afterLevels": 10, "hints": 25 },
-  "pearls": { "perLevel": [10, 20, 30], "firstClear": [10, 15, 20], "bestSolve": [5, 10, 15], "daily": 25, "doubleByAd": true },
+  "pearls": { "perLevel": [10, 20, 30], "firstClear": [10, 15, 20], "bestSolve": [5, 10, 15], "replay": [2, 4, 6], "daily": 25, "doubleByAd": true },
   "aquariumPrices": {},
   "prices": { "removeAds": "$3.99", "hints10": "$0.99", "hints50": "$2.99", "hints150": "$5.99", "starter": "$4.99", "pearls500": "$0.99", "pearls3000": "$4.99" }
 }

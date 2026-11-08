@@ -1661,7 +1661,13 @@
     const t = state.tier;
     const pick = (name) => Number((C.get(`pearls.${name}`) || [])[t]) || 0;
     const best = state.history.length <= levelAt(state.group, state.index).par;
-    state.pearlParts = [['Level', pick('perLevel')], ['First clear', firstClear ? pick('firstClear') : 0], ['Best solve', best ? pick('bestSolve') : 0]].filter(([, n]) => n > 0);
+    // The best-solve bonus is paid once per level; replays pay a smaller amount.
+    const bestBonus = best && W.firstBestSolve(`${t}-${state.group}-${state.index}`) ? pick('bestSolve') : 0;
+    state.pearlParts = [
+      firstClear ? ['Level', pick('perLevel')] : ['Replay', pick('replay')],
+      ['First clear', firstClear ? pick('firstClear') : 0],
+      ['Best solve', bestBonus],
+    ].filter(([, n]) => n > 0);
     state.pearls = state.pearlParts.reduce((a, [, n]) => a + n, 0);
     if (state.pearls > 0) W.addPearls(state.pearls);
   }

@@ -29,6 +29,8 @@
     adsRemoved: false, starterBought: false, starterOffered: false,
     levelsFinished: 0, levelsSinceAd: 0, lastAdAt: 0,
     purchases: [],
+    // Levels whose best-solve pearl bonus has been paid ("tier-group-index").
+    bestPaid: [],
   };
   let w = { ...BLANK };
   try { w = { ...BLANK, ...JSON.parse(root.localStorage.getItem(KEY)) }; } catch (e) { /* new player */ }
@@ -109,6 +111,13 @@
     spendPearls(n) {
       if (w.pearls < n) return false;
       w.pearls -= n;
+      save();
+      return true;
+    },
+    /** True the first time a level is solved in the fewest moves (and remembers it). */
+    firstBestSolve(key) {
+      if (w.bestPaid.includes(key)) return false;
+      w.bestPaid.push(key);
       save();
       return true;
     },
