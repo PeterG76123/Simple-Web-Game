@@ -906,13 +906,13 @@
       const afford = W.pearls() >= price;
       return `<button class="shop-item aq-buy" data-id="${c.id}"${afford && !full ? '' : ' aria-disabled="true"'}>` +
         `<span class="aq-thumb" style="color:${c.colors ? c.colors[0] : pal[(i * 3 + 1) % pal.length]}">${c.svg}</span>` +
-        `<span class="shop-item-text"><strong>${c.name}</strong><span>${full ? 'Your tank is full of these' : afford ? '' : 'Not enough pearls yet'}</span></span>` +
+        `<span class="shop-item-text"><strong>${c.name}</strong></span>` +
         `<span class="shop-price pearl-price"><span class="pearl" aria-hidden="true"></span>${price}</span></button>`;
     }).join('');
     const s = openSheet(KIND_NAMES[kind],
-      `<p class="shop-balance"><span class="pearl" aria-hidden="true"></span> <strong>${W.pearls().toLocaleString()}</strong> pearls<span class="shop-small">${have} of ${LIMITS[kind]} in your ${tankById[cur].name.toLowerCase()}</span></p>` +
-      `<div class="shop-list">${rows}</div>` +
-      '<div class="dialog-buttons"><button class="btn ghost" data-act="pearls">Get more pearls</button><button class="btn primary" data-act="done">Done</button></div>', true);
+      `<p class="shop-balance"><span class="pearl" aria-hidden="true"></span> <strong>${W.pearls().toLocaleString()}</strong> pearls<span class="shop-small">${full ? `Your tank is full of ${KIND_NAMES[kind].toLowerCase()}: sell one to make room` : `${have} of ${LIMITS[kind]} in your ${tankById[cur].name.toLowerCase()}`}</span></p>` +
+      `<div class="shop-list aq-grid">${rows}</div>` +
+      '<div class="dialog-buttons aq-row"><button class="btn ghost" data-act="pearls">More pearls</button><button class="btn primary" data-act="done">Done</button></div>', true);
     s.querySelector('[data-act="done"]').addEventListener('click', closeSheet);
     s.querySelector('[data-act="pearls"]').addEventListener('click', () => { closeSheet(); if (root.ArrowShop) root.ArrowShop.open(); });
     s.querySelectorAll('.aq-buy').forEach((b) => b.addEventListener('click', () => {

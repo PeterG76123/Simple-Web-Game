@@ -1257,3 +1257,20 @@ svg.aq-clam .mantle { fill: none !important; stroke-width: 2.5; }
 .aq-fish-item.in-cave .aq-facing svg { transform: scale(0.8); transform-origin: 50% 100%; }
 svg.aq-snail .foot, svg.aq-snail .feelers { transition: opacity 0.3s; }
 .retract svg.aq-snail .foot, .retract svg.aq-snail .feelers { opacity: 0.12; }
+
+/* The aquarium shop: a grid of tiles, so a whole tank's worth fits without scrolling. */
+.dialog.aq-sheet { padding: 16px 14px 14px; }
+.aq-sheet h2 { margin: 0 0 4px; font-size: 1.5rem; }
+.aq-sheet .shop-balance { margin: 0 0 6px; font-size: 1rem; }
+.aq-sheet .shop-balance strong { font-size: 1.15rem; }
+.aq-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; margin: 4px 0 10px; }
+.aq-grid .aq-buy { flex-direction: column; justify-content: flex-start; align-items: center; gap: 2px; padding: 6px 2px 5px; border-radius: 12px; text-align: center; }
+.aq-grid .aq-thumb { width: 100%; height: 28px; }
+.aq-grid .shop-item-text { flex: 1; justify-content: center; }
+.aq-grid .shop-item-text strong { font-size: 0.7rem; line-height: 1.1; }
+.aq-grid .shop-price { padding: 1px 6px; font-size: 0.75rem; }
+.aq-grid .pearl-price { gap: 3px; }
+.aq-grid .pearl-price .pearl { width: 10px; height: 10px; }
+.aq-grid .aq-buy[aria-disabled="true"] { opacity: 0.45; }
+.aq-sheet .dialog-buttons.aq-row { flex-direction: row; }
+.aq-sheet .dialog-buttons.aq-row .btn { flex: 1; padding-left: 8px; padding-right: 8px; }
