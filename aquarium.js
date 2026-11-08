@@ -305,6 +305,10 @@
     if (f.retract > 0) { f.retract -= dt; f.vx = 0; if (f.retract <= 0) f.el.classList.remove('retract'); place(); return; }
     let tx = f.x, tfy = f.fy, speed = m.speed * tw;
     const hideSpot = () => (Math.random() < 0.5 ? rand(cave.inL, cave.doorL - f.w * 0.5) : rand(cave.doorR + f.w * 0.5, cave.inR));
+    // Food on the sand brings a hungry crab out of hiding (once it has got over a fright).
+    const foodDown = !f.full && !lure && food.some((p) => p.landed && !p.eaten);
+    if (f.inCave && foodDown && !(f.scaredT > 0) && f.plan !== 'leave') { f.hidden = 0; f.plan = 'leave'; }
+    if (f.scaredT > 0) f.scaredT -= dt;
     if (f.inCave && cave) {
       tfy = G.top;
       if (f.hidden > 0) {
@@ -318,7 +322,7 @@
         tx = f.hideX; speed *= 5;
         if (Math.abs(f.x - f.hideX) < 3) { f.hidden = rand(5, 9); f.plan = null; f.hideX = null; }
       }
-    } else if (f.plan === 'hide' && cave) {
+    } else if (f.plan === 'hide' && cave && (f.fleeing || !foodDown)) {
       // Off to the cave door, then in.
       tx = cave.x; tfy = G.top; speed *= f.fleeing ? 7 : 1.5;
       if (Math.abs(f.x - cave.x) < 4 && f.fy - G.top < 3) { f.inCave = true; f.fleeing = false; f.hideX = hideSpot(); }
@@ -727,6 +731,7 @@
           // Crabs run for the cave (or, with no cave, scuttle off to the side).
           if (o.inCave) { o.hidden = Math.max(o.hidden || 0, 3) + 3; return; }
           o.fleeing = true;
+          o.scaredT = 2;
           if (cave) o.plan = 'hide';
           else o.fleeX = o.x < px ? o.w / 2 : tank.clientWidth - o.w / 2;
           return;
