@@ -10,7 +10,7 @@
  *
  * Pearls are the in-game currency for the aquarium (aquarium.js): earned
  * by finishing levels and a daily gift, spent on fish, plants and
- * decorations, which are kept here too (`tank`).
+ * decorations, kept here too, in the tanks the player owns (`tanks`).
  */
 (function (root) {
   'use strict';
@@ -24,8 +24,9 @@
   const BLANK = {
     day: '', freeUsed: 0, rewardedToday: 0, dailyBonusTaken: false,
     owned: 0, coins: 0, pearls: 0, dailyPearlsTaken: false, feedPearlsTaken: false,
-    // The aquarium: what's in it (new players start with a fish and a plant).
-    tank: null,
+    // The aquarium tanks the player owns: { goldfish: { items, next }, ... }, and the one on show.
+    tanks: null, shownTank: '',
+    tank: null, // (the single tank of earlier versions; becomes the goldfish tank)
     adsRemoved: false, starterBought: false, starterOffered: false,
     levelsFinished: 0, levelsSinceAd: 0, lastAdAt: 0,
     purchases: [],
@@ -34,6 +35,11 @@
   };
   let w = { ...BLANK };
   try { w = { ...BLANK, ...JSON.parse(root.localStorage.getItem(KEY)) }; } catch (e) { /* new player */ }
+  if (!w.tanks) w.tanks = {};
+  if (!w.bestPaid) w.bestPaid = [];
+  if (!w.purchases) w.purchases = [];
+  // Earlier versions had one tank: it becomes the goldfish tank.
+  if (w.tank && !w.tanks.goldfish) { w.tanks.goldfish = w.tank; w.tank = null; }
 
   const listeners = [];
   const save = () => {
@@ -142,27 +148,39 @@
       save();
       return n;
     },
-    // What's in the aquarium: { items: [{ uid, type, x, y?, color }] } (x, y: 0-1 across / down the tank; y only for things stuck anywhere).
-    tank() {
-      if (!w.tank) {
-        w.tank = { items: [{ uid: 1, type: 'guppy', x: 0.3, color: 0 }, { uid: 2, type: 'seagrass', x: 0.7, color: 2 }], next: 3 };
-        save();
-      }
-      return w.tank;
+    // ---------- Aquarium tanks ----------
+    ownsTank: (id) => !!w.tanks[id],
+    ownedTanks: () => Object.keys(w.tanks),
+    /** Buys a tank (with a free starter fish); false if not enough pearls or already owned. */
+    buyTank(id, price, starter) {
+      if (w.tanks[id] || w.pearls < price) return false;
+      w.pearls -= price;
+      w.tanks[id] = { items: starter ? [{ uid: 1, type: starter, x: 0.5, color: 0 }] : [], next: 2 };
+      w.shownTank = id;
+      w.purchases.push({ product: `tank:${id}`, at: Date.now(), pearls: price });
+      save();
+      return true;
     },
-    addToTank(type, x, color) {
-      const t = Wallet.tank();
+    shownTank: () => w.shownTank,
+    showTank(id) { if (w.shownTank !== id) { w.shownTank = id; save(); } },
+    // What's in a tank: { items: [{ uid, type, x, y?, color }] } (x, y: 0-1 across / down
+    // the tank; y only for things stuck anywhere), or null if not owned.
+    tank: (id) => w.tanks[id] || null,
+    addToTank(id, type, x, color) {
+      const t = w.tanks[id];
+      if (!t) return null;
       const item = { uid: t.next++, type, x, color };
       t.items.push(item);
       save();
       return item;
     },
-    moveInTank(uid, x, y) {
-      const item = Wallet.tank().items.find((i) => i.uid === uid);
+    moveInTank(id, uid, x, y) {
+      const item = w.tanks[id] && w.tanks[id].items.find((i) => i.uid === uid);
       if (item) { item.x = x; if (y !== undefined) item.y = y; save(); }
     },
-    removeFromTank(uid) {
-      const t = Wallet.tank();
+    removeFromTank(id, uid) {
+      const t = w.tanks[id];
+      if (!t) return;
       t.items = t.items.filter((i) => i.uid !== uid);
       save();
     },
