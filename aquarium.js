@@ -286,7 +286,8 @@
             boost = 1.7;
           } else if (snack) {
             // Food! Swim over, mouth first, and eat it.
-            gx = snack.x - f.dir * f.w * 0.38; gy = snack.y;
+            if (snack !== f.snack) { f.snack = snack; f.side = f.x < snack.x ? 1 : -1; }
+            gx = snack.x - f.side * f.w * 0.38; gy = snack.y;
             boost = 1.5;
             const mouthX = f.x + f.dir * f.w * 0.38;
             if (Math.hypot(mouthX - snack.x, f.y - snack.y) < Math.max(10, f.h * 0.4)) eat(f, snack);
@@ -349,7 +350,11 @@
       }
       // Turn round only when really heading the other way.
       if (!m.jelly && !m.octo) {
-        if (f.vx > 4) f.dir = 1; else if (f.vx < -4) f.dir = -1;
+        // Only turn round when properly swimming the other way, and not too often.
+        if (f.flipCd > 0) f.flipCd -= dt;
+        const turnAt = Math.max(8, m.speed ? m.speed * tw * 0.25 : 8);
+        const want = f.vx > turnAt ? 1 : f.vx < -turnAt ? -1 : f.dir;
+        if (want !== f.dir && (f.flipCd <= 0 || f.scared > 0 || f.held)) { f.dir = want; f.flipCd = 0.6; }
         const goalTilt = Math.max(-22, Math.min(22, Math.atan2(f.vy, Math.abs(f.vx) + 8) * 180 / Math.PI)) * (m.tilt || 0.8);
         f.tilt += (goalTilt - f.tilt) * Math.min(1, dt * 4);
       }
@@ -403,6 +408,9 @@
   }
   function eat(f, p) {
     p.eaten = true;
+    // The first feed of the day earns a few pearls.
+    const n = W.takeFeedPearls();
+    if (n) toast(`Thanks for feeding your fish! +${n} pearls`);
     f.ate = (f.ate || 0) + 1;
     // A few bites and it's full for a while (bigger fish eat more).
     if (f.ate >= 3 + Math.round(f.c.w * 10)) f.full = rand(25, 40);

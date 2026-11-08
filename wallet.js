@@ -23,7 +23,7 @@
 
   const BLANK = {
     day: '', freeUsed: 0, rewardedToday: 0, dailyBonusTaken: false,
-    owned: 0, coins: 0, pearls: 0, dailyPearlsTaken: false,
+    owned: 0, coins: 0, pearls: 0, dailyPearlsTaken: false, feedPearlsTaken: false,
     // The aquarium: what's in it (new players start with a fish and a plant).
     tank: null,
     adsRemoved: false, starterBought: false, starterOffered: false,
@@ -48,6 +48,7 @@
     w.rewardedToday = 0;
     w.dailyBonusTaken = false;
     w.dailyPearlsTaken = false;
+    w.feedPearlsTaken = false;
     save();
   };
 
@@ -120,6 +121,16 @@
       w.bestPaid.push(key);
       save();
       return true;
+    },
+    /** Pearls for feeding the fish, once a day (returns how many, or 0). */
+    takeFeedPearls() {
+      roll();
+      if (w.feedPearlsTaken) return 0;
+      w.feedPearlsTaken = true;
+      const n = cfg('pearls.feedDaily') || 0;
+      w.pearls += n;
+      save();
+      return n;
     },
     /** Today's gift of pearls, once a day (returns how many, or 0). */
     takeDailyPearls() {

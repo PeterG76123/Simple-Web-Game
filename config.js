@@ -48,6 +48,8 @@
       replay: [2, 4, 6],
       // A gift each day the game is opened.
       daily: 25,
+      // Feeding the aquarium fish, once a day.
+      feedDaily: 10,
       // Watch an ad on the win screen to double that level's pearls.
       doubleByAd: true,
       // Pearl packs in the shop.
