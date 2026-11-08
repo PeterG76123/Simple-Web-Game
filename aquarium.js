@@ -103,6 +103,7 @@
       <button class="action-btn" data-cat="fish"><span class="aq-bar-icon" aria-hidden="true">🐟</span><span>Fish</span></button>
       <button class="action-btn" data-cat="plant"><span class="aq-bar-icon" aria-hidden="true">🌿</span><span>Plants</span></button>
       <button class="action-btn" data-cat="decor"><span class="aq-bar-icon" aria-hidden="true">🐚</span><span>Decor</span></button>
+      <button class="action-btn" id="aqFeed"><span class="aq-bar-icon" aria-hidden="true">🦐</span><span>Feed</span></button>
     </nav>`;
   // Before the dialogs so they stay on top.
   const firstOverlay = app.querySelector('.overlay');
@@ -138,6 +139,9 @@
   const DEFAULT_MOVE = { speed: 0.08, accel: 0.15, zone: [0.15, 0.7], retarget: [2, 5] };
 
   let fish = [];
+  // Food sinking in the tank ({ x, y, vy, el, life }), and the finger the fish follow ({ x, y } or null).
+  let food = [];
+  let lure = null;
   let raf = 0;
   let last = 0;
 
@@ -153,6 +157,7 @@
   function render() {
     layer.innerHTML = '';
     fish = [];
+    food = [];
     const colors = palette();
     const tw = tank.clientWidth, th = tank.clientHeight;
     const sand = th * 0.1;
@@ -251,6 +256,9 @@
           } else {
             f.timer -= dt;
             if (f.timer <= 0) { f.tx = rand(f.w / 2, tw - f.w / 2); f.timer = rand(4, 8); }
+            const snack = !f.full && nearestFood(f);
+            if (lure) f.tx = lure.x;
+            else if (snack) { f.tx = snack.x; if (Math.hypot(snack.x - f.x, snack.y - f.y) < f.w * 0.5) eat(f, snack); }
             f.vx += Math.max(-8 * dt, Math.min(8 * dt, Math.sign(f.tx - f.x) * 12 - f.vx));
             if (Math.abs(f.tx - f.x) < 4) f.vx *= 0.9;
             f.vy = Math.min(14, f.vy + 30 * dt);
@@ -270,8 +278,19 @@
           if (f.scared <= 0) { f.el.classList.remove('scared'); f.wait = 0; newTarget(f, tw, th); }
         } else {
           const speed = m.speed * tw, accel = m.accel * tw;
-          let gx, gy;
-          if (f.leader && !f.leader.held && !(f.leader.scared > 0)) {
+          let gx, gy, boost = 1;
+          const snack = !lure && !f.full && nearestFood(f);
+          if (lure) {
+            // Following the finger: gather round it, each in its own spot.
+            gx = lure.x + f.offset[0] * f.w * 0.9; gy = lure.y + f.offset[1] * f.h * 1.2;
+            boost = 1.7;
+          } else if (snack) {
+            // Food! Swim over, mouth first, and eat it.
+            gx = snack.x - f.dir * f.w * 0.38; gy = snack.y;
+            boost = 1.5;
+            const mouthX = f.x + f.dir * f.w * 0.38;
+            if (Math.hypot(mouthX - snack.x, f.y - snack.y) < Math.max(10, f.h * 0.4)) eat(f, snack);
+          } else if (f.leader && !f.leader.held && !(f.leader.scared > 0)) {
             // Followers keep their own spot near the leader (behind it, a little to the side).
             const s = f.w * (m.spread || 1);
             gx = f.leader.x - f.leader.dir * s * (0.6 + Math.abs(f.offset[0])) ;
@@ -290,7 +309,7 @@
           if (m.swoop) gy += Math.sin(f.phase * 0.8) * th * 0.06;
           // Steer towards the goal, slowing on arrival.
           const dx = gx - f.x, dy = gy - f.y, d = Math.hypot(dx, dy) || 1;
-          const want = Math.min(speed * (f.leader ? m.catchUp || 1.4 : 1), d * 1.5);
+          const want = Math.min(speed * Math.max(boost, f.leader && boost === 1 ? m.catchUp || 1.4 : 1), d * 1.5);
           let ax = (dx / d) * want - f.vx, ay = (dy / d) * want * 0.7 - f.vy;
           // Keep a little space from the others, and steer round fish ahead.
           for (const o of fish) {
@@ -321,6 +340,7 @@
       }
     }
     collide(dt);
+    updateFood(dt, tw, th);
     for (const f of fish) {
       const m = f.m;
       if (!f.held) {
@@ -335,10 +355,86 @@
       }
       const bob = m.nearPlants ? Math.sin(f.phase * 1.6) * 5 : m.jelly || m.octo ? 0 : Math.sin(f.phase * 1.1) * 2;
       f.el.style.transform = `translate(${f.x - f.w / 2}px, ${f.y - f.h / 2 + bob}px)`;
-      f.el.firstElementChild.style.transform = `scaleX(${f.dir}) rotate(${f.tilt}deg) scale(${f.puff})`;
+      if (f.gulp > 0) f.gulp -= dt;
+      const gulp = f.gulp > 0 ? 1 + Math.sin((0.25 - f.gulp) / 0.25 * Math.PI) * 0.12 : 1;
+      f.el.firstElementChild.style.transform = `scaleX(${f.dir}) rotate(${f.tilt}deg) scale(${f.puff * gulp})`;
     }
     raf = screen.classList.contains('active') ? requestAnimationFrame(frame) : 0;
   }
+
+  // ---------- Feeding ----------
+  const MAX_FOOD = 40;
+  function dropFood(x, y, n) {
+    const colors = ['#ffb03a', '#ff7a59', '#ffd166', '#c98b4f'];
+    for (let i = 0; i < n && food.length < MAX_FOOD; i++) {
+      const el = document.createElement('div');
+      el.className = 'aq-food';
+      el.style.background = colors[i % colors.length];
+      layer.appendChild(el);
+      food.push({ x: x + rand(-18, 18), y: y + rand(-6, 6), vy: rand(14, 24), sway: rand(0, 6), el, life: 25 });
+    }
+    if (root.ArrowAudio) root.ArrowAudio.play('sprinkle');
+  }
+  function updateFood(dt, tw, th) {
+    const sand = th * 0.92;
+    for (const p of food) {
+      p.sway += dt * 2;
+      if (p.y < sand) { p.y += p.vy * dt; p.x += Math.sin(p.sway) * 6 * dt; }
+      else { p.life -= dt; }
+      p.x = Math.min(tw - 3, Math.max(3, p.x));
+      p.el.style.transform = `translate(${p.x - 3}px, ${p.y - 3}px)`;
+      p.el.style.opacity = Math.min(1, p.life / 3);
+    }
+    food = food.filter((p) => { if (p.life > 0 && !p.eaten) return true; p.el.remove(); return false; });
+    for (const f of fish) {
+      if (f.full > 0) { f.full -= dt; if (f.full <= 0) { f.full = 0; f.ate = 0; } }
+    }
+  }
+  /** The closest bit of food this fish could go for (fish go for different bits). */
+  function nearestFood(f) {
+    let best = null, bd = Infinity;
+    for (const p of food) {
+      if (p.eaten) continue;
+      const d = Math.hypot(p.x - f.x, p.y - f.y) + (p.claimedBy && p.claimedBy !== f ? 80 : 0);
+      if (d < bd) { bd = d; best = p; }
+    }
+    if (best) best.claimedBy = f;
+    return best;
+  }
+  function eat(f, p) {
+    p.eaten = true;
+    f.ate = (f.ate || 0) + 1;
+    // A few bites and it's full for a while (bigger fish eat more).
+    if (f.ate >= 3 + Math.round(f.c.w * 10)) f.full = rand(25, 40);
+    f.gulp = 0.25;
+    if (root.ArrowAudio && Math.random() < 0.6) root.ArrowAudio.play('nibble');
+  }
+
+  // Tap the water to drop food; drag through it and the fish follow your finger.
+  (function waterTouches() {
+    let start = null;
+    const at = (e) => { const r = tank.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+    tank.addEventListener('pointerdown', (e) => {
+      if (e.target.closest('.aq-item')) return;
+      e.preventDefault();
+      tank.setPointerCapture(e.pointerId);
+      start = { ...at(e), moved: 0 };
+    });
+    tank.addEventListener('pointermove', (e) => {
+      if (!start) return;
+      const p = at(e);
+      start.moved = Math.max(start.moved, Math.hypot(p.x - start.x, p.y - start.y));
+      if (start.moved >= 8) lure = p;
+    });
+    const end = (e) => {
+      if (!start) return;
+      if (start.moved < 8) { const p = at(e); dropFood(p.x, Math.min(p.y, tank.clientHeight * 0.85), 5); }
+      start = null;
+      lure = null;
+    };
+    tank.addEventListener('pointerup', end);
+    tank.addEventListener('pointercancel', end);
+  })();
 
   // ---------- Bumping into each other ----------
   // Fish are treated as ellipses a little smaller than their pictures.
@@ -579,6 +675,11 @@
   screen.querySelector('#aqBack').addEventListener('click', close);
   screen.querySelector('#aqPearls').addEventListener('click', () => root.ArrowShop && root.ArrowShop.open());
   screen.querySelectorAll('[data-cat]').forEach((b) => b.addEventListener('click', () => catalog(b.dataset.cat)));
+  // The Feed button sprinkles a pinch of food across the top of the water.
+  screen.querySelector('#aqFeed').addEventListener('click', () => {
+    const tw = tank.clientWidth;
+    for (let i = 0; i < 3; i++) dropFood(rand(tw * 0.15, tw * 0.85), tank.clientHeight * 0.06, 4);
+  });
   root.addEventListener('resize', () => { if (screen.classList.contains('active')) render(); });
   const menuBtn = document.getElementById('menuAquariumBtn');
   if (menuBtn) menuBtn.addEventListener('click', open);

@@ -1144,7 +1144,9 @@ svg.aq-chest .bubbles circle:nth-child(3) { animation-delay: 0.6s; }
 @keyframes chest-bubble { 0%, 68% { opacity: 0; transform: translateY(8px); } 75% { opacity: 1; } 95%, 100% { opacity: 0; transform: translateY(-10px); } }
 
 .aq-tip { margin: 0; flex: none; text-align: center; color: var(--muted); font-size: 0.85rem; }
-.aq-bar { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; flex: none; }
+.aq-bar { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; flex: none; }
+.tank { touch-action: none; }
+.aq-food { position: absolute; left: 0; top: 0; width: 6px; height: 6px; border-radius: 2px; z-index: 2; pointer-events: none; box-shadow: 0 0 5px rgba(255, 190, 90, 0.8); }
 .aq-bar .action-btn { min-height: 64px; }
 .aq-bar-icon { font-size: 1.5rem; line-height: 1; }
 .aq-thumb { flex: none; width: 52px; height: 40px; display: flex; align-items: center; justify-content: center; }

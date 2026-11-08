@@ -415,6 +415,9 @@
     },
     // Any button.
     click: () => tone({ f0: 900, f1: 1300, dur: 0.05, vol: 0.07, verb: 0.1 }),
+    // Aquarium: food sprinkled on the water, and a fish taking a bite.
+    sprinkle: () => [0, 0.05, 0.11, 0.16, 0.22].forEach((at) => tone({ type: 'triangle', f0: 2200 + Math.random() * 900, dur: 0.04, vol: 0.035, at, verb: 0.4 })),
+    nibble: () => tone({ type: 'sine', f0: 320, f1: 720, dur: 0.07, vol: 0.12, verb: 0.3 }),
   };
 
   const lastPlayed = {};
