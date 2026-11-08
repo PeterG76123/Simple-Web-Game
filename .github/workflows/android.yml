@@ -30,7 +30,8 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
-          cache: gradle
+      # Downloads (with retries) and caches Gradle, the Android build tool.
+      - uses: gradle/actions/setup-gradle@v4
       - name: Install
         run: npm ci
       - name: Copy the game into the app
