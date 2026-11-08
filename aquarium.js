@@ -24,28 +24,28 @@
   // ---------- What can go in the tank ----------
   // kind: fish (swims), plant (sways, on the sand) or decor (on the sand).
   // w: width as a share of the tank's width. ratio: height / width of its picture.
-  // Fish face right in their pictures.
+  // Fish face right in their pictures. mouth: where the mouth is, as a share of the picture's width and height.
   const CATALOG = [
     // Fish
-    { id: 'guppy', kind: 'fish', name: 'Glow guppy', price: 60, w: 0.14, ratio: 34 / 60,
+    { id: 'guppy', kind: 'fish', mouth: [0.84, 0.5], name: 'Glow guppy', price: 60, w: 0.14, ratio: 34 / 60,
       svg: '<svg viewBox="0 0 60 34" class="aq-fish"><path class="tail" d="M16 17 L3 5 C7 13 7 21 3 29Z"/><path d="M14 17 C22 6 40 5 50 17 C40 29 22 28 14 17Z"/><path class="fin" d="M27 9 L33 3 L38 10"/><circle class="eye" cx="43" cy="15" r="2.2"/></svg>' },
-    { id: 'tetra', kind: 'fish', name: 'Neon tetra', price: 80, w: 0.12, ratio: 26 / 60,
+    { id: 'tetra', kind: 'fish', mouth: [0.87, 0.5], name: 'Neon tetra', price: 80, w: 0.12, ratio: 26 / 60,
       svg: '<svg viewBox="0 0 60 26" class="aq-fish"><path class="tail" d="M12 13 L2 5 L5 13 L2 21Z"/><path d="M10 13 C20 4 42 4 52 13 C42 22 20 22 10 13Z"/><path class="stripe" d="M17 13 L46 13"/><circle class="eye" cx="45" cy="11" r="2"/></svg>' },
-    { id: 'angel', kind: 'fish', name: 'Angelfish', price: 150, w: 0.14, ratio: 70 / 60,
+    { id: 'angel', kind: 'fish', mouth: [0.86, 0.5], name: 'Angelfish', price: 150, w: 0.14, ratio: 70 / 60,
       svg: '<svg viewBox="0 0 60 70" class="aq-fish"><path class="tail" d="M16 35 L5 27 L8 35 L5 43Z"/><path d="M30 22 L22 2 L41 20Z"/><path d="M30 48 L22 68 L41 50Z"/><path d="M14 35 C24 18 40 18 51 35 C40 52 24 52 14 35Z"/><path class="fin" d="M28 23 L28 47 M37 22 L37 48"/><circle class="eye" cx="44" cy="32" r="2.3"/></svg>' },
-    { id: 'puffer', kind: 'fish', name: 'Puffer', price: 200, w: 0.13, ratio: 50 / 60,
+    { id: 'puffer', kind: 'fish', mouth: [0.8, 0.6], name: 'Puffer', price: 200, w: 0.13, ratio: 50 / 60,
       svg: '<svg viewBox="0 0 60 50" class="aq-fish"><path class="tail" d="M14 25 L3 17 L6 25 L3 33Z"/><circle cx="32" cy="25" r="16"/><path class="fin" d="M32 6 L32 2 M44 10 L47 7 M20 10 L17 7 M32 44 L32 48 M44 40 L47 43 M20 40 L17 43 M50 25 L54 25"/><circle class="eye" cx="40" cy="20" r="2.6"/><path class="fin" d="M44 30 Q47 32 44 34"/></svg>' },
-    { id: 'seahorse', kind: 'fish', name: 'Seahorse', price: 220, w: 0.08, ratio: 70 / 40, bob: true,
+    { id: 'seahorse', kind: 'fish', mouth: [0.99, 0.23], name: 'Seahorse', price: 220, w: 0.08, ratio: 70 / 40, bob: true,
       svg: '<svg viewBox="0 0 40 70" class="aq-fish"><path d="M18 8 C26 4 33 8 32 14 L40 16 L31 19 C34 30 31 40 22 46 C15 51 15 60 21 62 C26 63 27 57 23 56"/><path class="fin" d="M18 26 C12 28 11 36 16 38"/><circle class="eye" cx="25" cy="12" r="1.8"/></svg>' },
-    { id: 'moonjelly', kind: 'fish', name: 'Moon jelly', price: 260, w: 0.11, ratio: 70 / 40, drifts: true,
+    { id: 'moonjelly', kind: 'fish', mouth: [0.5, 0.4], name: 'Moon jelly', price: 260, w: 0.11, ratio: 70 / 40, drifts: true,
       svg: '<svg viewBox="0 0 40 70" class="aq-fish aq-jelly"><path class="bell" d="M4 24 C4 6 36 6 36 24 C30 21 10 21 4 24Z"/><g class="tentacles"><path d="M10 24 C6 36 14 44 9 58"/><path d="M17 24 C14 38 21 48 16 66"/><path d="M24 24 C27 38 19 48 24 66"/><path d="M31 24 C35 36 27 44 31 58"/></g></svg>' },
-    { id: 'turtle', kind: 'fish', name: 'Sea turtle', price: 450, w: 0.22, ratio: 56 / 90,
+    { id: 'turtle', kind: 'fish', mouth: [0.88, 0.5], name: 'Sea turtle', price: 450, w: 0.22, ratio: 56 / 90,
       svg: '<svg viewBox="0 0 90 56" class="aq-fish aq-turtle"><g class="flipper front"><path d="M56 17 C52 6 42 0 30 1 C38 7 45 13 48 19Z"/></g><g class="flipper back"><path d="M56 39 C52 50 42 56 30 55 C38 49 45 43 48 37Z"/></g><path d="M22 32 C16 38 10 40 6 40 C10 35 14 31 20 29Z"/><ellipse cx="42" cy="28" rx="24" ry="15"/><path class="fin" d="M26 28 L42 18 L58 28 L42 38Z M42 18 L42 38 M26 28 L58 28"/><circle cx="72" cy="27" r="7"/><circle class="eye" cx="75" cy="25" r="1.6"/></svg>' },
-    { id: 'octopus', kind: 'fish', name: 'Octopus', price: 500, w: 0.14, ratio: 100 / 80, drifts: true,
+    { id: 'octopus', kind: 'fish', mouth: [0.5, 0.62], name: 'Octopus', price: 500, w: 0.14, ratio: 100 / 80, drifts: true,
       svg: '<svg viewBox="0 0 80 100" class="aq-fish aq-octo"><g class="arms"><path d="M22 50 C12 64 26 76 12 90"/><path d="M29 54 C24 70 36 82 27 96"/><path d="M37 56 C36 72 44 84 38 98"/><path d="M44 56 C46 72 38 84 45 98"/><path d="M51 54 C56 70 44 82 53 96"/><path d="M58 50 C68 64 54 76 68 90"/></g><path class="mantle" d="M40 6 C58 6 66 22 64 38 C62 50 52 56 40 56 C28 56 18 50 16 38 C14 22 22 6 40 6Z"/><circle class="eye" cx="32" cy="40" r="3.2"/><circle class="eye" cx="48" cy="40" r="3.2"/></svg>' },
-    { id: 'manta', kind: 'fish', name: 'Manta ray', price: 600, w: 0.26, ratio: 50 / 100,
+    { id: 'manta', kind: 'fish', mouth: [0.88, 0.5], name: 'Manta ray', price: 600, w: 0.26, ratio: 50 / 100,
       svg: '<svg viewBox="0 0 100 50" class="aq-fish aq-manta"><path d="M88 25 C87 19 80 13 58 1 C56 12 48 20 36 25 C48 30 56 38 58 49 C80 37 87 31 88 25Z"/><path class="fin" d="M87 21 C91 20 94 18 96 16 M87 29 C91 30 94 32 96 34"/><path class="fin" d="M37 25 L4 24"/><circle class="eye" cx="84" cy="20" r="1.5"/><circle class="eye" cx="84" cy="30" r="1.5"/></svg>' },
-    { id: 'shark', kind: 'fish', name: 'Reef shark', price: 900, w: 0.34, ratio: 76 / 200,
+    { id: 'shark', kind: 'fish', mouth: [0.94, 0.6], name: 'Reef shark', price: 900, w: 0.34, ratio: 76 / 200,
       svg: '<svg viewBox="0 0 200 76" class="aq-fish"><path class="tail" d="M34 42 L4 14 L14 42 L4 70Z"/><path d="M30 42 C60 28 120 22 160 30 C178 34 190 38 198 42 C188 46 176 50 160 52 C120 58 60 56 30 42Z"/><path d="M98 27 L116 3 L128 28Z"/><path d="M122 52 L104 72 L134 53Z"/><path class="fin" d="M150 36 L148 46 M155 35 L153 46 M160 35 L158 46"/><circle class="eye" cx="177" cy="38" r="2.4"/></svg>' },
 
     // Plants (they sway)
@@ -197,7 +197,7 @@
         el, c, m, item, w, h, plantsX,
         x: w / 2 + item.x * (tw - w), y: zoneY(rand(m.zone ? m.zone[0] : 0.3, m.zone ? m.zone[1] : 0.6)),
         vx: (Math.random() < 0.5 ? -1 : 1) * 10, vy: 0,
-        dir: 1, tilt: 0, puff: 1, puffT: rand(4, 10),
+        dir: 1, tilt: 0, puff: 1, puffT: rand(4, 10), flipCd: 0,
         wait: 0, timer: 0, tx: 0, ty: 0,
         phase: rand(0, Math.PI * 2),
         jet: 0, // octopus: >0 while jetting upwards
@@ -261,7 +261,12 @@
             if (f.timer <= 0) { f.tx = rand(f.w / 2, tw - f.w / 2); f.timer = rand(4, 8); }
             const snack = !f.full && nearestFood(f);
             if (lure) f.tx = lure.x;
-            else if (snack) { f.tx = snack.x; if (Math.hypot(snack.x - f.x, snack.y - f.y) < f.w * 0.5) eat(f, snack); }
+            else if (snack) {
+              f.tx = snack.x;
+              // It waits under falling food and grabs it as it reaches its mouth.
+              const [ex, ey] = mouthOf(f);
+              if (Math.abs(ex - snack.x) < f.w * 0.25 && Math.abs(ey - snack.y) < f.h * 0.15) eat(f, snack);
+            }
             f.vx += Math.max(-8 * dt, Math.min(8 * dt, Math.sign(f.tx - f.x) * 12 - f.vx));
             if (Math.abs(f.tx - f.x) < 4) f.vx *= 0.9;
             f.vy = Math.min(14, f.vy + 30 * dt);
@@ -289,11 +294,23 @@
             boost = 1.7;
           } else if (snack) {
             // Food! Swim over, mouth first, and eat it.
-            if (snack !== f.snack) { f.snack = snack; f.side = f.x < snack.x ? 1 : -1; }
-            gx = snack.x - f.side * f.w * 0.38; gy = snack.y;
+            if (snack !== f.snack) {
+              f.snack = snack; f.snackT = 0;
+              f.side = f.x < snack.x ? 1 : -1;
+              // Come at it from the other side if the glass is in the way.
+              const reach = (mouthOf(f, f.side)[0] - f.x);
+              const cx = snack.x - reach;
+              if (cx < f.w / 2 || cx > tw - f.w / 2) f.side = -f.side;
+            }
+            // Can't get it after a while? Leave it for someone else.
+            f.snackT += dt;
+            if (f.snackT > 5) { f.skip = snack; snack.claimedBy = null; f.snack = null; }
+            // Aim so the mouth (not the middle) arrives at the flake.
+            const [mx, my] = mouthOf(f, f.side);
+            gx = snack.x - (mx - f.x); gy = snack.y - (my - f.y);
             boost = feedTime > 0 ? Math.min(6, Math.max(2.2, 0.16 / m.speed)) : 1.5;
-            const mouthX = f.x + f.dir * f.w * 0.38;
-            if (Math.hypot(mouthX - snack.x, f.y - snack.y) < Math.max(10, f.h * 0.4)) eat(f, snack);
+            const [ex, ey] = mouthOf(f);
+            if (Math.hypot(ex - snack.x, ey - snack.y) < 4) eat(f, snack);
           } else if (feedTime > 0) {
             // Feeding time: up to the surface, even if full (just in case).
             gx = f.x + f.offset[0] * f.w; gy = th * 0.03 + f.h * (0.5 + Math.abs(f.offset[1]) * 0.6);
@@ -317,7 +334,7 @@
           if (m.swoop) gy += Math.sin(f.phase * 0.8) * th * 0.06;
           // Steer towards the goal, slowing on arrival.
           const dx = gx - f.x, dy = gy - f.y, d = Math.hypot(dx, dy) || 1;
-          const want = Math.min(speed * Math.max(boost, f.leader && boost === 1 ? m.catchUp || 1.4 : 1), d * 1.5);
+          const want = Math.min(speed * Math.max(boost, f.leader && boost === 1 ? m.catchUp || 1.4 : 1), Math.max(d * 2.5, snack ? 30 : 0));
           let ax = (dx / d) * want - f.vx, ay = (dy / d) * want * (boost > 1 ? 1 : 0.7) - f.vy;
           // Keep a little space from the others, and steer round fish ahead.
           for (const o of fish) {
@@ -325,7 +342,8 @@
             const ox = f.x - o.x, oy = f.y - o.y, od = Math.hypot(ox, oy);
             const room = o.c === f.c ? f.w * 0.8 : (f.w + o.w) * 0.45 + (f.h + o.h) * 0.2;
             if (od > 0 && od < room) {
-              const push = (1 - od / room) * speed * (o.c === f.c ? 0.8 : 1.6);
+              // (A fish about to eat barely gives way.)
+              const push = (1 - od / room) * speed * (o.c === f.c ? 0.8 : 1.6) * (snack && d < f.w ? 0.2 : 1);
               ax += (ox / od) * push; ay += (oy / od) * push * 1.3;
             }
           }
@@ -360,15 +378,19 @@
         // Only turn round when properly swimming the other way, and not too often.
         if (f.flipCd > 0) f.flipCd -= dt;
         const turnAt = Math.max(8, m.speed ? m.speed * tw * 0.25 : 8);
-        const want = f.vx > turnAt ? 1 : f.vx < -turnAt ? -1 : f.dir;
+        let want = f.vx > turnAt ? 1 : f.vx < -turnAt ? -1 : f.dir;
+        // Right by its food: face it, so the mouth meets it.
+        if (f.snack && !f.snack.eaten && f.side && Math.hypot(f.snack.x - f.x, f.snack.y - f.y) < f.w * 1.2) want = f.side;
         if (want !== f.dir && (f.flipCd <= 0 || f.scared > 0 || f.held)) { f.dir = want; f.flipCd = 0.6; }
         const goalTilt = Math.max(-22, Math.min(22, Math.atan2(f.vy, Math.abs(f.vx) + 8) * 180 / Math.PI)) * (m.tilt || 0.8);
         f.tilt += (goalTilt - f.tilt) * Math.min(1, dt * 4);
       }
       const bob = m.nearPlants ? Math.sin(f.phase * 1.6) * 5 : m.jelly || m.octo ? 0 : Math.sin(f.phase * 1.1) * 2;
+      f.bobY = bob;
       f.el.style.transform = `translate(${f.x - f.w / 2}px, ${f.y - f.h / 2 + bob}px)`;
       if (f.gulp > 0) f.gulp -= dt;
       const gulp = f.gulp > 0 ? 1 + Math.sin((0.25 - f.gulp) / 0.25 * Math.PI) * 0.12 : 1;
+      f.gulpScale = gulp;
       f.el.firstElementChild.style.transform = `scaleX(${f.dir}) rotate(${f.tilt}deg) scale(${f.puff * gulp})`;
     }
     raf = screen.classList.contains('active') ? requestAnimationFrame(frame) : 0;
@@ -383,7 +405,7 @@
       el.className = 'aq-food';
       el.style.background = colors[i % colors.length];
       layer.appendChild(el);
-      food.push({ x: x + rand(-18, 18), y: y + rand(-6, 6), vy: rand(14, 24), sway: rand(0, 6), el, life: 25 });
+      food.push({ x: x + rand(-18, 18), y: y + rand(-6, 6), vy: rand(14, 24), sway: rand(0, 6), el, life: 8, age: 0 });
     }
     if (root.ArrowAudio) root.ArrowAudio.play('sprinkle');
   }
@@ -391,8 +413,11 @@
     const sand = th * 0.92;
     for (const p of food) {
       p.sway += dt * 2;
+      // Food that lands on the sand fades away after a few seconds (and nothing lingers more than half a minute).
+      p.age += dt;
       if (p.y < sand) { p.y += p.vy * dt; p.x += Math.sin(p.sway) * 6 * dt; }
       else { p.life -= dt; }
+      if (p.age > 30) p.life = Math.min(p.life, 3 - (p.age - 30));
       p.x = Math.min(tw - 3, Math.max(3, p.x));
       p.el.style.transform = `translate(${p.x - 3}px, ${p.y - 3}px)`;
       p.el.style.opacity = Math.min(1, p.life / 3);
@@ -402,12 +427,24 @@
       if (f.full > 0) { f.full -= dt; if (f.full <= 0) { f.full = 0; f.ate = 0; } }
     }
   }
+  /** Where a fish's mouth is right now, if it faced `dir` (follows its tilt, puffing and bobbing). */
+  function mouthOf(f, dir = f.dir) {
+    const [mx, my] = f.c.mouth || [0.85, 0.5];
+    const s = (f.puff || 1) * (f.gulpScale || 1);
+    const px = (mx - 0.5) * f.w * s, py = (my - 0.5) * f.h * s;
+    const t = ((f.tilt || 0) * Math.PI) / 180;
+    return [f.x + dir * (px * Math.cos(t) - py * Math.sin(t)), f.y + (f.bobY || 0) + px * Math.sin(t) + py * Math.cos(t)];
+  }
+
   /** The closest bit of food this fish could go for (fish go for different bits). */
   function nearestFood(f) {
+    // Sticks with the flake it's already after, unless someone else got it.
+    if (f.snack && !f.snack.eaten && f.snack.life > 0 && food.includes(f.snack) && f.snack.claimedBy === f) return f.snack;
     let best = null, bd = Infinity;
     for (const p of food) {
-      if (p.eaten) continue;
-      const d = Math.hypot(p.x - f.x, p.y - f.y) + (p.claimedBy && p.claimedBy !== f ? 80 : 0);
+      if (p.eaten || p === f.skip) continue;
+      const taken = p.claimedBy && p.claimedBy !== f && !p.claimedBy.full && p.claimedBy.snack === p;
+      const d = Math.hypot(p.x - f.x, p.y - f.y) + (taken ? 200 : 0);
       if (d < bd) { bd = d; best = p; }
     }
     if (best) best.claimedBy = f;
