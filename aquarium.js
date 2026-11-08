@@ -84,7 +84,7 @@
       <div class="tank-rays" aria-hidden="true"></div>
       <div class="tank-scene" id="sceneBack" aria-hidden="true"></div>
       <!-- The sand is in front of the scenery, so rocks sink into it. -->
-      <svg class="tank-sand" viewBox="0 0 400 60" preserveAspectRatio="none" aria-hidden="true"><path d="M0 22 C40 12 80 18 120 14 C170 9 210 20 260 16 C310 12 350 20 400 14 L400 60 L0 60Z"/><path class="sand-ripple" d="M20 34 C60 30 90 36 130 32 M200 40 C240 36 270 42 310 38 M90 50 C130 46 160 52 200 48"/></svg>
+      <svg class="tank-sand" viewBox="0 0 400 60" preserveAspectRatio="none" aria-hidden="true"><path d="M0 16 C40 10 80 15 120 12 C170 8 210 16 260 13 C310 10 350 16 400 12 L400 60 L0 60Z"/><path class="sand-ripple" d="M20 34 C60 30 90 36 130 32 M200 40 C240 36 270 42 310 38 M90 50 C130 46 160 52 200 48"/></svg>
       <div class="tank-scene" id="sceneMid" aria-hidden="true"></div>
       <div class="tank-items" id="tankItems"></div>
       <div class="tank-scene tank-front" id="sceneFront" aria-hidden="true"></div>
