@@ -312,6 +312,8 @@
     $('remaining').textContent = left === 1 ? '1 eel left' : `${left} eels left`;
     $('undoBtn').disabled = moves === 0 || state.finished;
     $('hintBtn').disabled = state.finished || left === 0;
+    // Skipping (for a short ad) is offered whenever it's allowed, hints or not.
+    $('skipBtn').hidden = !skipAllowed() || state.finished;
     updateHintBadge();
     // Any move (or undo) makes the current hint out of date.
     if (state.hint && state.hint.moves !== moves) clearHint();
@@ -1855,6 +1857,18 @@
   $('restartBtn').addEventListener('click', askRestart);
   $('undoBtn').addEventListener('click', undo);
   $('helpBtn').addEventListener('click', () => { if (state) showIntro(state.group); });
+  $('skipBtn').addEventListener('click', () => {
+    if (!state || state.finished || !skipAllowed()) return;
+    showDialog('Skip this level?', 'Watch a short ad to skip it. It counts as finished, so the next level opens.', [
+      { label: 'Watch an ad and skip', primary: true, action: async () => {
+        hideDialog();
+        if (!window.ArrowAds) return;
+        if (await window.ArrowAds.showRewarded()) skipLevel();
+        else if (window.ArrowShop) window.ArrowShop.toast('Watch to the end to skip');
+      } },
+      { label: 'Keep playing', action: hideDialog },
+    ]);
+  });
   $('hintBtn').addEventListener('click', showHint);
   document.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'z' && screens.game.classList.contains('active')) {

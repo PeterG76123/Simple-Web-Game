@@ -1217,6 +1217,7 @@ svg.aq-chest .bubbles circle:nth-child(14) { --dx: -3px; --up: -65px; animation-
 .tank-dots i.locked.on { background: rgba(255, 255, 255, 0.6); }
 .aq-locked { position: absolute; inset: 0; z-index: 600; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(2, 10, 24, 0.3); }
 .aq-locked[hidden] { display: none; }
+#skipBtn[hidden] { display: none; }
 .aq-locked-card { max-width: 300px; padding: 18px 18px 14px; border-radius: 22px; text-align: center; background: rgba(4, 24, 46, 0.82); border: 1px solid var(--glass-edge); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
 .aq-locked-card h3 { margin: 0 0 6px; font-family: var(--font-display); font-weight: 600; font-size: 1.4rem; color: var(--accent); }
 .aq-locked-card p { margin: 0 0 10px; color: var(--text); }
