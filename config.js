@@ -59,7 +59,7 @@
     // for each app (Project settings > API keys: "goog_…" for Android, "appl_…" for iOS);
     // left empty, the shop uses stand-in purchases. products: the store product IDs.
     store: {
-      keys: { android: '', ios: '' },
+      keys: { android: 'goog_wWsQgCFLMfzCQOfLTWRpDYqFoyn', ios: '' },
       adsEntitlement: 'no_ads',
       products: { removeAds: 'remove_ads', starter: 'starter_bundle', hints10: 'hints_10', hints50: 'hints_50', hints150: 'hints_150', pearls500: 'pearls_500', pearls3000: 'pearls_3000' },
     },
