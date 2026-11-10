@@ -136,6 +136,5 @@ Prices shown in the shop come from the store (in the player's own currency); `pr
 - [ ] Add the remaining SKAdNetwork IDs AdMob lists to `Info.plist`.
 - [ ] Set up RevenueCat and the store products, and fill in `store.keys` (see Purchases above).
 - [ ] Create an upload key and add it as GitHub secrets so Actions signs the Play bundle (see `.github/workflows/android.yml`).
-- [ ] Set `unlockAll` to `false` in `remote-config.json` so groups unlock as players progress.
 - [ ] Fill in `privacy.html` (release date, contact email) and give its web address to both stores; complete Google Play's Data safety form and Apple's privacy details.
 - [ ] Set the age rating for a general audience (not "designed for children").

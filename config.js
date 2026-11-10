@@ -12,8 +12,8 @@
 (function (root) {
   'use strict';
   const DEFAULTS = {
-    // Every level open (for testing). Set to false for release.
-    unlockAll: true,
+    // Every level open, for testing only (leave false for release).
+    testUnlockAll: false,
     ads: {
       // No full-screen ads until the player has finished this many levels.
       graceLevels: 10,

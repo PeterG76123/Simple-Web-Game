@@ -2,7 +2,6 @@
   'use strict';
 
   const { DIRS, buildLine, mirrorMap, reach, reachBack, solve, decodeLevel, makeWorld, anyMap, turnMirror, canTurn, findTurnWay, twinMap, twinReach } = window.ArrowRules;
-  const { unlockAfter: UNLOCK_AFTER } = window.ArrowLevelData;
   // Older level files had one list of groups and no difficulty settings.
   const TIERS = window.ArrowLevelData.tiers || [{ name: 'Easy', groups: window.ArrowLevelData.groups }];
   const STORAGE_KEY = 'arrow-escape-progress-v2';
@@ -148,13 +147,28 @@
   const progress = loadProgress();
   const isCompleted = (g, i) => progress.completed.includes(`${tier}-${g}-${i}`);
   const completedIn = (g) => groupsNow()[g].levels.filter((_, i) => isCompleted(g, i)).length;
-  // TESTING: every group and level is open. Set to false before release to
-  // bring back unlocking (10 levels opens the next group, levels in order).
-  // Every level open while testing: the unlockAll setting (config.js /
-  // remote-config.json). Set it to false for release.
-  const unlockAll = () => !window.ArrowConfig || window.ArrowConfig.get('unlockAll') !== false;
-  const isGroupUnlocked = (g) => unlockAll() || g === 0 || completedIn(g - 1) >= UNLOCK_AFTER;
-  const isUnlocked = (g, i) => unlockAll() || (isGroupUnlocked(g) && (i === 0 || isCompleted(g, i - 1)));
+  // Unlocking: levels in order within a group; a group opens once the whole group
+  // before it (same difficulty) is done, and once the same group is done on the
+  // difficulty below (Medium after Easy, Hard after Medium).
+  // (The testUnlockAll setting opens everything, for testing only.)
+  const unlockAll = () => !!(window.ArrowConfig && window.ArrowConfig.get('testUnlockAll') === true);
+  const doneIn = (t, g) => {
+    const grp = (TIERS[t] && TIERS[t].groups[g]);
+    return grp ? grp.levels.filter((_, i) => progress.completed.includes(`${t}-${g}-${i}`)).length : 0;
+  };
+  const groupDone = (t, g) => { const grp = TIERS[t] && TIERS[t].groups[g]; return !!grp && doneIn(t, g) >= grp.levels.length; };
+  const groupOpen = (t, g) => unlockAll() || ((g === 0 || groupDone(t, g - 1)) && (t === 0 || groupDone(t - 1, g)));
+  const isGroupUnlocked = (g) => groupOpen(tier, g);
+  const isUnlocked = (g, i) => isGroupUnlocked(g) && (unlockAll() || i === 0 || isCompleted(g, i - 1));
+  /** Why a group is still locked, for the menu. */
+  function lockReason(g) {
+    if (g > 0 && !groupDone(tier, g - 1)) {
+      const left = groupsNow()[g - 1].levels.length - doneIn(tier, g - 1);
+      return `Finish ${left} more ${left === 1 ? 'level' : 'levels'} in ${groupTitle(g - 1)} to unlock this group.`;
+    }
+    const left = TIERS[tier - 1].groups[g].levels.length - doneIn(tier - 1, g);
+    return `Finish ${left} more ${left === 1 ? 'level' : 'levels'} of ${groupTitle(g)} on ${TIERS[tier - 1].name} to unlock it here.`;
+  }
 
   // ---------- Theme colours for the canvas ----------
   let colors = {};
@@ -1121,13 +1135,17 @@
     if (!busy && !state.finished && state.lines.every((l) => l.mode === 'gone')) {
       state.finished = true;
       const next = state.group + 1;
-      state.unlockedGroup = next < groupsNow().length && !isGroupUnlocked(next) ? next : -1;
+      const nextTier = tier + 1;
+      const wasOpen = next < groupsNow().length && isGroupUnlocked(next);
+      const harderWasOpen = !!TIERS[nextTier] && groupOpen(nextTier, state.group);
       const firstClear = !isCompleted(state.group, state.index);
       if (firstClear) {
         progress.completed.push(`${tier}-${state.group}-${state.index}`);
         saveProgress();
       }
-      if (state.unlockedGroup >= 0 && !isGroupUnlocked(state.unlockedGroup)) state.unlockedGroup = -1;
+      // Finishing a group can open the next group, and the same group one difficulty up.
+      state.unlockedGroup = next < groupsNow().length && !wasOpen && isGroupUnlocked(next) ? next : -1;
+      state.unlockedHarder = !!TIERS[nextTier] && !harderWasOpen && groupOpen(nextTier, state.group);
       updateHud();
       // Count it (for ad timing and the starter offer); an ad may be due before the next level.
       state.adDue = window.ArrowWallet ? window.ArrowWallet.levelFinished() : false;
@@ -1720,6 +1738,7 @@
     const startNextGroup = { label: `Go to ${groupTitle(nextGroup)}`, action: () => startLevel(nextGroup, 0) };
 
     if (state.unlockedGroup >= 0) detail += ` You’ve unlocked ${groupTitle(state.unlockedGroup)}: ${groupBlurb(state.unlockedGroup).toLowerCase()}.`;
+    if (state.unlockedHarder) detail += ` ${groupTitle(group)} is now open on ${TIERS[tier + 1].name}.`;
 
     if (index + 1 < levels.length) {
       const buttons = [{ label: 'Next level', primary: true, action: () => startLevel(group, index + 1) }];
@@ -1800,13 +1819,7 @@
     const note = $('groupNote');
     note.hidden = false;
     note.dataset.group = String(menuGroup);
-    if (unlocked) {
-      note.textContent = groupBlurb(menuGroup);
-    } else {
-      const prev = menuGroup - 1;
-      const left = UNLOCK_AFTER - completedIn(prev);
-      note.textContent = `Finish ${left} more ${left === 1 ? 'level' : 'levels'} in ${groupTitle(prev)} to unlock this group.`;
-    }
+    note.textContent = unlocked ? groupBlurb(menuGroup) : lockReason(menuGroup);
 
     const grid = $('levelGrid');
     grid.innerHTML = '';
