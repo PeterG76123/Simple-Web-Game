@@ -182,6 +182,10 @@
 
   /** Opens a level, carrying on where you left it unless `fresh` is set. */
   function startLevel(group, index, { fresh = false } = {}) {
+    // Remember where the player is, so the menu opens here next time.
+    progress.last = { tier, group, index };
+    progress.lastGroup = { ...(progress.lastGroup || {}), [tier]: group };
+    saveProgress();
     const level = levelAt(group, index);
     const n = level.size;
     const mirrors = (level.mirrors || []).map((m) => m.slice());
@@ -1750,16 +1754,6 @@
 
   let menuGroup = 0;
 
-  /** The next level to play: the first unfinished level in the newest unlocked group. */
-  function nextLevel() {
-    for (let gi = groupsNow().length - 1; gi >= 0; gi--) {
-      if (!isGroupUnlocked(gi)) continue;
-      const i = groupsNow()[gi].levels.findIndex((_, li) => !isCompleted(gi, li));
-      if (i >= 0) return { group: gi, index: i };
-    }
-    return null;
-  }
-
   function renderMenu() {
     // (In case a difficulty is missing a group.)
     menuGroup = Math.max(0, Math.min(menuGroup, groupsNow().length - 1));
@@ -1776,7 +1770,8 @@
       b.title = sizes.length ? `Boards up to ${Math.max(...sizes)}×${Math.max(...sizes)}` : t.name;
       b.addEventListener('click', () => {
         tier = ti;
-        menuGroup = (nextLevel() || { group: 0 }).group;
+        // The group last played on this difficulty, else the first.
+        menuGroup = (progress.lastGroup || {})[ti] || 0;
         renderMenu();
       });
       tierTabs.appendChild(b);
@@ -1873,7 +1868,9 @@
   $('zoomFit').addEventListener('click', resetView);
   new ResizeObserver(resizeCanvas).observe(boardWrap);
 
-  menuGroup = (nextLevel() || { group: 0 }).group;
+  // Open on the difficulty and group of the last level started (first time: Easy, Kelp Shallows).
+  if (progress.last && TIERS[progress.last.tier]) { tier = progress.last.tier; menuGroup = progress.last.group; }
+  else { tier = 0; menuGroup = 0; }
   renderMenu();
   requestAnimationFrame(frame);
 })();
