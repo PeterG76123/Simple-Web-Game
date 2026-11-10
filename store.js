@@ -52,16 +52,19 @@
       if (!Store.live) return false;
       try {
         const { customerInfo } = await RC.restorePurchases();
-        return noteAds(customerInfo);
+        return noteAds(customerInfo, { sync: true });
       } catch (e) { return false; }
     },
   };
 
-  // "Remove ads" (or the starter bundle) owned on this store account: make sure the game knows.
-  function noteAds(info) {
+  // Whether this store account owns "Remove ads" (or the starter bundle): make sure the
+  // game agrees. With sync (a fresh answer from the store, at start-up or Restore), a
+  // refunded or revoked purchase also brings the ads back.
+  function noteAds(info, { sync = false } = {}) {
     const ent = cfg('store.adsEntitlement') || 'no_ads';
     const active = !!(info && info.entitlements && info.entitlements.active && info.entitlements.active[ent]);
     if (active && !root.ArrowWallet.adsRemoved()) root.ArrowWallet.grant('removeAds');
+    if (sync && !active && root.ArrowWallet.adsRemoved()) root.ArrowWallet.revokeAds();
     return active;
   }
 
@@ -77,7 +80,7 @@
         }
         Store.live = list.length > 0;
         const { customerInfo } = await RC.getCustomerInfo();
-        noteAds(customerInfo);
+        noteAds(customerInfo, { sync: true });
       } catch (e) { Store.live = false; }
     })();
   } else {

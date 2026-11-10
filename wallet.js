@@ -82,6 +82,13 @@
 
     // Purchases.
     adsRemoved: () => w.adsRemoved,
+    /** "Remove ads" refunded or revoked at the store: ads come back (hints and pearls given stay). */
+    revokeAds() {
+      if (!w.adsRemoved) return;
+      w.adsRemoved = false;
+      w.purchases.push({ product: 'revoked:removeAds', at: Date.now() });
+      save();
+    },
     starterBought: () => w.starterBought,
     grant(product) {
       if (product === 'removeAds') w.adsRemoved = true;
