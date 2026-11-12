@@ -36,11 +36,22 @@ for (let i = 0; i < count; i++) {
     '--depth', depth, '--fill', 0, '--backFill', 0, '--out', out];
   if (kind === 'solid') flags.push('--pShuffle', '0.000001', '--window', '0.000001');
   else flags.push('--keys', 4 + Math.floor((i * 3) / count), '--window', 0.45);
-  const t0 = Date.now();
-  try {
-    const res = execFileSync('node', [path.join(__dirname, 'trick-gen.js'), ...flags.map(String)], { encoding: 'utf8', timeout: 45 * 60 * 1000 });
-    console.log(`${name} (${size}x${size}): ${res.trim().split('\n').pop()} [${((Date.now() - t0) / 1000).toFixed(0)}s]`);
-  } catch (e) {
-    console.log(`${name}: failed (${(e.message || '').split('\n')[0]})`);
+  // No gaps allowed: new seeds until a level comes out with every square covered.
+  for (let round = 0; round < 4; round++) {
+    const t0 = Date.now();
+    const seeded = flags.map(String);
+    seeded[seeded.indexOf('--seed') + 1] = String(1000 + i * 17 + (kind === 'clear' ? 7 : 0) + round * 100003);
+    try {
+      const res = execFileSync('node', [path.join(__dirname, 'trick-gen.js'), ...seeded], { encoding: 'utf8', timeout: 45 * 60 * 1000 });
+      const line = res.trim().split('\n').pop();
+      console.log(`${name} (${size}x${size}) round ${round + 1}: ${line} [${((Date.now() - t0) / 1000).toFixed(0)}s]`);
+      const stats = JSON.parse(line);
+      if (stats.gaps === 0) break;
+      if (round < 3) fs.renameSync(out, `${out}.gaps`);
+    } catch (e) {
+      console.log(`${name}: failed (${(e.message || '').split('\n')[0]})`);
+    }
   }
+  if (!fs.existsSync(out) && fs.existsSync(`${out}.gaps`)) fs.renameSync(`${out}.gaps`, out);
+  if (fs.existsSync(`${out}.gaps`)) fs.unlinkSync(`${out}.gaps`);
 }

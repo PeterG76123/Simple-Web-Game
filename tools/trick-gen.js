@@ -411,6 +411,26 @@ function build(n, rand, opt) {
     return true;
   }
 
+  /** True if placing an eel on these start squares would seal off a single empty square. */
+  function sealsOff(L) {
+    const mine = new Set();
+    for (let d = L.h; d <= L.dmax; d++) mine.add(cid(L.track[d]));
+    const freeSq = (c) => occA[c] === -1 && res[c] === -1 && !mine.has(c);
+    for (const c of mine) {
+      const x = c % n, y = Math.floor(c / n);
+      for (const [dx, dy] of DIRS) {
+        const qx = x + dx, qy = y + dy;
+        if (!inb(qx, qy)) continue;
+        const q = qy * n + qx;
+        if (!freeSq(q)) continue;
+        let open = 0;
+        for (const [ex, ey] of DIRS) if (inb(qx + ex, qy + ey) && freeSq((qy + ey) * n + qx + ex)) open++;
+        if (!open) return true;
+      }
+    }
+    return false;
+  }
+
   /**
    * Brings a new eel in from the edge only as far as position D (short of
    * its start): it slides back to its start later. Its start squares are
@@ -418,6 +438,7 @@ function build(n, rand, opt) {
    */
   function enterAt(L, D) {
     L.D = -1;
+    if (sealsOff(L)) return false;
     for (let p = 0; p <= D; p++) for (const s of segs(L, p)) if (s.solid && occS[s.c] !== -1) return false;
     if (!segs(L, D).every((s) => occA[s.c] === -1 && (res[s.c] === -1))) return false;
     for (let d = L.h; d <= L.dmax; d++) if (res[cid(L.track[d])] !== -1) return false;
@@ -432,6 +453,7 @@ function build(n, rand, opt) {
   /** Brings a new eel in from the edge to its start (checked), and records it. */
   function enter(L) {
     L.D = -1;
+    if (sealsOff(L)) return false;
     // Coming in sweeps its whole track: solid parts must not hit anything.
     for (let p = 0; p <= L.dmax; p++) for (const s of segs(L, p)) if (s.solid && occS[s.c] !== -1) return false;
     if (!segs(L, L.dmax).every((s) => occA[s.c] === -1 && res[s.c] === -1)) return false;
