@@ -32,7 +32,7 @@
 'use strict';
 const fs = require('fs');
 require('../rules.js');
-const { encodeLevel, solveStaged, pathToText } = globalThis.ArrowRules;
+const { encodeLevel, solveStaged, pathToText, playPath, buildLine, mirrorMap, solidMap } = globalThis.ArrowRules;
 
 const DIRS = [[0, -1], [1, 0], [0, 1], [-1, 0]];
 
@@ -270,6 +270,32 @@ function build(n, rand, opt) {
   };
 
   /**
+   * Plugs: covers squares a slide will need with small eels that come in
+   * now (so they leave before that slide). Their ways out are clear now;
+   * anything later laid across them leaves before them anyway.
+   */
+  function plug(cellsToCover) {
+    for (const c of cellsToCover) {
+      if (occA[c] !== -1 || res[c] !== -1) continue;
+      const cx = c % n, cy = Math.floor(c / n);
+      let made = false;
+      for (let a = 0; a < opt.attempts && !made; a++) {
+        const dir = Math.floor(rand() * 4);
+        let E;
+        if (rand() < 0.5) E = makeEel([cx, cy], dir, 2 + Math.floor(rand() * 3));
+        else {
+          const back = 1 + Math.floor(rand() * 2);
+          const side = (dir + (rand() < 0.5 ? 1 : 3)) % 4;
+          const head = [cx + DIRS[side][0] * back, cy + DIRS[side][1] * back];
+          if (!inb(...head)) continue;
+          E = makeEelVia(head, dir, [cx, cy], 2 + Math.floor(rand() * 4));
+        }
+        if (E && E.track.slice(E.h).some((p) => cid(p) === c) && enter(E)) made = true;
+      }
+    }
+  }
+
+  /**
    * The conga line: eels G1..Gk where G(i)'s tail sits just in front of
    * G(i+1)'s head, pointing straight along G(i+1)'s way out. G1's way out is
    * crossed by the body of an eel X, whose own way out runs through Gk's
@@ -325,6 +351,7 @@ function build(n, rand, opt) {
       if (!(canRest(E, E.dmax) && canSlide(E, E.dmax))) return fail();
       move(E, E.dmax);
     }
+    plug([cid(G1.track[G1.h - 1])]);
     congas.push(k);
     return true;
   }
@@ -377,6 +404,9 @@ function build(n, rand, opt) {
       if (!(canRest(W, W.D + 1) && canSlide(W, W.D + 1))) return fail('back');
       move(W, W.D + 1);
     }
+    const front = [];
+    for (let d = W.h - 1; d >= Math.max(0, W.h - m); d--) front.push(cid(W.track[d]));
+    plug(front);
     shuffles.push(m);
     return true;
   }
@@ -559,6 +589,203 @@ function build(n, rand, opt) {
   return { arrows, covered, gapEntries, congas, shuffles };
 }
 
+/**
+ * Covers every empty square, keeping a known solution valid. Each empty
+ * square gets either a neighbouring eel's tail grown onto it, or a small new
+ * eel there whose way out is put into the solution at the first point it's
+ * clear (an eel may sit on another's way out, so long as it leaves before
+ * that one needs to). Every change is kept only if the whole solution still
+ * plays through by the game's rules (ArrowRules.playPath). Returns
+ * { arrows, path, left } (left = squares that couldn't be covered).
+ */
+function fillGaps(n, arrows, path, rand, { maxLen = 5, glassTails = true, maxStates = 30000 } = {}) {
+  const opt = { glassTails };
+  // Shortening an eel or moving its tail can undo a jam, so those changes are
+  // kept only if the level is still as hard (adding eels or squares can't make it easier).
+  const hardness = (as) => { const r = solveStaged(n, as, { maxStates }); return r.solvable ? score(r) : -1; };
+  let base = hardness(arrows);
+  const DIRS4 = DIRS;
+  const N = n * n;
+  arrows = arrows.map((a) => ({ cells: a.cells.map((c) => c.slice()), dir: a.dir, clear: a.clear.slice() }));
+  path = path.slice();
+  const valid = (as, p) => playPath(n, as, {}, p);
+  const coveredMap = () => {
+    const m = new Int32Array(N).fill(-1);
+    arrows.forEach((a, i) => a.cells.forEach(([x, y]) => { m[y * n + x] = i; }));
+    return m;
+  };
+  // Solid squares after each step of the solution (state 0 = the start).
+  const states = () => {
+    const lines = arrows.map((a) => buildLine(n, a, mirrorMap(n, [])));
+    const off = arrows.map(() => 0);
+    const out = [solidMap(n, lines, off, -1)];
+    for (const st of path) { off[st.line] = st.to; out.push(solidMap(n, lines, off, -1)); }
+    return out;
+  };
+  let snaps = states();
+  const shuffle = (list) => { for (let i = list.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [list[i], list[j]] = [list[j], list[i]]; } return list; };
+  for (let round = 0; round < 30; round++) {
+    const cov = coveredMap();
+    const empty = [];
+    for (let c = 0; c < N; c++) if (cov[c] === -1) empty.push(c);
+    if (!empty.length) break;
+    let progress = false;
+    for (const c of shuffle(empty)) {
+      const cov2 = coveredMap();
+      if (cov2[c] !== -1) continue;
+      const x = c % n, y = Math.floor(c / n);
+      // 1. A neighbouring eel's tail grows onto it.
+      let done = false;
+      for (const [dx, dy] of shuffle(DIRS4.slice())) {
+        const nx = x + dx, ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= n || ny >= n) continue;
+        const i = cov2[ny * n + nx];
+        if (i < 0) continue;
+        const a = arrows[i];
+        const tail = a.cells[a.cells.length - 1];
+        if (tail[0] !== nx || tail[1] !== ny || a.cells.length >= 14) continue;
+        const trial = arrows.slice();
+        trial[i] = { ...a, cells: a.cells.concat([[x, y]]) };
+        if (valid(trial, path)) { arrows = trial; done = true; break; }
+      }
+      if (done) { progress = true; snaps = states(); continue; }
+      // 2. A small new eel over empty squares, leaving when its way out is clear.
+      for (let attempt = 0; attempt < 12 && !done; attempt++) {
+        const body = [[x, y]];
+        const own = new Set([c]);
+        const want = 2 + Math.floor(rand() * (maxLen - 1));
+        while (body.length < want) {
+          const end = rand() < 0.5 ? 0 : body.length - 1;
+          const [ex, ey] = body[end];
+          const opts = [];
+          for (const [dx, dy] of DIRS4) {
+            const nx = ex + dx, ny = ey + dy, nc = ny * n + nx;
+            if (nx >= 0 && ny >= 0 && nx < n && ny < n && cov2[nc] === -1 && !own.has(nc)) opts.push([nx, ny]);
+          }
+          if (!opts.length) break;
+          const pick = opts[Math.floor(rand() * opts.length)];
+          own.add(pick[1] * n + pick[0]);
+          if (end === 0) body.unshift(pick); else body.push(pick);
+        }
+        if (body.length < 2) break;
+        const cells = rand() < 0.5 ? body : body.slice().reverse();
+        const dir = DIRS4.findIndex(([dx, dy]) => dx === cells[0][0] - cells[1][0] && dy === cells[0][1] - cells[1][1]);
+        const ray = [];
+        for (let rx = cells[0][0] + DIRS4[dir][0], ry = cells[0][1] + DIRS4[dir][1]; rx >= 0 && ry >= 0 && rx < n && ry < n; rx += DIRS4[dir][0], ry += DIRS4[dir][1]) ray.push(ry * n + rx);
+        if (ray.some((rc) => own.has(rc))) continue;
+        // The first point where its way out is clear, with its body untouched until then.
+        for (let t = 0; t < snaps.length && !done; t++) {
+          if (cells.some(([bx, by]) => snaps[t][by * n + bx] !== -1)) break;
+          if (ray.some((rc) => snaps[t][rc] !== -1)) continue;
+          const trial = arrows.concat([{ cells, dir, clear: [] }]);
+          const p2 = path.slice(0, t).concat([{ line: arrows.length, to: -1 }], path.slice(t));
+          if (valid(trial, p2)) { arrows = trial; path = p2; done = true; }
+          else break;
+        }
+      }
+      if (done) { progress = true; snaps = states(); continue; }
+      // 3. A neighbouring eel gives up its tail square (shorter eels never
+      // spoil the solution), and that square and the gap make a new little eel
+      // that leaves once its way out is clear.
+      for (const [dx, dy] of shuffle(DIRS4.slice())) {
+        if (done) break;
+        const nx = x + dx, ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= n || ny >= n) continue;
+        const i = cov2[ny * n + nx];
+        if (i < 0) continue;
+        const a = arrows[i];
+        const L = a.cells.length;
+        const t = a.cells[L - 1];
+        if (L < 3 || t[0] !== nx || t[1] !== ny || a.clear.includes(L - 1)) continue;
+        const shorter = arrows.slice();
+        shorter[i] = { ...a, cells: a.cells.slice(0, L - 1) };
+        const saved = arrows;
+        arrows = shorter;
+        snaps = states();
+        for (const cells of [[[x, y], t], [t, [x, y]]]) {
+          if (done) break;
+          const dir = DIRS4.findIndex(([ddx, ddy]) => ddx === cells[0][0] - cells[1][0] && ddy === cells[0][1] - cells[1][1]);
+          const ray = [];
+          for (let rx = cells[0][0] + DIRS4[dir][0], ry = cells[0][1] + DIRS4[dir][1]; rx >= 0 && ry >= 0 && rx < n && ry < n; rx += DIRS4[dir][0], ry += DIRS4[dir][1]) ray.push(ry * n + rx);
+          for (let tt = 0; tt < snaps.length && !done; tt++) {
+            if (cells.some(([bx, by]) => snaps[tt][by * n + bx] !== -1)) break;
+            if (ray.some((rc) => snaps[tt][rc] !== -1)) continue;
+            const trial = arrows.concat([{ cells: cells.map((q) => q.slice()), dir, clear: [] }]);
+            const p2 = path.slice(0, tt).concat([{ line: arrows.length, to: -1 }], path.slice(tt));
+            if (valid(trial, p2)) {
+              const h = hardness(trial);
+              if (h >= base) { arrows = trial; path = p2; done = true; base = h; }
+              break;
+            } else break;
+          }
+        }
+        if (!done) { arrows = saved; snaps = states(); }
+      }
+      if (done) { progress = true; snaps = states(); continue; }
+      // 4. Last resort for a square some slide needs empty: a neighbouring
+      // eel's tail grows onto it as a see-through part (see-through parts
+      // never block anything, so the solution is untouched).
+      if (opt.glassTails) {
+        for (const [dx, dy] of shuffle(DIRS4.slice())) {
+          const nx = x + dx, ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= n || ny >= n) continue;
+          const i = cov2[ny * n + nx];
+          if (i < 0) continue;
+          const a = arrows[i];
+          const tail = a.cells[a.cells.length - 1];
+          if (tail[0] !== nx || tail[1] !== ny || a.cells.length >= 14) continue;
+          const trial = arrows.slice();
+          trial[i] = { ...a, cells: a.cells.concat([[x, y]]), clear: a.clear.concat([a.cells.length]) };
+          if (valid(trial, path)) { arrows = trial; done = true; break; }
+        }
+        if (done) { progress = true; snaps = states(); continue; }
+      }
+      // 5. Just in front of an eel's head: the eel grows forward onto it (as if
+      // already slid one square). Its slides in the solution are one less.
+      for (const [dx, dy] of shuffle(DIRS4.slice())) {
+        const nx = x + dx, ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= n || ny >= n) continue;
+        const i = cov2[ny * n + nx];
+        if (i < 0) continue;
+        const a = arrows[i];
+        const h = a.cells[0];
+        if (h[0] !== nx || h[1] !== ny || h[0] - DIRS4[a.dir][0] * -1 !== x || h[1] + DIRS4[a.dir][1] !== y) continue;
+        if (path.some((st) => st.line === i && st.to === 0)) continue;
+        const trial = arrows.slice();
+        trial[i] = { ...a, cells: [[x, y]].concat(a.cells), clear: a.clear.map((k) => k + 1) };
+        const p2 = path.map((st) => (st.line === i && st.to > 0 ? { line: i, to: st.to - 1 } : st));
+        if (valid(trial, p2)) { arrows = trial; path = p2; done = true; break; }
+      }
+      if (done) { progress = true; snaps = states(); continue; }
+      // 6. Boxed in: an eel whose second-to-last square is next to it moves its
+      // tail there, so the gap moves to where its tail was (and may be filled
+      // from there, or join another gap).
+      for (const [dx, dy] of shuffle(DIRS4.slice())) {
+        const nx = x + dx, ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= n || ny >= n) continue;
+        const i = cov2[ny * n + nx];
+        if (i < 0) continue;
+        const a = arrows[i];
+        const L = a.cells.length;
+        if (L < 3) continue;
+        const p = a.cells[L - 2];
+        if (p[0] !== nx || p[1] !== ny) continue;
+        const trial = arrows.slice();
+        trial[i] = { ...a, cells: a.cells.slice(0, L - 1).concat([[x, y]]) };
+        if (valid(trial, path)) {
+          const h = hardness(trial);
+          if (h >= base) { arrows = trial; base = h; progress = true; snaps = states(); break; }
+        }
+      }
+    }
+    if (!progress) break;
+  }
+  const cov = coveredMap();
+  let left = 0;
+  for (let c = 0; c < N; c++) if (cov[c] === -1) left++;
+  return { arrows, path, left };
+}
+
 function score(r) {
   return r.stages.reduce((a, d) => a + d * d, 0);
 }
@@ -594,19 +821,26 @@ function main() {
   const t0 = Date.now();
   for (let t = 0; t < tries; t++) {
     const rand = rng(seed * 7919 + t);
-    const b = build(n, rand, o);
+    let b = build(n, rand, o);
     if (!b) continue;
-    const r = solveStaged(n, b.arrows, { maxStates });
+    let r = solveStaged(n, b.arrows, { maxStates });
     if (!r.solvable) { console.log(`try ${t}: ${r.gaveUp ? 'too big to check' : 'NOT SOLVABLE (bug)'}`); continue; }
+    // No gaps: cover every square, keeping the solution valid, then score again.
+    const filled = fillGaps(n, b.arrows, r.path, rng(seed * 31 + t), { maxStates });
+    const r2 = solveStaged(n, filled.arrows, { maxStates });
+    if (!r2.solvable) continue;
+    b = { ...b, arrows: filled.arrows, left: filled.left };
+    r = r2;
     const s = score(r);
-    if (opt.verbose) console.log(`try ${t}: ${b.arrows.length} eels, ${b.gapEntries} gaps, congas ${b.congas.join(',')}, shuffles ${b.shuffles.join(',')}, ${(b.covered * 100).toFixed(0)}% covered, slides ${r.partialMoves}, jams ${r.stages.join(' ')}, score ${s}`);
-    if (!best || s > best.s) best = { s, b, r, t };
+    if (opt.verbose) console.log(`try ${t}: ${b.arrows.length} eels, ${b.left} gaps, slides ${r.partialMoves}, jams ${r.stages.join(' ')}, score ${s}`);
+    // Fewest gaps first (none, ideally), then the hardest.
+    if (!best || b.left < best.b.left || (b.left === best.b.left && s > best.s)) best = { s, b, r, t };
   }
   if (!best) { console.log('nothing made'); process.exit(1); }
   const { b, r } = best;
   const level = encodeLevel({ size: n, par: r.par, lines: b.arrows, mirrors: [] });
   const stats = {
-    size: n, eels: b.arrows.length, covered: +(b.covered.toFixed(2)),
+    size: n, eels: b.arrows.length, gaps: b.left,
     seeThrough: b.arrows.filter((a) => a.clear.length).length,
     partialSlides: r.partialMoves, jams: r.stages.join(' '), deepest: Math.max(0, ...r.stages), score: best.s, par: r.par,
     try: best.t, seconds: +((Date.now() - t0) / 1000).toFixed(1),

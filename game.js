@@ -1960,10 +1960,12 @@
         b.classList.add('partial');
         b.style.setProperty('--progress', pct);
       }
-      const sub = done ? 'Done' : run ? `${pct}%` : open ? `${level.size}×${level.size}` : 'Locked';
+      // Finished levels keep their size (the bubble's own look shows they're done).
+      const size = `${level.size}×${level.size}`;
+      const sub = run ? `${pct}%` : open || done ? size : 'Locked';
       b.innerHTML = `<span>${i + 1}</span><span class="sub">${sub}</span>`;
       const rating = (groupsNow()[menuGroup].ratings || [])[i];
-      b.setAttribute('aria-label', `${groupTitle(menuGroup)}, level ${i + 1}, ${run ? `in progress, ${pct}% cleared${done ? ', done before' : ''}` : sub}${rating !== undefined ? `, difficulty ${rating} of 10` : ''}`);
+      b.setAttribute('aria-label', `${groupTitle(menuGroup)}, level ${i + 1}, ${size}, ${run ? `in progress, ${pct}% cleared${done ? ', done before' : ''}` : done ? 'done' : open ? 'not done yet' : 'locked'}${rating !== undefined ? `, difficulty ${rating} of 10` : ''}`);
       if (rating !== undefined) b.title = `Difficulty ${rating}/10`;
       const gi = menuGroup;
       b.addEventListener('click', () => startLevel(gi, i));
