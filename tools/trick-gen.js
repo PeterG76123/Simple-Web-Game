@@ -566,6 +566,8 @@ function build(n, rand, opt) {
     if (!inb(...second) || !free(cid(second))) continue;
     body.push(second); own.add(cid(second));
     const want = opt.min + Math.floor(rand() * (opt.max - opt.min + 1));
+    // Grow into the most hemmed-in free square first, so no single squares get stranded.
+    const freeAround = (x, y) => DIRS.reduce((k, [ddx, ddy]) => k + (inb(x + ddx, y + ddy) && free((y + ddy) * n + x + ddx) ? 1 : 0), 0);
     while (body.length < want) {
       const cur = body[body.length - 1];
       const options = [];
@@ -574,10 +576,12 @@ function build(n, rand, opt) {
         if (inb(nx, ny) && free(ny * n + nx)) options.push([nx, ny]);
       }
       if (!options.length) break;
-      const pick = options[Math.floor(rand() * options.length)];
+      const fewest = Math.min(...options.map(([ox, oy]) => freeAround(ox, oy)));
+      const tight = options.filter(([ox, oy]) => freeAround(ox, oy) === fewest);
+      const pick = tight[Math.floor(rand() * tight.length)];
       body.push(pick); own.add(cid(pick));
     }
-    if (body.length < opt.min) continue;
+    if (body.length < 2) continue;
     for (const c of own) late[c] = 1;
     back.push({ cells: body, dir, clear: [] });
   }
@@ -587,6 +591,136 @@ function build(n, rand, opt) {
   }).concat(back);
   const covered = arrows.reduce((a, A) => a + A.cells.length, 0) / N;
   return { arrows, covered, gapEntries, congas, shuffles };
+}
+
+/**
+ * Onion fill: covers the empty squares with filler eels laid along the
+ * solution's timeline. Walking through the solution from the start, at each
+ * moment it lays fillers whose way out is clear right then: running only
+ * over squares emptied by then or over fillers that have already left. Each
+ * filler leaves at that moment (its exit is put into the solution there), so
+ * a square only gets a filler that leaves before any eel above first needs
+ * it. Fillers grow into the most hemmed-in free square first. Stranded single
+ * squares join a neighbouring filler's tail when that's allowed.
+ * Returns { arrows, path }.
+ */
+function onionFill(n, arrows, path, rand, { maxLen = 8 } = {}) {
+  const N = n * n;
+  const inb = (x, y) => x >= 0 && y >= 0 && x < n && y < n;
+  const lines = arrows.map((a) => buildLine(n, a, mirrorMap(n, [])));
+  // Solid squares at each state, and when each square is first touched (sat on or slid over).
+  const off = arrows.map(() => 0);
+  const S = [solidMap(n, lines, off, -1)];
+  const first = new Int32Array(N).fill(1 << 30);
+  for (let c = 0; c < N; c++) if (S[0][c] !== -1) first[c] = 0;
+  path.forEach((st, i) => {
+    const L = lines[st.line];
+    const from = off[st.line];
+    const to = st.to === -1 ? L.limit : st.to;
+    const step = to > from ? 1 : -1;
+    for (let o = from + step; ; o += step) {
+      for (let j = 0; j < L.len; j++) {
+        if (!L.solid[j]) continue;
+        const p = L.track[o + j];
+        if (p && inb(p[0], p[1])) first[p[1] * n + p[0]] = Math.min(first[p[1] * n + p[0]], i + 1);
+      }
+      if (o === to) break;
+    }
+    off[st.line] = st.to;
+    S.push(solidMap(n, lines, off, -1));
+  });
+  const cover = new Int32Array(N).fill(-1); // -2: an eel above at the start; k >= 0: filler k
+  for (let c = 0; c < N; c++) if (S[0][c] !== -1) cover[c] = -2;
+  arrows.forEach((a) => a.cells.forEach(([x, y]) => { if (cover[y * n + x] === -1) cover[y * n + x] = -2; }));
+  const fillers = []; // { cells, dir, t, order }
+  const fillerRays = []; // squares each filler's way out runs over
+  const T = S.length - 1;
+  const freeAt = (c, t) => cover[c] === -1 && first[c] > t;
+  const freeAround = (x, y, t, own) => DIRS.reduce((k, [dx, dy]) => k + (inb(x + dx, y + dy) && freeAt((y + dy) * n + x + dx, t) && !own.has((y + dy) * n + x + dx) ? 1 : 0), 0);
+  // A way out at state t: every square on it empty then (eels above) and not
+  // waiting for a filler that leaves later (uncovered squares count as that).
+  const rayOK = (x, y, d, t) => {
+    const out = [];
+    for (let rx = x + DIRS[d][0], ry = y + DIRS[d][1]; inb(rx, ry); rx += DIRS[d][0], ry += DIRS[d][1]) {
+      const c = ry * n + rx;
+      if (S[t][c] !== -1) return null;
+      if (cover[c] === -1) return null;
+      if (cover[c] >= 0 && fillers[cover[c]].t > t) return null;
+      out.push(c);
+    }
+    return out;
+  };
+  for (let t = 0; t <= T; t++) {
+    for (let again = true; again;) {
+      again = false;
+      const heads = [];
+      for (let c = 0; c < N; c++) if (freeAt(c, t)) heads.push(c);
+      for (let i = heads.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [heads[i], heads[j]] = [heads[j], heads[i]]; }
+      for (const h of heads) {
+        if (!freeAt(h, t)) continue;
+        const hx = h % n, hy = Math.floor(h / n);
+        for (const d of [0, 1, 2, 3].sort(() => rand() - 0.5)) {
+          const ray = rayOK(hx, hy, d, t);
+          if (!ray) continue;
+          const sx = hx - DIRS[d][0], sy = hy - DIRS[d][1];
+          if (!inb(sx, sy) || !freeAt(sy * n + sx, t)) continue;
+          const body = [[hx, hy], [sx, sy]];
+          const own = new Set([h, sy * n + sx]);
+          const want = 2 + Math.floor(rand() * (maxLen - 1));
+          while (body.length < want) {
+            const [cx, cy] = body[body.length - 1];
+            const opts = [];
+            for (const [dx, dy] of DIRS) {
+              const nx = cx + dx, ny = cy + dy, nc = ny * n + nx;
+              if (inb(nx, ny) && freeAt(nc, t) && !own.has(nc) && !ray.includes(nc)) opts.push([nx, ny]);
+            }
+            if (!opts.length) break;
+            const fewest = Math.min(...opts.map(([ox, oy]) => freeAround(ox, oy, t, own)));
+            const tight = opts.filter(([ox, oy]) => freeAround(ox, oy, t, own) === fewest);
+            const pick = tight[Math.floor(rand() * tight.length)];
+            body.push(pick); own.add(pick[1] * n + pick[0]);
+          }
+          const k = fillers.length;
+          fillers.push({ cells: body, dir: d, t, order: k });
+          fillerRays.push(ray);
+          for (const c of own) cover[c] = k;
+          again = true;
+          break;
+        }
+      }
+    }
+  }
+  // Stranded squares: join a neighbouring filler's tail, if that filler
+  // leaves before the square is needed and no filler leaving earlier runs over it.
+  for (let round = 0; round < 4; round++) {
+    for (let c = 0; c < N; c++) {
+      if (cover[c] !== -1) continue;
+      const x = c % n, y = Math.floor(c / n);
+      for (const [dx, dy] of DIRS) {
+        const nx = x + dx, ny = y + dy;
+        if (!inb(nx, ny)) continue;
+        const k = cover[ny * n + nx];
+        if (k < 0) continue;
+        const F = fillers[k];
+        const tail = F.cells[F.cells.length - 1];
+        if (tail[0] !== nx || tail[1] !== ny || F.cells.length >= maxLen + 4) continue;
+        if (first[c] <= F.t) continue;
+        if (fillerRays.some((r, j) => (fillers[j].t < F.t || (fillers[j].t === F.t && j < k)) && r.includes(c))) continue;
+        F.cells.push([x, y]);
+        cover[c] = k;
+        break;
+      }
+    }
+  }
+  // Put the fillers' exits into the solution, in order.
+  const byTime = new Map();
+  fillers.forEach((F, k) => { if (!byTime.has(F.t)) byTime.set(F.t, []); byTime.get(F.t).push(arrows.length + k); });
+  const newPath = [];
+  for (let t = 0; t <= T; t++) {
+    for (const id of byTime.get(t) || []) newPath.push({ line: id, to: -1 });
+    if (t < T) newPath.push(path[t]);
+  }
+  return { arrows: arrows.concat(fillers.map((F) => ({ cells: F.cells, dir: F.dir, clear: [] }))), path: newPath };
 }
 
 /**
@@ -757,7 +891,72 @@ function fillGaps(n, arrows, path, rand, { maxLen = 5, glassTails = true, maxSta
         if (valid(trial, p2)) { arrows = trial; path = p2; done = true; break; }
       }
       if (done) { progress = true; snaps = states(); continue; }
-      // 6. Boxed in: an eel whose second-to-last square is next to it moves its
+      // 6. Re-route the end of a nearby eel's tail: cut it back to a square
+      // next to the gap, then run the new tail through the gap and over all
+      // the squares it gave up (so nothing new is left empty).
+      for (const [dx, dy] of shuffle(DIRS4.slice())) {
+        if (done) break;
+        const nx = x + dx, ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= n || ny >= n) continue;
+        const i = cov2[ny * n + nx];
+        if (i < 0) continue;
+        const a = arrows[i];
+        const L = a.cells.length;
+        const j = a.cells.findIndex(([px, py]) => px === nx && py === ny);
+        if (j < 1 || L - 1 - j > 5 || L - 1 - j < 1 || a.clear.some((k) => k > j)) continue;
+        const cut = a.cells.slice(j + 1);
+        const cutSet = new Set(cut.map(([px, py]) => py * n + px));
+        // Path from the gap through every cut square (small search).
+        const route = [[x, y]];
+        const used = new Set([c]);
+        const dfs = () => {
+          if (route.length === cut.length + 1) return true;
+          const [rx, ry] = route[route.length - 1];
+          for (const [ex, ey] of DIRS4) {
+            const qx = rx + ex, qy = ry + ey, qc = qy * n + qx;
+            if (!cutSet.has(qc) || used.has(qc)) continue;
+            route.push([qx, qy]); used.add(qc);
+            if (dfs()) return true;
+            route.pop(); used.delete(qc);
+          }
+          return false;
+        };
+        if (!dfs()) continue;
+        const trial = arrows.slice();
+        trial[i] = { ...a, cells: a.cells.slice(0, j + 1).concat(route) };
+        if (valid(trial, path)) {
+          const h = hardness(trial);
+          if (h >= base) { arrows = trial; base = h; done = true; }
+        }
+      }
+      if (done) { progress = true; snaps = states(); continue; }
+      // 7. Re-aim: an eel whose head is next to the gap (and that only ever
+      // leaves, never slides) grows its head onto it and points the new way;
+      // it leaves whenever that new way out is clear.
+      for (const [dx, dy] of shuffle(DIRS4.slice())) {
+        if (done) break;
+        const nx = x + dx, ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= n || ny >= n) continue;
+        const i = cov2[ny * n + nx];
+        if (i < 0) continue;
+        const a = arrows[i];
+        const h = a.cells[0];
+        if (h[0] !== nx || h[1] !== ny) continue;
+        if (path.some((st) => st.line === i && st.to !== -1)) continue;
+        const dir = DIRS4.findIndex(([ddx, ddy]) => ddx === x - nx && ddy === y - ny);
+        const trial = arrows.slice();
+        trial[i] = { cells: [[x, y]].concat(a.cells), dir, clear: a.clear.map((k) => k + 1) };
+        const without = path.filter((st) => st.line !== i);
+        for (let tt = 0; tt <= without.length && !done; tt++) {
+          const p2 = without.slice(0, tt).concat([{ line: i, to: -1 }], without.slice(tt));
+          if (!valid(trial, p2)) continue;
+          const hh = hardness(trial);
+          if (hh >= base) { arrows = trial; path = p2; base = hh; done = true; }
+          break;
+        }
+      }
+      if (done) { progress = true; snaps = states(); continue; }
+      // 8. Boxed in: an eel whose second-to-last square is next to it moves its
       // tail there, so the gap moves to where its tail was (and may be filled
       // from there, or join another gap).
       for (const [dx, dy] of shuffle(DIRS4.slice())) {
@@ -826,7 +1025,12 @@ function main() {
     let r = solveStaged(n, b.arrows, { maxStates });
     if (!r.solvable) { console.log(`try ${t}: ${r.gaveUp ? 'too big to check' : 'NOT SOLVABLE (bug)'}`); continue; }
     // No gaps: cover every square, keeping the solution valid, then score again.
-    const filled = fillGaps(n, b.arrows, r.path, rng(seed * 31 + t), { maxStates });
+    let pre = { arrows: b.arrows, path: r.path };
+    if (opt.onion !== '0') {
+      pre = onionFill(n, b.arrows, r.path, rng(seed * 17 + t));
+      if (!playPath(n, pre.arrows, {}, pre.path)) { console.log(`try ${t}: onion fill broke the solution (bug)`); pre = { arrows: b.arrows, path: r.path }; }
+    }
+    const filled = fillGaps(n, pre.arrows, pre.path, rng(seed * 31 + t), { maxStates });
     const r2 = solveStaged(n, filled.arrows, { maxStates });
     if (!r2.solvable) continue;
     b = { ...b, arrows: filled.arrows, left: filled.left };

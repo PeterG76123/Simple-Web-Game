@@ -1035,6 +1035,7 @@ h1 {
   image-rendering: pixelated;
   animation: picture-in 0.9s ease-out both;
 }
+.dialog-picture[hidden] { display: none; }
 @keyframes picture-in {
   from { opacity: 0; transform: scale(0.6); filter: blur(6px); }
   to { opacity: 1; transform: none; filter: none; }
