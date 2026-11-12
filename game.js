@@ -567,6 +567,12 @@
       const big = state.n > 12;
       result = solve(state.n, level.lines, big ? { ...opts, maxStates: 15000 } : opts);
       proven = !result.gaveUp;
+      // Big boards with no reflectors or twins (picture levels): solve one jam at a time.
+      if (!result.solvable && result.gaveUp && !state.rotatable && !state.twins.length && !state.mirrors.length && !state.gates.length) {
+        const staged = ArrowRules.solveStaged(state.n, level.lines, { start: restOffsets(), maxStates: 20000 });
+        if (staged.solvable) result = staged;
+        else if (!staged.gaveUp) proven = true;
+      }
       if (!result.solvable && result.gaveUp && state.rotatable) {
         const quick = solve(state.n, level.lines, { ...opts, slides: false, maxStates: 15000 });
         if (quick.solvable) result = quick;

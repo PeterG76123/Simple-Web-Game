@@ -919,6 +919,12 @@ h1 {
 
 /* ---------- Sea life drifting across the background (sea-life.js) ---------- */
 .sea-life { position: absolute; inset: 0; }
+.sea-life .dropped-pearl { position: absolute; width: 16px; height: 16px; pointer-events: none; z-index: 2; }
+.sea-life .dropped-pearls-label {
+  position: absolute; display: flex; align-items: center; gap: 6px; pointer-events: none; z-index: 2;
+  font: 800 24px/1 var(--font-display, inherit); color: #fff; text-shadow: 0 0 10px rgba(255, 255, 255, 0.7);
+}
+.sea-life .dropped-pearls-label .pearl { width: 22px; height: 22px; }
 .creature { position: absolute; left: 0; top: 0; will-change: transform; }
 .creature .facing, .creature svg, .creature .school { width: 100%; height: 100%; display: block; }
 .creature svg { overflow: visible; filter: drop-shadow(0 0 6px currentColor); }

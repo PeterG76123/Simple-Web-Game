@@ -122,10 +122,10 @@ async function main() {
       // Hand-made picture levels (levels-pictures/<name>.json, from tools/picture-level.js) go last.
       for (const name of g.pictures || []) {
         const pic = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'levels-pictures', `${name}.json`), 'utf8'));
-        picked.push({ e: { level: pic.level }, r: 10, kind: 'picture' });
+        picked.push({ e: { level: pic.level, solution: pic.solution }, r: 10, kind: 'picture' });
       }
       // Known solutions for mixed levels, so hints can follow them instantly.
-      const solutions = picked.map((p) => (MIXED.has(p.kind) ? solutionFor(p.e) : null));
+      const solutions = picked.map((p) => (MIXED.has(p.kind) || p.e.solution ? solutionFor(p.e) : null));
       groups.push({ name: g.name, levels: picked.map((p) => p.e.level), ratings: picked.map((p) => p.r), solutions });
       console.log(`  ratings: ${picked.map((p) => p.r.toFixed(1)).join(' ')}`);
     }

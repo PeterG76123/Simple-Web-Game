@@ -1,6 +1,6 @@
 /*
  * Sea life: glowing creatures that now and then swim across the background.
- * Purely decorative: they sit behind everything and ignore taps. The
+ * Tap one and it darts away; a startled diver drops 10-30 pearls. The
  * "Sea creatures" setting turns them off (it starts off for players whose
  * device asks for reduced motion).
  */
@@ -183,6 +183,40 @@
     ink.animate([{ transform: 'scale(0.3)', opacity: 0.85 }, { transform: 'scale(1.6)', opacity: 0 }], { duration: 1600, easing: 'ease-out' }).onfinish = () => ink.remove();
   }
 
+  /**
+   * A startled diver drops a handful of pearls (10 to 30), which sink and
+   * fade, with the amount floating up. Added to the wallet straight away.
+   */
+  function dropPearls(x, y) {
+    const n = 10 + Math.floor(Math.random() * 21);
+    if (window.ArrowWallet) window.ArrowWallet.addPearls(n);
+    const shown = Math.min(n, 14);
+    for (let i = 0; i < shown; i++) {
+      const p = document.createElement('div');
+      p.className = 'pearl dropped-pearl';
+      p.style.cssText = `left:${x}px;top:${y}px`;
+      layer.appendChild(p);
+      const dx = rand(-70, 70), fall = rand(120, 260);
+      p.animate([
+        { transform: 'translate(-50%, -50%) scale(0.4)', opacity: 0 },
+        { transform: `translate(calc(-50% + ${dx * 0.4}px), calc(-50% - ${rand(10, 40)}px)) scale(1)`, opacity: 1, offset: 0.2 },
+        { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${fall}px)) scale(0.9)`, opacity: 0 },
+      ], { duration: rand(1400, 2200), delay: i * 40, easing: 'ease-in', fill: 'both' }).onfinish = () => p.remove();
+    }
+    const label = document.createElement('div');
+    label.className = 'dropped-pearls-label';
+    label.innerHTML = `<span class="pearl" aria-hidden="true"></span>+${n}`;
+    label.style.cssText = `left:${x}px;top:${y}px`;
+    layer.appendChild(label);
+    label.animate([
+      { transform: 'translate(-50%, -50%) scale(0.6)', opacity: 0 },
+      { transform: 'translate(-50%, -110%) scale(1.1)', opacity: 1, offset: 0.2 },
+      { transform: 'translate(-50%, -260%) scale(1)', opacity: 0 },
+    ], { duration: 2000, easing: 'ease-out', fill: 'both' }).onfinish = () => label.remove();
+    if (window.ArrowAudio) window.ArrowAudio.play('hint');
+    if (window.ArrowShop && window.ArrowShop.toast) window.ArrowShop.toast(`The diver dropped ${n} pearls!`);
+  }
+
   /** Startled: a quick zig-zag dash away from the finger and off the screen. */
   function scare(el, tapX, tapY) {
     if (el.classList.contains('scared')) return;
@@ -194,6 +228,7 @@
     let d = Math.hypot(dx, dy);
     if (d < 1) { const a = rand(0, Math.PI * 2); dx = Math.cos(a); dy = Math.sin(a); d = 1; }
     dx /= d; dy /= d;
+    if (el._kind === 'diver') dropPearls(r.left - box.left + r.width * 0.6, r.top - box.top + r.height * 0.5);
     if (el._kind === 'octopus') squirtInk(r.left - box.left + r.width / 2, r.top - box.top + r.height * 0.45, r.width);
     if (KINDS[el._kind] && KINDS[el._kind].rises) {
       // Jellyfish can only push themselves along, so they dart mostly upwards.

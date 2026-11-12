@@ -1182,5 +1182,61 @@
     return { size: parseInt(size, 36), par: Number(par), lines, mirrors, rotatable: extraText.includes('R'), gates, plates, twins, colors };
   }
 
-  root.ArrowRules = { twinMap, activeTwin, twinReach, moveTwins, solveTwins, encodeLevel, decodeLevel, findTurnWay, playPath, pathToText, pathFromText, makeWorld, anyMap, turnMirror, canTurn, solveWorld, DIRS, inBounds, rayCells, mirrorMap, tracePath, buildLine, solidMap, reach, reachBack, clearFree, solve, solvableWithWholeExits };
+  /**
+   * A quicker way through big boards (picture levels): solves one jam at a
+   * time. Free lines leave, then a small search finds the fewest partial
+   * slides that let at least one more line out, and so on. Not always the
+   * shortest overall, but each jam is solved in the fewest slides, and it
+   * handles boards far too big for solve(). `start` as for solve().
+   * Returns { solvable, stages: [slides per jam], path, par } or
+   * { solvable: false, gaveUp } if a jam can't be undone within `maxStates`.
+   */
+  function solveStaged(n, arrows, { mirrors = [], start: from, maxStates = 20000, maxStuck = Infinity } = {}) {
+    const map = mirrorMap(n, mirrors);
+    const lines = arrows.map((a) => buildLine(n, a, map));
+    let offsets = from ? from.slice() : lines.map(() => 0);
+    const path = clearFree(n, lines, offsets).map((id) => ({ line: id, to: -1 }));
+    const stages = [];
+    while (offsets.some((o) => o >= 0)) {
+      if (offsets.filter((o) => o >= 0).length > maxStuck) return { solvable: false, gaveUp: true };
+      const seen = new Map([[offsets.join(','), null]]);
+      let frontier = [offsets];
+      let found = null;
+      while (frontier.length && !found) {
+        const next = [];
+        for (const o0 of frontier) {
+          const occ = solidMap(n, lines, o0, -1);
+          for (let id = 0; id < lines.length && !found; id++) {
+            if (o0[id] < 0) continue;
+            const hi = Math.min(reach(n, lines, o0, id, occ).max, lines[id].ray.length);
+            const lo = reachBack(n, lines, o0, id, occ).min;
+            for (let s = lo; s <= hi; s++) {
+              if (s === o0[id]) continue;
+              const o = o0.slice();
+              o[id] = s;
+              const k = o.join(',');
+              if (seen.has(k)) continue;
+              seen.set(k, { prev: o0.join(','), line: id, to: s });
+              if (seen.size > maxStates) return { solvable: false, gaveUp: true };
+              const after = o.slice();
+              const exits = clearFree(n, lines, after);
+              if (exits.length) { found = { key: k, after, exits }; break; }
+              next.push(o);
+            }
+          }
+          if (found) break;
+        }
+        frontier = next;
+      }
+      if (!found) return { solvable: false };
+      const steps = [];
+      for (let e = seen.get(found.key); e; e = seen.get(e.prev)) steps.unshift({ line: e.line, to: e.to });
+      stages.push(steps.length);
+      path.push(...steps, ...found.exits.map((id) => ({ line: id, to: -1 })));
+      offsets = found.after;
+    }
+    return { solvable: true, stages, path, par: path.length, partialMoves: stages.reduce((a, b) => a + b, 0) };
+  }
+
+  root.ArrowRules = { twinMap, activeTwin, twinReach, moveTwins, solveTwins, encodeLevel, decodeLevel, findTurnWay, playPath, pathToText, pathFromText, makeWorld, anyMap, turnMirror, canTurn, solveWorld, DIRS, inBounds, rayCells, mirrorMap, tracePath, buildLine, solidMap, reach, reachBack, clearFree, solve, solveStaged, solvableWithWholeExits };
 })(typeof window !== 'undefined' ? window : globalThis);
