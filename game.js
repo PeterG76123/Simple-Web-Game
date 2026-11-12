@@ -1212,6 +1212,14 @@
     draw();
   }
 
+  /** Rough brightness of a #rrggbb colour, 0 (black) to 1 (white). */
+  function luminance(hex) {
+    const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(String(hex).trim());
+    if (!m) return 1;
+    const [r, g, b] = m.slice(1).map((h) => parseInt(h, 16) / 255);
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  }
+
   function mix(hexA, hexB, t) {
     const pa = parseInt(hexA.slice(1), 16);
     const pb = parseInt(hexB.slice(1), 16);
@@ -1479,15 +1487,22 @@
       for (const [from, to] of runs(l, false)) {
         const pts = piece(l, from, to);
         if (!pts) continue;
-        // Translucent like a jellyfish: a faint glow with a string of lights.
+        // Translucent like a jellyfish: a faint glow, a see-through body with
+        // a thin line down the middle joining it to the solid parts (so it
+        // reads as one eel), and a string of lights. Dark eels get a lighter
+        // shade here, or the see-through part would vanish into the sea.
+        const glass = luminance(color) < 0.3 ? mix(color, '#ffffff', 0.5) : color;
         ctx.setLineDash([]);
         ctx.lineCap = 'round';
-        ctx.strokeStyle = color;
-        ctx.globalAlpha = 0.1;
+        ctx.strokeStyle = glass;
+        ctx.globalAlpha = 0.12;
         ctx.lineWidth = width * 2;
         stroke(pts);
-        ctx.globalAlpha = 0.22;
+        ctx.globalAlpha = 0.3;
         ctx.lineWidth = width;
+        stroke(pts);
+        ctx.globalAlpha = 0.7;
+        ctx.lineWidth = width * 0.14;
         stroke(pts);
         ctx.globalAlpha = 0.95;
         ctx.lineWidth = width * 0.38;
