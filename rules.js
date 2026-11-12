@@ -1102,29 +1102,33 @@
   //
   //   "<size>|<par>|<line>,<line>,...|<reflectors>"
   //
-  // size: base 36. Each line: head x and y (base 36), then one letter per
+  // size: base 36. Each line: head x and y (one character each: 0-9, a-z for
+  // 0-35, then W X Y Z for 36-39, so boards up to 40x40), then one letter per
   // further cell for the step to it (U, R, D, L); a lowercase letter means
-  // that cell is see-through. Reflectors: x, y (base 36) and the shape
-  // (0-3) for each, run together. A 10x10 level is about 150 characters.
+  // that cell is see-through. Reflectors: x, y and the shape (0-3) for each,
+  // run together. A 10x10 level is about 150 characters.
 
   const STEP = 'URDL';
+  const COORD = '0123456789abcdefghijklmnopqrstuvwxyzWXYZ';
+  const enc1 = (v) => COORD[v];
+  const dec1 = (ch) => COORD.indexOf(ch);
   const SHAPES = [[0, 3], [0, 1], [2, 3], [2, 1]];
 
   function encodeLevel({ size, par, lines, mirrors = [], extras = {} }) {
     const enc = lines.map(({ cells, clear = [] }) => {
-      let out = cells[0][0].toString(36) + cells[0][1].toString(36);
+      let out = enc1(cells[0][0]) + enc1(cells[0][1]);
       for (let k = 1; k < cells.length; k++) {
         const d = DIRS.findIndex(([dx, dy]) => dx === cells[k][0] - cells[k - 1][0] && dy === cells[k][1] - cells[k - 1][1]);
         out += clear.includes(k) ? STEP[d].toLowerCase() : STEP[d];
       }
       return out;
     });
-    const m = mirrors.map(([x, y, a, b]) => x.toString(36) + y.toString(36) +
+    const m = mirrors.map(([x, y, a, b]) => enc1(x) + enc1(y) +
       SHAPES.findIndex(([p, q]) => (p === a && q === b) || (p === b && q === a))).join('');
     // Extras: R = reflectors can be turned; G/P x y colour = gate / plate.
     let x = extras.rotatable ? 'R' : '';
-    for (const [gx, gy, c] of extras.gates || []) x += 'G' + gx.toString(36) + gy.toString(36) + c;
-    for (const [px, py, c] of extras.plates || []) x += 'P' + px.toString(36) + py.toString(36) + c;
+    for (const [gx, gy, c] of extras.gates || []) x += 'G' + enc1(gx) + enc1(gy) + c;
+    for (const [px, py, c] of extras.plates || []) x += 'P' + enc1(px) + enc1(py) + c;
     // T a b = lines a and b are twins (two base-36 digits each).
     for (const [a, b] of extras.twins || []) x += 'T' + a.toString(36).padStart(2, '0') + b.toString(36).padStart(2, '0');
     return `${size.toString(36)}|${par}|${enc.join(',')}|${m}` + (x ? `|${x}` : '');
@@ -1133,7 +1137,7 @@
   function decodeLevel(text) {
     const [size, par, lineText, mirrorText, extraText = ''] = text.split('|');
     const lines = lineText.split(',').map((t) => {
-      const cells = [[parseInt(t[0], 36), parseInt(t[1], 36)]];
+      const cells = [[dec1(t[0]), dec1(t[1])]];
       const clear = [];
       for (let k = 2; k < t.length; k++) {
         const ch = t[k];
@@ -1148,7 +1152,7 @@
     const mirrors = [];
     for (let i = 0; i + 2 < (mirrorText || '').length + 0; i += 3) {
       const [a, b] = SHAPES[Number(mirrorText[i + 2])];
-      mirrors.push([parseInt(mirrorText[i], 36), parseInt(mirrorText[i + 1], 36), a, b]);
+      mirrors.push([dec1(mirrorText[i]), dec1(mirrorText[i + 1]), a, b]);
     }
     const gates = [];
     const plates = [];
@@ -1156,7 +1160,7 @@
     for (let i = 0; i < extraText.length; i++) {
       const ch = extraText[i];
       if (ch === 'G' || ch === 'P') {
-        (ch === 'G' ? gates : plates).push([parseInt(extraText[i + 1], 36), parseInt(extraText[i + 2], 36), Number(extraText[i + 3])]);
+        (ch === 'G' ? gates : plates).push([dec1(extraText[i + 1]), dec1(extraText[i + 2]), Number(extraText[i + 3])]);
         i += 3;
       } else if (ch === 'T') {
         twins.push([parseInt(extraText.slice(i + 1, i + 3), 36), parseInt(extraText.slice(i + 3, i + 5), 36)]);

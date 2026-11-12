@@ -45,7 +45,7 @@ function hash(text) {
 async function fill(jobs, { workers = os.cpus().length, log = true } = {}) {
   fs.mkdirSync(BANK_DIR, { recursive: true });
   const state = jobs.filter((j) => j.count > 0).map((j) => {
-    if (j.size > 30) throw new Error("Boards are limited to 30x30");
+    if (j.size > 40) throw new Error("Boards are limited to 40x40");
     const existing = readBank(j.kind, j.size, j.mirrors);
     return {
       ...j,

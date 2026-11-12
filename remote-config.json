@@ -15,7 +15,8 @@
   "skip": {
     "enabled": true,
     "tiers": [
-      2
+      2,
+      3
     ]
   },
   "starter": {
@@ -26,22 +27,26 @@
     "perLevel": [
       10,
       20,
-      30
+      30,
+      40
     ],
     "firstClear": [
       10,
       15,
-      20
+      20,
+      25
     ],
     "bestSolve": [
       5,
       10,
-      15
+      15,
+      20
     ],
     "replay": [
       2,
       4,
-      6
+      6,
+      8
     ],
     "feedDaily": 10,
     "doubleByAd": true,

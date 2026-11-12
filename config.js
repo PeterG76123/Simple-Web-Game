@@ -34,18 +34,18 @@
       // Once a day: watch an ad for this many extra hints.
       dailyBonus: 3,
     },
-    // Watch an ad to skip a level (difficulty numbers: 0 Easy, 1 Medium, 2 Hard).
-    skip: { enabled: true, tiers: [2] },
+    // Watch an ad to skip a level (difficulty numbers: 0 Easy, 1 Medium, 2 Hard, 3 Insane).
+    skip: { enabled: true, tiers: [2, 3] },
     // The starter bundle, offered once after this many levels are finished.
     starter: { afterLevels: 10, hints: 25 },
     // Pearls, for the aquarium. Per level finished, by difficulty (Easy,
-    // Medium, Hard), plus bonuses for a first clear and a best-possible solve.
+    // Medium, Hard, Insane), plus bonuses for a first clear and a best-possible solve.
     pearls: {
-      perLevel: [10, 20, 30],
-      firstClear: [10, 15, 20],
-      bestSolve: [5, 10, 15],
+      perLevel: [10, 20, 30, 40],
+      firstClear: [10, 15, 20, 25],
+      bestSolve: [5, 10, 15, 20],
       // Finishing a level again pays this instead (the best-solve bonus is once per level).
-      replay: [2, 4, 6],
+      replay: [2, 4, 6, 8],
       // The daily streak: solve this many levels in a day for that day's bonus. Day 1, 2, 3...
       // of a streak pays these (the last repeats), plus a weekly bonus every 7th day.
       // A streak broken by one missed day can be saved once by watching an ad.

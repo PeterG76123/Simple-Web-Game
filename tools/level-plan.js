@@ -190,5 +190,15 @@ module.exports = {
         },
       ],
     },
+    {
+      // Insane: boards up to 40x40. A first test group of 5 levels so far.
+      name: 'Insane',
+      minSize: 31,
+      maxSize: 40,
+      pool: 2,
+      groups: [
+        { name: 'Solid lines', slots: [32, 34, 36, 38, 40].map((n) => s(n)) },
+      ],
+    },
   ],
 };
