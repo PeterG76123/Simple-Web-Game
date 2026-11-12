@@ -1179,8 +1179,10 @@
 
   // ---------- Drawing ----------
   function layout(size) {
-    const cell = size / (state.n + 0.6);
-    return { cell, margin: cell * 0.3 };
+    // A border of 0.3 squares, but never under 8px, so the board's rounded
+    // corners never cut into the corner squares of the biggest boards.
+    const margin = Math.max((size / (state.n + 0.6)) * 0.3, 8);
+    return { cell: (size - 2 * margin) / state.n, margin };
   }
 
   function resizeCanvas() {
@@ -1466,6 +1468,9 @@
     ctx.setLineDash([]);
     ctx.globalAlpha = 1;
 
+    // Bigger heads when the squares are small on screen (up to 1.45x, under 20px a square).
+    const onScreen = cell * view.scale;
+    const headScale = onScreen >= 20 ? 1 : Math.min(1.45, 1 + (20 - onScreen) / 20);
     // Layer 2: solid parts and heads, drawn as glowing eels: a soft glow,
     // the body, then a pale sheen along the top.
     for (const l of visible) {
@@ -1511,9 +1516,11 @@
       const dy = l.track[hp][1] - l.track[hp - 1][1];
       // Eel head: a rounded arrowhead (it still shows which way the line
       // goes) with a glow and an eye.
-      const tip = cell * 0.42;
-      const back = cell * 0.04;
-      const wing = cell * 0.27;
+      // On boards with small squares on screen (Insane, the biggest Hard ones),
+      // heads are drawn bigger so they're easy to pick out.
+      const tip = cell * 0.42 * headScale;
+      const back = cell * 0.04 * headScale;
+      const wing = cell * 0.27 * headScale;
       const head = () => {
         ctx.beginPath();
         ctx.moveTo(hx + dx * tip, hy + dy * tip);
@@ -1533,15 +1540,15 @@
       // down), and on the right-hand side of the screen for vertical heads.
       let px = -dy, py = dx;
       if (py > 0 || (py === 0 && px < 0)) { px = -px; py = -py; }
-      const ex = hx + dx * cell * 0.08 + px * cell * 0.09;
-      const ey = hy + dy * cell * 0.08 + py * cell * 0.09;
+      const ex = hx + dx * cell * 0.08 * headScale + px * cell * 0.09 * headScale;
+      const ey = hy + dy * cell * 0.08 * headScale + py * cell * 0.09 * headScale;
       ctx.fillStyle = '#ffffff';
       ctx.beginPath();
-      ctx.arc(ex, ey, cell * 0.065, 0, Math.PI * 2);
+      ctx.arc(ex, ey, cell * 0.065 * headScale, 0, Math.PI * 2);
       ctx.fill();
       ctx.fillStyle = '#021022';
       ctx.beginPath();
-      ctx.arc(ex + dx * cell * 0.02, ey + dy * cell * 0.02, cell * 0.032, 0, Math.PI * 2);
+      ctx.arc(ex + dx * cell * 0.02, ey + dy * cell * 0.02, cell * 0.032 * headScale, 0, Math.PI * 2);
       ctx.fill();
 
       // A swimming eel leaves a trail of bubbles.
