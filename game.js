@@ -1443,6 +1443,11 @@
         ctx.strokeStyle = colorOf(l);
         ctx.lineWidth = width * 1.1;
         stroke(pathOf(l, l.offset, l.offset + l.len - 1));
+        // The head too: outlined in white, then drawn again on top.
+        ctx.save();
+        ctx.globalAlpha = 0.35 + 0.55 * pulse;
+        drawHead(l, colorOf(l), true);
+        ctx.restore();
         ctx.strokeStyle = '#ffffff';
       } else {
         ctx.globalAlpha = 0.2 + 0.35 * pulse;
@@ -1496,6 +1501,65 @@
     // Bigger heads when the squares are small on screen (up to 1.45x, under 20px a square).
     const onScreen = cell * view.scale;
     const headScale = onScreen >= 20 ? 1 : Math.min(1.45, 1 + (20 - onScreen) / 20);
+    /**
+     * An eel's head: a rounded arrowhead with a glow and an eye. With
+     * `outline`, a pulsing white ring around it instead (for the hint).
+     * Returns where the head is and which way it faces.
+     */
+    const drawHead = (l, color, outline) => {
+      const [hx, hy] = pathOf(l, l.offset + l.len - 1, l.offset + l.len - 1)[0];
+      // The head points the way it is travelling, which changes at reflectors.
+      const hp = Math.max(1, Math.min(l.track.length - 1, Math.ceil(l.offset + l.len - 1 - 1e-6)));
+      const dx = l.track[hp][0] - l.track[hp - 1][0];
+      const dy = l.track[hp][1] - l.track[hp - 1][1];
+      // Eel head: a rounded arrowhead (it still shows which way the line
+      // goes) with a glow and an eye.
+      // On boards with small squares on screen (Insane, the biggest Hard ones),
+      // heads are drawn bigger so they're easy to pick out.
+      const tip = cell * 0.42 * headScale;
+      const back = cell * 0.04 * headScale;
+      const wing = cell * 0.27 * headScale;
+      const head = () => {
+        ctx.beginPath();
+        ctx.moveTo(hx + dx * tip, hy + dy * tip);
+        ctx.lineTo(hx - dx * back - dy * wing, hy - dy * back + dx * wing);
+        ctx.quadraticCurveTo(hx - dx * cell * 0.16, hy - dy * cell * 0.16, hx - dx * back + dy * wing, hy - dy * back - dx * wing);
+        ctx.closePath();
+      };
+      ctx.lineJoin = 'round';
+      if (outline) {
+        // The hint: a white ring around the head (the caller sets its strength).
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = cell * 0.2;
+        head();
+        ctx.stroke();
+      }
+      ctx.strokeStyle = color;
+      ctx.fillStyle = color;
+      ctx.globalAlpha = outline ? 1 : 0.2;
+      ctx.lineWidth = cell * 0.18;
+      if (!outline) { head(); ctx.stroke(); }
+      ctx.globalAlpha = 1;
+      head();
+      ctx.fill();
+      // The eye sits on the upper side of the head (so no eel swims upside
+      // down), and on the right-hand side of the screen for vertical heads.
+      let px = -dy, py = dx;
+      if (py > 0 || (py === 0 && px < 0)) { px = -px; py = -py; }
+      const ex = hx + dx * cell * 0.08 * headScale + px * cell * 0.09 * headScale;
+      const ey = hy + dy * cell * 0.08 * headScale + py * cell * 0.09 * headScale;
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(ex, ey, cell * 0.065 * headScale, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#021022';
+      ctx.beginPath();
+      ctx.arc(ex + dx * cell * 0.02, ey + dy * cell * 0.02, cell * 0.032 * headScale, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = color;
+      return { hx, hy, dx, dy };
+    };
+
     // Layer 2: solid parts and heads, drawn as glowing eels: a soft glow,
     // the body, then a pale sheen along the top.
     for (const l of visible) {
@@ -1534,48 +1598,7 @@
       for (const [, pts] of solidRuns) stroke(pts);
       ctx.strokeStyle = color;
 
-      const [hx, hy] = pathOf(l, l.offset + l.len - 1, l.offset + l.len - 1)[0];
-      // The head points the way it is travelling, which changes at reflectors.
-      const hp = Math.max(1, Math.min(l.track.length - 1, Math.ceil(l.offset + l.len - 1 - 1e-6)));
-      const dx = l.track[hp][0] - l.track[hp - 1][0];
-      const dy = l.track[hp][1] - l.track[hp - 1][1];
-      // Eel head: a rounded arrowhead (it still shows which way the line
-      // goes) with a glow and an eye.
-      // On boards with small squares on screen (Insane, the biggest Hard ones),
-      // heads are drawn bigger so they're easy to pick out.
-      const tip = cell * 0.42 * headScale;
-      const back = cell * 0.04 * headScale;
-      const wing = cell * 0.27 * headScale;
-      const head = () => {
-        ctx.beginPath();
-        ctx.moveTo(hx + dx * tip, hy + dy * tip);
-        ctx.lineTo(hx - dx * back - dy * wing, hy - dy * back + dx * wing);
-        ctx.quadraticCurveTo(hx - dx * cell * 0.16, hy - dy * cell * 0.16, hx - dx * back + dy * wing, hy - dy * back - dx * wing);
-        ctx.closePath();
-      };
-      ctx.globalAlpha = 0.2;
-      ctx.lineWidth = cell * 0.18;
-      ctx.lineJoin = 'round';
-      head();
-      ctx.stroke();
-      ctx.globalAlpha = 1;
-      head();
-      ctx.fill();
-      // The eye sits on the upper side of the head (so no eel swims upside
-      // down), and on the right-hand side of the screen for vertical heads.
-      let px = -dy, py = dx;
-      if (py > 0 || (py === 0 && px < 0)) { px = -px; py = -py; }
-      const ex = hx + dx * cell * 0.08 * headScale + px * cell * 0.09 * headScale;
-      const ey = hy + dy * cell * 0.08 * headScale + py * cell * 0.09 * headScale;
-      ctx.fillStyle = '#ffffff';
-      ctx.beginPath();
-      ctx.arc(ex, ey, cell * 0.065 * headScale, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = '#021022';
-      ctx.beginPath();
-      ctx.arc(ex + dx * cell * 0.02, ey + dy * cell * 0.02, cell * 0.032 * headScale, 0, Math.PI * 2);
-      ctx.fill();
-
+      const { hx, hy, dx, dy } = drawHead(l, color);
       // A swimming eel leaves a trail of bubbles.
       if (l.mode === 'exit' && motionOK && Math.random() < 0.6) {
         bubbles.push({ x: hx - dx * cell * 0.3, y: hy - dy * cell * 0.3, r: cell * (0.05 + Math.random() * 0.08), vx: (Math.random() - 0.5) * cell * 0.4, vy: -cell * (0.6 + Math.random() * 0.8), life: 1 });
