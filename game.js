@@ -532,7 +532,7 @@
       canvas.dataset.hintTurn = String(turn.k);
       const { cell, margin } = layout(boardSize());
       const [mx, my] = state.mirrors[turn.k];
-      showPoint(margin + (mx + 0.5) * cell, margin + (my + 0.5) * cell);
+      focusHint(margin + (mx + 0.5) * cell, margin + (my + 0.5) * cell);
       setHintText(`Tap the flashing reflector to turn it${turn.taps > 1 ? ` (${turn.taps} taps)` : ''}.`);
       return;
     }
@@ -543,7 +543,7 @@
       canvas.dataset.hintTo = '-1';
       const { cell, margin } = layout(boardSize());
       const [hx, hy] = free.track[free.rest + free.len - 1];
-      showPoint(margin + (hx + 0.5) * cell, margin + (hy + 0.5) * cell);
+      focusHint(margin + (hx + 0.5) * cell, margin + (hy + 0.5) * cell);
       setHintText('Slide the flashing eel all the way out.');
       return;
     }
@@ -589,7 +589,7 @@
       {
         const { cell, margin } = layout(boardSize());
         const [mx, my] = state.mirrors[move.turn];
-        showPoint(margin + (mx + 0.5) * cell, margin + (my + 0.5) * cell);
+        focusHint(margin + (mx + 0.5) * cell, margin + (my + 0.5) * cell);
       }
       setHintText(`Tap the flashing reflector to turn it.${result.par > 1 ? ` You can finish in ${result.par} moves.` : ''}`);
       return;
@@ -608,7 +608,7 @@
     {
       const { cell, margin } = layout(boardSize());
       const [hx, hy] = line.track[line.rest + line.len - 1];
-      showPoint(margin + (hx + 0.5) * cell, margin + (hy + 0.5) * cell);
+      focusHint(margin + (hx + 0.5) * cell, margin + (hy + 0.5) * cell);
     }
     canvas.dataset.hintLine = String(move.line);
     canvas.dataset.hintTo = String(move.to);
@@ -680,6 +680,21 @@
     view.x = size / 2 - bx * view.scale;
     view.y = size / 2 - by * view.scale;
     clampView();
+  }
+
+  /** For a hint: on boards too small to see on screen, zoom in on board point (bx, by)
+   *  so the flashing eel or reflector is easy to spot (Fit zooms back out); otherwise
+   *  just make sure it's on screen. */
+  function focusHint(bx, by) {
+    const { cell } = layout(boardSize());
+    const want = 26; // pixels per square: big enough to see what's flashing
+    if (cell * view.scale < want) {
+      view.scale = Math.min(maxZoom(), want / cell);
+      const size = boardSize();
+      view.x = size / 2 - bx * view.scale;
+      view.y = size / 2 - by * view.scale;
+      clampView();
+    } else showPoint(bx, by);
   }
 
   function canvasPoint(p) {
