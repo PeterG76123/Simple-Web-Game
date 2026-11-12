@@ -1321,3 +1321,32 @@ svg.aq-snail .foot, svg.aq-snail .feelers { transition: opacity 0.3s; }
 .streak-week .day.bonus .day-p { color: #ffd166; }
 .reward-streak { margin-top: 6px; font-family: var(--font-display); font-weight: 600; color: #ffd166; font-size: 0.92rem; }
 .reward-daily { margin-top: 6px; color: var(--muted); font-size: 0.8rem; }
+
+/* ---------- Daily puzzles (daily.js) ---------- */
+.daily-menu-btn { margin-bottom: 10px; }
+.daily-cal svg rect { fill: rgba(94, 242, 255, 0.12); stroke: var(--accent); stroke-width: 2.4; }
+.daily-cal .cal-top { fill: var(--accent); opacity: 0.85; }
+.daily-cal .cal-ring { stroke: var(--accent); stroke-width: 3; stroke-linecap: round; fill: none; }
+.daily-cal .cal-eel { fill: none; stroke: #ff6fb5; stroke-width: 3; stroke-linecap: round; }
+.daily-cal .cal-head { fill: #ff6fb5; }
+.daily-dots { display: flex; gap: 5px; margin-left: auto; padding-left: 8px; }
+.daily-dots i { width: 9px; height: 9px; border-radius: 50%; background: rgba(255, 255, 255, 0.18); }
+.daily-dots i.on { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+.daily-list { display: flex; flex-direction: column; gap: 14px; max-height: min(60vh, 520px); overflow-y: auto; margin: 4px -4px 8px; padding: 0 4px; text-align: left; }
+.daily-day-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+.daily-day-head strong { font-family: var(--font-display); font-size: 1.05rem; }
+.daily-day-head span { font-size: 0.8rem; opacity: 0.7; text-align: right; }
+.daily-day:not(.today) { opacity: 0.85; }
+.daily-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.daily-tile {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  min-height: 64px; padding: 6px 2px; border-radius: 12px; cursor: pointer;
+  background: rgba(255, 255, 255, 0.06); border: 1.5px solid rgba(94, 242, 255, 0.35); color: inherit; font: inherit;
+}
+.daily-day.today .daily-tile { border-color: var(--accent); background: rgba(94, 242, 255, 0.1); }
+.daily-tile.done { border-color: rgba(255, 255, 255, 0.15); background: rgba(255, 255, 255, 0.03); opacity: 0.75; }
+.daily-tile.missing { border: 1.5px dashed rgba(255, 255, 255, 0.12); border-radius: 12px; min-height: 64px; }
+.daily-diff { font-family: var(--font-display); font-size: 0.85rem; }
+.daily-reward { display: inline-flex; align-items: center; gap: 3px; font-size: 0.8rem; font-weight: 700; }
+.daily-reward .pearl { width: 11px; height: 11px; }
+.daily-title { font-size: 0.65rem; opacity: 0.7; line-height: 1.1; text-align: center; }

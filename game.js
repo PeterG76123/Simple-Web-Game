@@ -3,7 +3,14 @@
 
   const { DIRS, buildLine, mirrorMap, reach, reachBack, solve, decodeLevel, makeWorld, anyMap, turnMirror, canTurn, findTurnWay, twinMap, twinReach } = window.ArrowRules;
   // Older level files had one list of groups and no difficulty settings.
-  const TIERS = window.ArrowLevelData.tiers || [{ name: 'Easy', groups: window.ArrowLevelData.groups }];
+  const TIERS = (window.ArrowLevelData.tiers || [{ name: 'Easy', groups: window.ArrowLevelData.groups }]).slice();
+  // Daily puzzles are played as one more, hidden, difficulty: its single
+  // group holds the one puzzle being played (see playDaily below).
+  const REAL_TIERS = TIERS.length;
+  const DAILY = REAL_TIERS;
+  TIERS.push({ name: 'Daily', groups: [{ name: 'Daily', levels: [], solutions: [], ratings: [] }] });
+  let daily = null; // { day, difficulty, name, reward, ... } while a daily puzzle is open
+  let tierBeforeDaily = 0;
   const STORAGE_KEY = 'arrow-escape-progress-v2';
 
   // The difficulty setting (Easy, Medium, ...) being shown or played. Groups
@@ -197,9 +204,11 @@
   /** Opens a level, carrying on where you left it unless `fresh` is set. */
   function startLevel(group, index, { fresh = false } = {}) {
     // Remember where the player is, so the menu opens here next time.
-    progress.last = { tier, group, index };
-    progress.lastGroup = { ...(progress.lastGroup || {}), [tier]: group };
-    saveProgress();
+    if (tier !== DAILY) {
+      progress.last = { tier, group, index };
+      progress.lastGroup = { ...(progress.lastGroup || {}), [tier]: group };
+      saveProgress();
+    }
     const level = levelAt(group, index);
     const n = level.size;
     const mirrors = (level.mirrors || []).map((m) => m.slice());
@@ -228,7 +237,8 @@
     state = {
       tier, group, index, n, lines, mirrors, history: [], finished: false,
       // A picture level: its eels are the picture's colours.
-      picture: !!level.colors,
+      // (Themed daily puzzles have colours too, but aren't pictures.)
+      picture: !!level.colors && !(tier === DAILY && !daily.picture),
       rotatable: !!level.rotatable,
       gates: level.gates || [],
       plates: level.plates || [],
@@ -264,8 +274,8 @@
     }
 
     screens.game.dataset.group = String(group);
-    $('levelLabel').textContent = `${groupTitle(group)} · ${index + 1}`;
-    $('levelLabel').title = `${groupTitle(group)}, level ${index + 1}`;
+    $('levelLabel').textContent = tier === DAILY ? `Daily · ${daily.label}` : `${groupTitle(group)} · ${index + 1}`;
+    $('levelLabel').title = tier === DAILY ? `Daily puzzle, ${daily.label}` : `${groupTitle(group)}, level ${index + 1}`;
     $('hint').textContent = state.levelHint;
     $('hint').classList.remove('active');
     delete canvas.dataset.hintLine;
@@ -388,7 +398,7 @@
   /** Skipping a level (for watching an ad) is allowed on some difficulties. */
   function skipAllowed() {
     const skip = window.ArrowConfig && window.ArrowConfig.get('skip');
-    return !!(state && skip && skip.enabled && (skip.tiers || []).includes(state.tier));
+    return !!(state && state.tier !== DAILY && skip && skip.enabled && (skip.tiers || []).includes(state.tier));
   }
 
   /** Skips the current level: it counts as finished, and the next one opens. */
@@ -1161,12 +1171,29 @@
       }
     }
 
+    if (!busy && !state.finished && state.lines.every((l) => l.mode === 'gone') && tier === DAILY) {
+      // A daily puzzle: its own pearls (in daily.js), no unlocking.
+      state.finished = true;
+      state.unlockedGroup = -1;
+      state.unlockedHarder = false;
+      updateHud();
+      state.adDue = window.ArrowWallet ? window.ArrowWallet.levelFinished() : false;
+      const got = window.ArrowDaily ? window.ArrowDaily.puzzleFinished(daily) : null;
+      state.pearls = got ? got.pearls : 0;
+      state.pearlParts = got ? got.parts : [];
+      state.pearlsDoubled = false;
+      // Catch-up days don't count towards the streak (daily.js decides).
+      state.daily = window.ArrowDaily ? window.ArrowDaily.levelFinished(daily) : null;
+      burstBubbles();
+      sfx('win');
+      setTimeout(showWinDialog, 650);
+    }
     if (!busy && !state.finished && state.lines.every((l) => l.mode === 'gone')) {
       state.finished = true;
       const next = state.group + 1;
       const nextTier = tier + 1;
       const wasOpen = next < groupsNow().length && isGroupUnlocked(next);
-      const harderWasOpen = !!TIERS[nextTier] && groupOpen(nextTier, state.group);
+      const harderWasOpen = nextTier < REAL_TIERS && groupOpen(nextTier, state.group);
       const firstClear = !isCompleted(state.group, state.index);
       if (firstClear) {
         progress.completed.push(`${tier}-${state.group}-${state.index}`);
@@ -1174,7 +1201,7 @@
       }
       // Finishing a group can open the next group, and the same group one difficulty up.
       state.unlockedGroup = next < groupsNow().length && !wasOpen && isGroupUnlocked(next) ? next : -1;
-      state.unlockedHarder = !!TIERS[nextTier] && !harderWasOpen && groupOpen(nextTier, state.group);
+      state.unlockedHarder = nextTier < REAL_TIERS && !harderWasOpen && groupOpen(nextTier, state.group);
       updateHud();
       // Count it (for ad timing and the starter offer); an ad may be due before the next level.
       state.adDue = window.ArrowWallet ? window.ArrowWallet.levelFinished() : false;
@@ -1244,6 +1271,8 @@
     const dpr = window.devicePixelRatio || 1;
     const size = canvas.width / dpr;
     const { cell, margin } = layout(size);
+    // Nothing to draw on (the board is hidden, e.g. behind the menu).
+    if (cell <= 0) return;
     const center = (v) => margin + (v + 0.5) * cell;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, size, size);
@@ -1479,7 +1508,9 @@
       }
       ctx.restore();
     };
-    if (!state.picture) drawHint(false);
+    // On top for pictures and big packed boards, where a glow underneath is hidden.
+    const hintOnTop = state.picture || state.n >= 20;
+    if (!hintOnTop) drawHint(false);
 
     // Layer 1: see-through parts (faint with a dashed centre), under everything solid.
     for (const l of visible) {
@@ -1620,7 +1651,7 @@
       }
     }
 
-    if (state.picture) drawHint(true);
+    if (hintOnTop) drawHint(true);
     drawBubbles(cell);
   }
 
@@ -1848,6 +1879,19 @@
 
   function showWinDialogInner() {
     const { group, index } = state;
+    if (tier === DAILY) {
+      const moves = state.history.length;
+      const par = levelAt(0, 0).par;
+      const detail = moves <= par ? `Solved in ${moves} moves. That’s the best possible!` : `Solved in ${moves} moves. It can be done in ${par}.`;
+      const toDaily = () => { goToMenu(); if (window.ArrowDaily) window.ArrowDaily.openPuzzles(); };
+      const buttons = [
+        { label: 'More daily puzzles', primary: true, action: toDaily },
+        { label: 'Play again', action: () => playDaily(daily, { fresh: true }) },
+        { label: 'Menu', action: goToMenu },
+      ];
+      showDialog(`Daily ${daily.label} solved!`, detail, withDouble(buttons.map((b) => ({ ...b, action: () => afterLevel(b.action) }))));
+      return;
+    }
     const levels = groupsNow()[group].levels;
     const moves = state.history.length;
     const par = levelAt(group, index).par;
@@ -1883,7 +1927,8 @@
 
   function goToMenu() {
     hideDialog();
-    if (state) {
+    if (state && state.tier === DAILY) tier = tierBeforeDaily;
+    else if (state) {
       tier = state.tier;
       menuGroup = state.group;
     }
@@ -1898,7 +1943,7 @@
     menuGroup = Math.max(0, Math.min(menuGroup, groupsNow().length - 1));
     const tierTabs = $('tierTabs');
     tierTabs.innerHTML = '';
-    TIERS.forEach((t, ti) => {
+    TIERS.slice(0, REAL_TIERS).forEach((t, ti) => {
       const b = document.createElement('button');
       b.className = 'tier-tab';
       b.id = `tierTab${ti}`;
@@ -2016,7 +2061,23 @@
   new ResizeObserver(resizeCanvas).observe(boardWrap);
 
   // Open on the difficulty and group of the last level started (first time: Easy, Kelp Shallows).
-  if (progress.last && TIERS[progress.last.tier]) { tier = progress.last.tier; menuGroup = progress.last.group; }
+  /**
+   * Opens a daily puzzle: { day, difficulty, level (compact text), solution,
+   * label (e.g. "Easy"), ... }. It's played like any level; finishing it pays
+   * its own pearls (ArrowDaily.puzzleFinished) and leads back to the dailies.
+   */
+  function playDaily(meta, { fresh = false } = {}) {
+    if (tier !== DAILY) tierBeforeDaily = tier;
+    daily = meta;
+    TIERS[DAILY].groups[0] = { name: 'Daily', levels: [meta.level], solutions: [meta.solution || null], ratings: [] };
+    decoded.delete(`${DAILY}-0-0`);
+    hideDialog();
+    tier = DAILY;
+    startLevel(0, 0, { fresh });
+  }
+  window.ArrowGame = Object.assign(window.ArrowGame || {}, { playDaily });
+
+  if (progress.last && progress.last.tier < REAL_TIERS && TIERS[progress.last.tier]) { tier = progress.last.tier; menuGroup = progress.last.group; }
   else { tier = 0; menuGroup = 0; }
   renderMenu();
   requestAnimationFrame(frame);

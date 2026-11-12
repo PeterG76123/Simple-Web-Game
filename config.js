@@ -28,6 +28,16 @@
       // builds, so testers can't tap real ads by mistake).
       testAds: false,
     },
+    // Daily puzzles: four a day (Easy, Medium, Hard, Insane), from the
+    // RedCurtain Supabase project (table eel_daily_puzzles; the server only
+    // hands out days that have started, and the last 7 for catching up).
+    daily: {
+      url: 'https://ikekuyyvunkulgvhwpqi.supabase.co',
+      key: 'sb_publishable_LaZ5-yxMEFhRbjFnw3QKpw_v_GZOTGW', // publishable: safe in the app
+      rewards: [20, 30, 40, 60],
+      allFour: 50, // bonus for solving all four of a day
+      catchUpDays: 7,
+    },
     hints: {
       // Free hints each day (unused ones don't carry over).
       freePerDay: 3,
