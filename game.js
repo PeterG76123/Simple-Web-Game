@@ -1422,36 +1422,51 @@
     ctx.lineJoin = 'round';
 
     // The hinted line pulses, with a dotted outline where it should stop.
-    if (state.hint && state.hint.id >= 0) {
+    // Usually a glow in its own colour under the eels; on picture levels the
+    // eels are packed tight and share colours, so it goes on top, in white.
+    const drawHint = (onTop) => {
+      if (!state.hint || state.hint.id < 0) return;
       const l = state.lines[state.hint.id];
-      if (l && l.mode !== 'gone' && l.mode !== 'exit') {
-        const t = (performance.now() - state.hint.start) / 1000;
-        const pulse = 0.5 + 0.5 * Math.sin(t * 7);
-        ctx.save();
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
+      if (!l || l.mode === 'gone' || l.mode === 'exit') return;
+      const t = (performance.now() - state.hint.start) / 1000;
+      const pulse = 0.5 + 0.5 * Math.sin(t * 7);
+      ctx.save();
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = onTop ? '#ffffff' : colorOf(l);
+      if (onTop) {
+        // A bright outline around the whole eel, solid and see-through parts alike.
+        ctx.globalAlpha = 0.35 + 0.55 * pulse;
+        ctx.lineWidth = width * 1.9;
+        stroke(pathOf(l, l.offset, l.offset + l.len - 1));
+        ctx.globalAlpha = 1;
         ctx.strokeStyle = colorOf(l);
+        ctx.lineWidth = width * 1.1;
+        stroke(pathOf(l, l.offset, l.offset + l.len - 1));
+        ctx.strokeStyle = '#ffffff';
+      } else {
         ctx.globalAlpha = 0.2 + 0.35 * pulse;
         ctx.lineWidth = width * 2.6;
         stroke(pathOf(l, l.offset, l.offset + l.len - 1));
-        const to = state.hint.to;
-        if (to >= 0 && l.mode === 'idle') {
-          // Round dots along where the line will be, and a ring where its head stops.
-          const target = pathOf(l, to, to + l.len - 1);
-          ctx.globalAlpha = 0.9;
-          ctx.lineWidth = width * 0.4;
-          ctx.setLineDash([0.001, cell * 0.22]);
-          stroke(target);
-          ctx.setLineDash([]);
-          const [tx, ty] = target[target.length - 1];
-          ctx.lineWidth = width * 0.3;
-          ctx.beginPath();
-          ctx.arc(tx, ty, cell * 0.34, 0, Math.PI * 2);
-          ctx.stroke();
-        }
-        ctx.restore();
       }
-    }
+      const to = state.hint.to;
+      if (to >= 0 && l.mode === 'idle') {
+        // Round dots along where the line will be, and a ring where its head stops.
+        const target = pathOf(l, to, to + l.len - 1);
+        ctx.globalAlpha = 0.9;
+        ctx.lineWidth = width * (onTop ? 0.5 : 0.4);
+        ctx.setLineDash([0.001, cell * 0.22]);
+        stroke(target);
+        ctx.setLineDash([]);
+        const [tx, ty] = target[target.length - 1];
+        ctx.lineWidth = width * (onTop ? 0.4 : 0.3);
+        ctx.beginPath();
+        ctx.arc(tx, ty, cell * 0.34, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.restore();
+    };
+    if (!state.picture) drawHint(false);
 
     // Layer 1: see-through parts (faint with a dashed centre), under everything solid.
     for (const l of visible) {
@@ -1567,6 +1582,7 @@
       }
     }
 
+    if (state.picture) drawHint(true);
     drawBubbles(cell);
   }
 
