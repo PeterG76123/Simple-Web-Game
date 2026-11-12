@@ -197,7 +197,8 @@ module.exports = {
       maxSize: 40,
       pool: 2,
       groups: [
-        { name: 'Solid lines', slots: [32, 34, 36, 38, 40].map((n) => s(n)) },
+        // (pictures: hand-made picture levels, added after the group's own levels.)
+        { name: 'Solid lines', slots: [32, 34, 36, 38, 40].map((n) => s(n)), pictures: ['xmas-tree'] },
       ],
     },
   ],

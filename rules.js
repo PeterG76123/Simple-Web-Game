@@ -1107,6 +1107,10 @@
   // further cell for the step to it (U, R, D, L); a lowercase letter means
   // that cell is see-through. Reflectors: x, y and the shape (0-3) for each,
   // run together. A 10x10 level is about 150 characters.
+  //
+  // Optional sixth part, for levels with their own colours (picture and theme
+  // levels): the colours as hex, separated by dots, then ';' and one base-36
+  // digit per line giving its colour, e.g. "000000.d83a33;0110".
 
   const STEP = 'URDL';
   const COORD = '0123456789abcdefghijklmnopqrstuvwxyzWXYZ';
@@ -1114,7 +1118,7 @@
   const dec1 = (ch) => COORD.indexOf(ch);
   const SHAPES = [[0, 3], [0, 1], [2, 3], [2, 1]];
 
-  function encodeLevel({ size, par, lines, mirrors = [], extras = {} }) {
+  function encodeLevel({ size, par, lines, mirrors = [], extras = {}, colors = null }) {
     const enc = lines.map(({ cells, clear = [] }) => {
       let out = enc1(cells[0][0]) + enc1(cells[0][1]);
       for (let k = 1; k < cells.length; k++) {
@@ -1131,11 +1135,12 @@
     for (const [px, py, c] of extras.plates || []) x += 'P' + enc1(px) + enc1(py) + c;
     // T a b = lines a and b are twins (two base-36 digits each).
     for (const [a, b] of extras.twins || []) x += 'T' + a.toString(36).padStart(2, '0') + b.toString(36).padStart(2, '0');
-    return `${size.toString(36)}|${par}|${enc.join(',')}|${m}` + (x ? `|${x}` : '');
+    const c = colors ? `|${colors.palette.join('.')};${colors.lines.map((i) => i.toString(36)).join('')}` : '';
+    return `${size.toString(36)}|${par}|${enc.join(',')}|${m}` + (x || c ? `|${x}` : '') + c;
   }
 
   function decodeLevel(text) {
-    const [size, par, lineText, mirrorText, extraText = ''] = text.split('|');
+    const [size, par, lineText, mirrorText, extraText = '', colorText = ''] = text.split('|');
     const lines = lineText.split(',').map((t) => {
       const cells = [[dec1(t[0]), dec1(t[1])]];
       const clear = [];
@@ -1167,7 +1172,14 @@
         i += 4;
       }
     }
-    return { size: parseInt(size, 36), par: Number(par), lines, mirrors, rotatable: extraText.includes('R'), gates, plates, twins };
+    // The level's own colours, if it has them: palette (as #hex) and each line's colour.
+    let colors = null;
+    if (colorText) {
+      const [pal, per] = colorText.split(';');
+      colors = { palette: pal.split('.').map((h) => `#${h}`), lines: [...per].map((ch) => parseInt(ch, 36)) };
+      lines.forEach((l, i) => { l.color = colors.palette[colors.lines[i]]; });
+    }
+    return { size: parseInt(size, 36), par: Number(par), lines, mirrors, rotatable: extraText.includes('R'), gates, plates, twins, colors };
   }
 
   root.ArrowRules = { twinMap, activeTwin, twinReach, moveTwins, solveTwins, encodeLevel, decodeLevel, findTurnWay, playPath, pathToText, pathFromText, makeWorld, anyMap, turnMirror, canTurn, solveWorld, DIRS, inBounds, rayCells, mirrorMap, tracePath, buildLine, solidMap, reach, reachBack, clearFree, solve, solvableWithWholeExits };

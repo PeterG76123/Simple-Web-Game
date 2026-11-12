@@ -119,6 +119,11 @@ async function main() {
         picked.forEach((p) => { p.r = final(p.e); });
         picked.sort((a, b) => a.r - b.r);
       }
+      // Hand-made picture levels (levels-pictures/<name>.json, from tools/picture-level.js) go last.
+      for (const name of g.pictures || []) {
+        const pic = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'levels-pictures', `${name}.json`), 'utf8'));
+        picked.push({ e: { level: pic.level }, r: 10, kind: 'picture' });
+      }
       // Known solutions for mixed levels, so hints can follow them instantly.
       const solutions = picked.map((p) => (MIXED.has(p.kind) ? solutionFor(p.e) : null));
       groups.push({ name: g.name, levels: picked.map((p) => p.e.level), ratings: picked.map((p) => p.r), solutions });

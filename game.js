@@ -208,6 +208,8 @@
     const lines = level.lines.map((a, id) => Object.assign(buildLine(n, a, map), {
       id,
       colorIndex: (id * 3) % 10,
+      // Picture and theme levels give each eel its own colour.
+      ownColor: a.color || null,
       rest: 0, // where the line sits (-1 once it has left)
       offset: 0, // where it is drawn
       mode: 'idle', // idle | drag | settle | exit | gone
@@ -225,6 +227,8 @@
 
     state = {
       tier, group, index, n, lines, mirrors, history: [], finished: false,
+      // A picture level: its eels are the picture's colours, drawn fat so they fill their squares.
+      picture: !!level.colors,
       rotatable: !!level.rotatable,
       gates: level.gates || [],
       plates: level.plates || [],
@@ -1374,7 +1378,7 @@
     // Moving lines are drawn on top.
     visible.sort((a, b) => (a.mode === 'idle' ? 0 : 1) - (b.mode === 'idle' ? 0 : 1));
 
-    const width = cell * 0.26;
+    const width = cell * (state.picture ? 0.66 : 0.26);
 
     const pathOf = (l, a, b) => {
       const at = (p) => {
@@ -1398,7 +1402,7 @@
     };
 
     const colorOf = (l) => {
-      const base = colors.lines[l.colorIndex];
+      const base = l.ownColor || colors.lines[l.colorIndex];
       return l.flash > 0 ? mix(base, colors.danger, Math.min(1, l.flash * 1.3)) : base;
     };
 
@@ -1481,7 +1485,7 @@
       ctx.fillStyle = color;
       ctx.lineCap = 'round';
       ctx.globalAlpha = l.mode === 'drag' ? 0.3 : 0.16;
-      ctx.lineWidth = bodyWidth * 2.4;
+      ctx.lineWidth = bodyWidth * (state.picture ? 1.25 : 2.4);
       for (const [, pts] of solidRuns) stroke(pts);
       ctx.globalAlpha = 1;
       ctx.lineWidth = bodyWidth;

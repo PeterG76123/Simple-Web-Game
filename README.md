@@ -127,6 +127,14 @@ The app ID is `com.redcurtain.eelescape` (Capacitor 8; Android targets API 36). 
 
 Prices shown in the shop come from the store (in the player's own currency); `prices` in the settings are only for the web version.
 
+### Picture levels
+
+A picture becomes a 40x40 level whose eels draw it:
+
+1. `python3 tools/picture-grid.py picture.png grid.json --size 40 --preview grid.png --colors "black=#2a2d36*2,white=#f4f4f4*2.8,red=#d83a33,red=#92201c,..."` shrinks the picture to a grid of up to 8 colours (name=#hex, a repeated name maps several shades to one colour, *weight keeps thin outlines and small details). The picture's plain background becomes the game's dark sea. Check `grid.png`.
+2. `node tools/picture-level.js grid.json levels-pictures/<name>.json --tries 300 --max 6` covers it with eels of 3+ squares, each in its square's colour, laid so the level is always solvable (checked with the game's solver). It reports how many squares had to change colour.
+3. List the name under a group's `pictures` in `tools/level-plan.js` and run `node tools/build-levels.js`.
+
 ### Icon, splash screen and store listing
 
 `node tools/make-art.js` draws the app icon, splash screen and Play Store feature graphic (into `assets/` and `store/`); `npx @capacitor/assets generate --android --ios --iconBackgroundColor '#031127' --splashBackgroundColor '#031127' --splashBackgroundColorDark '#031127'` then makes every size the apps need. `store/listing.md` has the Play listing text (name, descriptions) and the answers for Play Console's content forms; `store/screenshots/` has the phone screenshots.
