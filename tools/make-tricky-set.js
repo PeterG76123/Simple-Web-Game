@@ -22,13 +22,21 @@ const count = Number(opt.count || 25);
 const from = Number(opt.from || 31), to = Number(opt.to || 40);
 const tries = Number(opt.tries || 6);
 const kind = opt.kind || 'solid';
+const ROUNDS = Number(opt.rounds || 12); // new seeds until a level has no gaps
 const dir = path.join(__dirname, '..', 'levels-tricky');
 fs.mkdirSync(dir, { recursive: true });
 
 for (let i = 0; i < count; i++) {
   const name = `${prefix}-${String(i + 1).padStart(2, '0')}`;
   const out = path.join(dir, `${name}.json`);
-  if (fs.existsSync(out)) continue;
+  // A finished level with gaps isn't finished: set it aside as the best so far
+  // and keep trying new seeds.
+  let firstRound = 0;
+  if (fs.existsSync(out)) {
+    firstRound = 3; // its first three seeds were already tried
+    if (JSON.parse(fs.readFileSync(out, 'utf8')).stats.gaps === 0) continue;
+    fs.renameSync(out, `${out}.gaps`);
+  }
   const size = from + Math.floor((i * (to - from + 1)) / count);
   // Deeper jams further into the group.
   const depth = 5 + Math.floor((i * 4) / count);
@@ -37,7 +45,7 @@ for (let i = 0; i < count; i++) {
   if (kind === 'solid') flags.push('--pShuffle', '0.000001', '--window', '0.000001');
   else flags.push('--keys', 4 + Math.floor((i * 3) / count), '--window', 0.45);
   // No gaps allowed: new seeds until a level comes out with every square covered.
-  for (let round = 0; round < 3; round++) {
+  for (let round = firstRound; round < firstRound + ROUNDS; round++) {
     const t0 = Date.now();
     const seeded = flags.map(String);
     seeded[seeded.indexOf('--seed') + 1] = String(1000 + i * 17 + (kind === 'clear' ? 7 : 0) + round * 100003);
@@ -54,7 +62,7 @@ for (let i = 0; i < count; i++) {
       }
       if (stats.gaps === 0) break;
       // Keep the best so far (fewest gaps) aside, and try a new seed.
-      if (round < 2) {
+      if (round < firstRound + ROUNDS - 1) {
         const prev = fs.existsSync(`${out}.gaps`) ? JSON.parse(fs.readFileSync(`${out}.gaps`, 'utf8')).stats.gaps : Infinity;
         if (stats.gaps < prev) fs.renameSync(out, `${out}.gaps`); else fs.unlinkSync(out);
       }
