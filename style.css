@@ -1275,3 +1275,27 @@ svg.aq-snail .foot, svg.aq-snail .feelers { transition: opacity 0.3s; }
 .aq-grid .aq-buy[aria-disabled="true"] { opacity: 0.45; }
 .aq-sheet .dialog-buttons.aq-row { flex-direction: row; }
 .aq-sheet .dialog-buttons.aq-row .btn { flex: 1; padding-left: 8px; padding-right: 8px; }
+
+/* ---------- Daily bonus and streak (daily.js) ---------- */
+.corner-btn.corner-left2 { left: calc(max(14px, env(safe-area-inset-left, 0px)) + 54px); }
+@media (orientation: landscape) and (max-height: 560px) {
+  #menu .corner-btn.corner-left2 { left: calc(max(14px, env(safe-area-inset-left, 0px)) + 108px); }
+}
+.streak-chip { width: auto; min-width: 44px; padding: 0 10px; display: inline-flex; align-items: center; gap: 4px; font-family: var(--font-display); font-weight: 700; font-size: 1rem; }
+.streak-chip .streak-flame { font-size: 1.05rem; }
+.streak-chip .streak-today { font-size: 0.72rem; font-weight: 600; color: var(--muted); padding: 1px 6px; border-radius: 999px; background: rgba(255, 255, 255, 0.08); }
+.streak-chip.earned .streak-today { color: #5dff9b; }
+.dialog.daily .daily-lead { color: var(--text); font-size: 1.05rem; margin: 0 0 6px; }
+.dialog.daily .daily-lead strong { color: #ffd166; }
+.streak-week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; margin: 10px 0 16px; }
+.streak-week .day { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 0 5px; border-radius: 10px; border: 1px solid var(--glass-edge); background: var(--glass); }
+.streak-week .day-n { font-size: 0.62rem; color: var(--muted); white-space: nowrap; }
+.streak-week .day-icon { height: 18px; display: flex; align-items: center; font-size: 0.95rem; }
+.streak-week .day-icon .pearl { width: 13px; height: 13px; }
+.streak-week .day-p { font-family: var(--font-display); font-weight: 700; font-size: 0.72rem; color: var(--text); }
+.streak-week .day.done { background: rgba(93, 255, 155, 0.14); border-color: rgba(93, 255, 155, 0.55); }
+.streak-week .day.done .day-icon { color: #5dff9b; font-weight: 700; }
+.streak-week .day.today { border-color: #ffd166; box-shadow: 0 0 10px rgba(255, 209, 102, 0.5); }
+.streak-week .day.bonus .day-p { color: #ffd166; }
+.reward-streak { margin-top: 6px; font-family: var(--font-display); font-weight: 600; color: #ffd166; font-size: 0.92rem; }
+.reward-daily { margin-top: 6px; color: var(--muted); font-size: 0.8rem; }

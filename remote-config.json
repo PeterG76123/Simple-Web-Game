@@ -43,9 +43,20 @@
       4,
       6
     ],
-    "daily": 25,
     "feedDaily": 10,
-    "doubleByAd": true
+    "doubleByAd": true,
+    "streak": {
+      "levels": 3,
+      "rewards": [
+        10,
+        20,
+        30,
+        40,
+        50
+      ],
+      "weekly": 100,
+      "saver": true
+    }
   },
   "aquariumPrices": {},
   "prices": {

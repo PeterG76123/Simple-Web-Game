@@ -21,6 +21,10 @@
     return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
   };
 
+  const dateOf = (k) => { const [y, m, d] = k.split('-').map(Number); return new Date(y, m - 1, d); };
+  const daysBetween = (a, b) => Math.round((dateOf(b) - dateOf(a)) / 86400000);
+  const dayBefore = (k) => { const d = dateOf(k); d.setDate(d.getDate() - 1); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
+
   const BLANK = {
     day: '', freeUsed: 0, rewardedToday: 0, dailyBonusTaken: false,
     owned: 0, coins: 0, pearls: 0, dailyPearlsTaken: false, feedPearlsTaken: false,
@@ -36,6 +40,7 @@
   let w = { ...BLANK };
   try { w = { ...BLANK, ...JSON.parse(root.localStorage.getItem(KEY)) }; } catch (e) { /* new player */ }
   if (!w.tanks) w.tanks = {};
+  if (!w.streak) w.streak = { last: '', count: 0, today: '', levels: 0, greeted: '', savedFor: '' };
   if (!w.bestPaid) w.bestPaid = [];
   if (!w.purchases) w.purchases = [];
   // Earlier versions had one tank: it becomes the goldfish tank.
@@ -145,15 +150,63 @@
       save();
       return n;
     },
-    /** Today's gift of pearls, once a day (returns how many, or 0). */
-    takeDailyPearls() {
-      roll();
-      if (w.dailyPearlsTaken) return 0;
-      w.dailyPearlsTaken = true;
-      const n = cfg('pearls.daily');
-      w.pearls += n;
+    // ---------- The daily streak ----------
+    // Solving pearls.streak.levels levels in a day earns that day's bonus; doing it on
+    // consecutive days builds a streak (more pearls each day, up to a cap, plus a weekly
+    // bonus every 7th day). Days are the phone's own calendar days.
+    streak() {
+      const s = w.streak, t = today();
+      const need = cfg('pearls.streak.levels') || 3;
+      const gap = s.last ? daysBetween(s.last, t) : Infinity;
+      const alive = gap <= 1; // done today, or yesterday (today still to do)
+      return {
+        count: alive ? s.count : 0, // the streak as it stands
+        doneToday: gap === 0,
+        levelsToday: s.today === t ? s.levels : 0,
+        need,
+        // A streak that ended by missing exactly one day can be saved once (for an ad).
+        canSave: !!cfg('pearls.streak.saver') && gap === 2 && s.count >= 2 && s.savedFor !== s.last,
+        lostCount: s.count,
+      };
+    },
+    /** Pearls for day n of a streak: [daily, weekly bonus]. */
+    streakReward(n) {
+      const r = cfg('pearls.streak.rewards') || [10, 20, 30, 40, 50];
+      const weekly = n > 0 && n % 7 === 0 ? (cfg('pearls.streak.weekly') || 0) : 0;
+      return [n > 0 ? r[Math.min(n, r.length) - 1] : 0, weekly];
+    },
+    /** A level was finished: counts towards today's bonus. Returns what happened. */
+    streakLevel() {
+      const s = w.streak, t = today();
+      if (s.today !== t) { s.today = t; s.levels = 0; }
+      const info = Wallet.streak();
+      if (info.doneToday) { save(); return { done: true }; }
+      s.levels++;
+      const need = info.need;
+      if (s.levels < need) { save(); return { progress: s.levels, need }; }
+      // Today's bonus: the streak goes on (or starts again).
+      s.count = info.count + 1;
+      s.last = t;
+      const [reward, bonus] = Wallet.streakReward(s.count);
+      w.pearls += reward + bonus;
       save();
-      return n;
+      return { day: s.count, reward, bonus };
+    },
+    /** Keeps a streak that ended by missing one day (after watching an ad). */
+    saveStreak() {
+      const s = w.streak;
+      s.savedFor = s.last;
+      s.last = dayBefore(today());
+      save();
+    },
+    /** The player let a broken streak go (so it isn't offered again). */
+    dropStreak() { w.streak.savedFor = w.streak.last; save(); },
+    /** True the first time it's asked each day (for the "daily bonus" message on opening). */
+    greetToday() {
+      if (w.streak.greeted === today()) return false;
+      w.streak.greeted = today();
+      save();
+      return true;
     },
     // ---------- Aquarium tanks ----------
     ownsTank: (id) => !!w.tanks[id],

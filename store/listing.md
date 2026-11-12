@@ -33,6 +33,7 @@ Three difficulties, Easy, Medium and Hard, with 25 levels in every region.
 
 🐠 BUILD YOUR AQUARIUM
 • Earn pearls for every level you finish, and more for solving it in the fewest moves.
+• Solve 3 levels a day for a daily pearl bonus that grows with your streak, with a big bonus every 7th day.
 • Spend them on a goldfish tank, a tropical tank and a marine tank.
 • Fill each one with fish, swaying plants and decorations, from snails and guppies to a reef shark.
 • Fish school together, chase their food, and dart away if you tap them. Crabs scuttle into their cave to hide.

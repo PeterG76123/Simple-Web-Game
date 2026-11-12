@@ -397,7 +397,9 @@
     }
     forgetRun(state.tier, group, index);
     state.finished = true;
-    if (window.ArrowShop) window.ArrowShop.toast('Level skipped');
+    // A skipped level counts towards today's daily bonus too.
+    const daily = window.ArrowDaily ? window.ArrowDaily.levelFinished() : null;
+    if (window.ArrowShop) window.ArrowShop.toast(daily && daily.day ? `Level skipped. Day ${daily.day} streak: +${daily.reward + daily.bonus} pearls!` : 'Level skipped');
     if (index + 1 < groupsNow()[group].levels.length) startLevel(group, index + 1);
     else goToMenu();
   }
@@ -1152,6 +1154,8 @@
       // Count it (for ad timing and the starter offer); an ad may be due before the next level.
       state.adDue = window.ArrowWallet ? window.ArrowWallet.levelFinished() : false;
       awardPearls(firstClear);
+      // Towards today's daily bonus (and the streak).
+      state.daily = window.ArrowDaily ? window.ArrowDaily.levelFinished() : null;
       burstBubbles();
       sfx('win');
       setTimeout(showWinDialog, 650);
@@ -1716,8 +1720,12 @@
     if (!state.pearls) return;
     const parts = state.pearlParts.map(([name, n]) => `${name} +${n}`);
     if (state.pearlsDoubled) parts.push('Doubled ×2');
+    const d = state.daily;
+    const daily = !d ? ''
+      : d.day ? `<div class="reward-streak">🔥 Day ${d.day} streak! Daily bonus +${d.reward}${d.bonus ? ` · Weekly bonus +${d.bonus}` : ''}</div>`
+      : d.progress ? `<div class="reward-daily">Daily bonus: ${d.progress} of ${d.need} levels solved today</div>` : '';
     box.innerHTML = `<div class="reward-main"><span class="pearl big" aria-hidden="true"></span><span class="reward-num">+${state.pearls}</span><span class="reward-unit">pearls</span></div>` +
-      `<div class="reward-parts">${parts.join(' · ')}</div>`;
+      `<div class="reward-parts">${parts.join(' · ')}</div>${daily}`;
     box.setAttribute('aria-label', `${state.pearls} pearls earned for your aquarium`);
     box.classList.toggle('doubled', !!state.pearlsDoubled);
     box.hidden = false;

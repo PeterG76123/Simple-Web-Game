@@ -46,8 +46,10 @@
       bestSolve: [5, 10, 15],
       // Finishing a level again pays this instead (the best-solve bonus is once per level).
       replay: [2, 4, 6],
-      // A gift each day the game is opened.
-      daily: 25,
+      // The daily streak: solve this many levels in a day for that day's bonus. Day 1, 2, 3...
+      // of a streak pays these (the last repeats), plus a weekly bonus every 7th day.
+      // A streak broken by one missed day can be saved once by watching an ad.
+      streak: { levels: 3, rewards: [10, 20, 30, 40, 50], weekly: 100, saver: true },
       // Feeding the aquarium fish, once a day.
       feedDaily: 10,
       // Watch an ad on the win screen to double that level's pearls.

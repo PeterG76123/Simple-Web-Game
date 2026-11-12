@@ -964,11 +964,5 @@
   const menuBtn = document.getElementById('menuAquariumBtn');
   if (menuBtn) menuBtn.addEventListener('click', open);
 
-  // A gift of pearls on the first visit each day.
-  setTimeout(() => {
-    const n = W.takeDailyPearls();
-    if (n) toast(`Daily gift: +${n} pearls`);
-  }, 1500);
-
   root.ArrowAquarium = { open, close, tanks: TANKS, catalog: CATALOG };
 })(window);
