@@ -24,6 +24,9 @@
       // On the web (no real ads): show the stand-in test ads (for trying the
       // flow), or skip them (full-screen ads skipped, rewards just given).
       webTestAds: true,
+      // Google's test ads instead of the real ones in the phone app (for test
+      // builds, so testers can't tap real ads by mistake).
+      testAds: false,
     },
     hints: {
       // Free hints each day (unused ones don't carry over).

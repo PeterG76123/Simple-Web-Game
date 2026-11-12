@@ -7,6 +7,7 @@
 #
 # For a test build with every level unlocked: Actions > Android build > Run workflow,
 # tick "Test build with every level unlocked". Its download is named ...-UNLOCKED.
+# It shows Google's test ads; tick "Use Google's test ads" for test ads in a normal build.
 #
 # To sign the Play bundle, add these repository secrets (Settings > Secrets and variables > Actions):
 #   ANDROID_KEYSTORE_BASE64    your upload keystore, base64-encoded (base64 -w0 upload.jks)
@@ -19,7 +20,11 @@ on:
   workflow_dispatch:
     inputs:
       unlock_all:
-        description: 'Test build with every level unlocked (never for release)'
+        description: 'Test build with every level unlocked (never for release; uses test ads)'
+        type: boolean
+        default: false
+      test_ads:
+        description: "Use Google's test ads instead of real ones"
         type: boolean
         default: false
   push:
@@ -50,6 +55,12 @@ jobs:
             sed -i 's/testUnlockAll: false/testUnlockAll: true/' www/config.js
             grep -q 'testUnlockAll: true' www/config.js
             echo "Every level unlocked in this build"
+          fi
+          # Test ads: for unlocked test builds, or when asked for.
+          if [ "${{ inputs.unlock_all }}" = "true" ] || [ "${{ inputs.test_ads }}" = "true" ]; then
+            sed -i 's/testAds: false/testAds: true/' www/config.js
+            grep -q 'testAds: true' www/config.js
+            echo "Google's test ads in this build"
           fi
           npx cap sync android
       - name: Set up the upload key (if there is one)

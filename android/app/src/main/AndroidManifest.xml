@@ -28,11 +28,10 @@
             android:grantUriPermissions="true">
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
         </provider>
-        <!-- AdMob app ID. This is Google's TEST app ID: replace it with your own
-             from the AdMob console before release (and the ad unit IDs in ads.js). -->
+        <!-- AdMob app ID (RedCurtain's "Eel Escape" app; ad unit IDs are in ads.js). -->
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="ca-app-pub-3940256099942544~3347511713"
+            android:value="ca-app-pub-4979427657253323~4371111887"
         />
     </application>
 

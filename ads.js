@@ -7,9 +7,10 @@
  *
  * In the phone app (Capacitor) these are real Google AdMob ads, via the
  * @capacitor-community/admob plugin, with Google's consent form (EU/UK) and
- * Apple's tracking prompt (iPhone) shown first. The ad unit IDs below are
- * Google's official TEST IDs: swap in your own from the AdMob console before
- * release (or set ads.units in remote-config.json).
+ * Apple's tracking prompt (iPhone) shown first. The ad units are RedCurtain's
+ * own (AdMob, app "Eel Escape"); with ads.testAds on in config.js (test builds)
+ * or on a platform without units yet (iPhone, for now) Google's test units are
+ * used instead. ads.units in remote-config.json can override them.
  *
  * On the web there are no real ads: a stand-in "test ad" shows instead, so the
  * whole flow can be tried in a browser.
@@ -20,13 +21,20 @@
     android: { interstitial: 'ca-app-pub-3940256099942544/1033173712', rewarded: 'ca-app-pub-3940256099942544/5224354917' },
     ios: { interstitial: 'ca-app-pub-3940256099942544/4411468910', rewarded: 'ca-app-pub-3940256099942544/1712485313' },
   };
+  // RedCurtain's own ad units (AdMob app ID ca-app-pub-4979427657253323~4371111887,
+  // set in android/app/src/main/AndroidManifest.xml).
+  const UNITS = {
+    android: { interstitial: 'ca-app-pub-4979427657253323/9555155807', rewarded: 'ca-app-pub-4979427657253323/7499692316' },
+  };
   const Cap = root.Capacitor;
   const native = !!(Cap && Cap.isNativePlatform && Cap.isNativePlatform());
   const platform = native ? Cap.getPlatform() : 'web';
   const AdMob = native && Cap.Plugins ? Cap.Plugins.AdMob : null;
   const unit = (kind) => {
+    const test = (TEST_UNITS[platform] || {})[kind];
+    if (root.ArrowConfig && root.ArrowConfig.get('ads.testAds')) return test;
     const remote = root.ArrowConfig && root.ArrowConfig.get(`ads.units.${platform}.${kind}`);
-    return remote || (TEST_UNITS[platform] || {})[kind];
+    return remote || (UNITS[platform] || {})[kind] || test;
   };
   const isTest = (kind) => unit(kind) === (TEST_UNITS[platform] || {})[kind];
   // Sound and music pause while an ad plays.
