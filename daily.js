@@ -225,7 +225,8 @@
     }
     dialog('Daily puzzles', `<div class="daily-list">${html}</div>`, [{ label: 'Close', action: close }]);
     box.querySelectorAll('.daily-tile[data-day]').forEach((b) => b.addEventListener('click', () => play(b.dataset.day, Number(b.dataset.d))));
-    if (!has && fetched === undefined) load().then((ok) => { if (box && box.querySelector('.daily-list')) openPuzzles(ok); });
+    // Nothing yet, or not today's (e.g. a new day began since the last fetch): ask the server again.
+    if (fetched === undefined && !puzzles[localDay(0)]) load().then((ok) => { if (box && box.querySelector('.daily-list')) openPuzzles(ok); });
   }
 
   // The menu's card: how many of today's four are solved.
@@ -244,6 +245,12 @@
   load();
   // A new day (left open past midnight, or back from the background).
   document.addEventListener('visibilitychange', () => { if (!document.hidden) { showDailyCard(); load(); } });
+  function atMidnight() {
+    const next = new Date();
+    next.setHours(24, 0, 5, 0);
+    setTimeout(() => { showDailyCard(); load(); atMidnight(); }, next - new Date());
+  }
+  atMidnight();
 
   root.ArrowDaily = { levelFinished, open, openPuzzles, puzzleFinished, localDay };
 })(window);
