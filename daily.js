@@ -79,7 +79,9 @@
     if (!badge) return;
     const s = W.streak();
     badge.querySelector('.streak-n').textContent = s.count;
-    badge.querySelector('.streak-today').textContent = s.doneToday ? '✓' : `${s.levelsToday}/${s.need}`;
+    // Today's levels as small dots under the number (all lit once the bonus is earned).
+    const lit = s.doneToday ? s.need : s.levelsToday;
+    badge.querySelector('.streak-today').innerHTML = Array.from({ length: s.need }, (_, i) => `<i class="${i < lit ? 'on' : ''}"></i>`).join('');
     badge.classList.toggle('earned', s.doneToday);
     badge.setAttribute('aria-label', `Daily bonus: ${plural(s.count, 'day', 'days')} in a row, ${s.doneToday ? "today's bonus earned" : `${s.levelsToday} of ${s.need} levels today`}`);
   }
