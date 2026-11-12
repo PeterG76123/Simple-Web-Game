@@ -227,7 +227,7 @@
 
     state = {
       tier, group, index, n, lines, mirrors, history: [], finished: false,
-      // A picture level: its eels are the picture's colours, drawn fat so they fill their squares.
+      // A picture level: its eels are the picture's colours.
       picture: !!level.colors,
       rotatable: !!level.rotatable,
       gates: level.gates || [],
@@ -1378,7 +1378,7 @@
     // Moving lines are drawn on top.
     visible.sort((a, b) => (a.mode === 'idle' ? 0 : 1) - (b.mode === 'idle' ? 0 : 1));
 
-    const width = cell * (state.picture ? 0.66 : 0.26);
+    const width = cell * 0.26;
 
     const pathOf = (l, a, b) => {
       const at = (p) => {
@@ -1485,7 +1485,7 @@
       ctx.fillStyle = color;
       ctx.lineCap = 'round';
       ctx.globalAlpha = l.mode === 'drag' ? 0.3 : 0.16;
-      ctx.lineWidth = bodyWidth * (state.picture ? 1.25 : 2.4);
+      ctx.lineWidth = bodyWidth * 2.4;
       for (const [, pts] of solidRuns) stroke(pts);
       ctx.globalAlpha = 1;
       ctx.lineWidth = bodyWidth;
