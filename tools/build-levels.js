@@ -62,7 +62,7 @@ async function main() {
   const tiers = [];
   for (const tier of plan.tiers) {
     const groups = [];
-    for (const g of tier.groups) {
+    for (let g of tier.groups) {
       const needed = new Map();
       for (const [size, kind, mirrors] of g.slots) {
         if (size < tier.minSize || size > tier.maxSize) throw new Error(`${tier.name} ${g.name}: ${size}x${size} is outside ${tier.minSize}-${tier.maxSize}`);
@@ -79,8 +79,13 @@ async function main() {
         pools.set(key, bank);
       }
       if (short) {
-        console.log('  left out: not enough levels in the bank yet');
-        continue;
+        // Not enough in the bank yet: use what there is, so the group shows
+        // the levels made so far instead of disappearing.
+        const left = new Map([...needed].map(([key, count]) => [key, Math.min(count, pools.get(key).length)]));
+        g = { ...g, slots: g.slots.filter(([size, kind, mirrors]) => { const key = `${kind}:${size}:${mirrors}`; const k = left.get(key); left.set(key, k - 1); return k > 0; }) };
+        for (const key of needed.keys()) needed.set(key, Math.min(needed.get(key), pools.get(key).length));
+        console.log(`  short: only ${g.slots.length} bank levels so far`);
+        if (!g.slots.length && !(g.tricky || []).length && !(g.pictures || []).length) continue;
       }
       // One difficulty scale for the whole group, over every candidate.
       const rate = scale([...pools.values()].flat());
