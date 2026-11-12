@@ -780,6 +780,64 @@ function fillGaps(n, arrows, path, rand, { maxLen = 5, glassTails = true, maxSta
   };
   let snaps = states();
   const shuffle = (list) => { for (let i = list.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [list[i], list[j]] = [list[j], list[i]]; } return list; };
+  // Re-lay the patch around each stubborn gap, until none can be helped.
+  const relay = () => { for (let pass = 0; pass < 12; pass++) {
+    let progress = false;
+      // Last: re-lay the patch around each stubborn gap. Filler eels touching
+      // it (ones that only ever leave, never slide) are removed and the patch
+      // is covered again by the onion fill along the solution's timeline.
+      const covNow = coveredMap();
+      const gapsNow = [];
+      for (let c = 0; c < N; c++) if (covNow[c] === -1) gapsNow.push(c);
+      const before = gapsNow.length;
+      const slides = new Set(path.filter((st) => st.to !== -1).map((st) => st.line));
+      for (const c of gapsNow) {
+        const cx = c % n, cy = Math.floor(c / n);
+        // Eels that never slide, touching the gap or up to two squares away.
+        // Try them one at a time first (some are part of a jam and can't go),
+        // then all those touching it, then all within two squares.
+        const covMap = coveredMap();
+        const around = (reach) => {
+          const set = new Set();
+          for (const [dx, dy] of DIRS4) {
+            for (let k = 1; k <= reach; k++) {
+              const nx = cx + dx * k, ny = cy + dy * k;
+              if (nx < 0 || ny < 0 || nx >= n || ny >= n) continue;
+              const i = covMap[ny * n + nx];
+              if (i >= 0 && !slides.has(i) && arrows[i].clear.length === 0) set.add(i);
+            }
+          }
+          return set;
+        };
+        const choices = [...[...around(2)].map((i) => new Set([i])), around(1), around(2)];
+        for (const near of choices) {
+        const reach = near.size;
+        if (progress) break;
+        if (!near.size) continue;
+        const keep = arrows.map((_, i) => !near.has(i));
+        const remap = new Map();
+        const kept = [];
+        arrows.forEach((a, i) => { if (keep[i]) { remap.set(i, kept.length); kept.push(a); } });
+        const keptPath = path.filter((st) => keep[st.line]).map((st) => ({ line: remap.get(st.line), to: st.to }));
+        for (let attempt = 0; attempt < 8; attempt++) {
+          const o = onionFill(n, kept, keptPath, rand, { maxLen: 3 + (attempt % 4) });
+          const covO = new Set();
+          o.arrows.forEach((a) => a.cells.forEach(([x, y]) => covO.add(y * n + x)));
+          const leftO = N - covO.size;
+          const dbg = (why) => { if (process.env.GAP_DEBUG) console.error(`relay gap ${c % n},${Math.floor(c / n)} reach ${reach} near ${[...near]} attempt ${attempt}: ${why}`); };
+          if (leftO >= before || !covO.has(c)) { dbg(`left ${leftO} vs ${before}, covers ${covO.has(c)}`); continue; }
+          if (!valid(o.arrows, o.path)) { dbg('invalid'); continue; }
+          const h = hardness(o.arrows);
+          if (h < base) { dbg(`easier ${h} < ${base}`); continue; }
+          arrows = o.arrows; path = o.path; base = h; progress = true;
+          break;
+        }
+        }
+        if (progress) { snaps = states(); break; }
+      }
+    if (!progress) break;
+  } };
+  relay();
   for (let round = 0; round < 30; round++) {
     const cov = coveredMap();
     const empty = [];
@@ -1008,54 +1066,9 @@ function fillGaps(n, arrows, path, rand, { maxLen = 5, glassTails = true, maxSta
         }
       }
     }
-    if (!progress) {
-      // Last: re-lay the patch around each stubborn gap. Filler eels touching
-      // it (ones that only ever leave, never slide) are removed and the patch
-      // is covered again by the onion fill along the solution's timeline.
-      const covNow = coveredMap();
-      const gapsNow = [];
-      for (let c = 0; c < N; c++) if (covNow[c] === -1) gapsNow.push(c);
-      const before = gapsNow.length;
-      const slides = new Set(path.filter((st) => st.to !== -1).map((st) => st.line));
-      for (const c of gapsNow) {
-        const cx = c % n, cy = Math.floor(c / n);
-        // Fillers touching the gap first; then those up to two squares away too.
-        for (const reach of [1, 2]) {
-        if (progress) break;
-        const near = new Set();
-        const covMap = coveredMap();
-        for (const [dx, dy] of DIRS4) {
-          for (let k = 1; k <= reach; k++) {
-            const nx = cx + dx * k, ny = cy + dy * k;
-            if (nx < 0 || ny < 0 || nx >= n || ny >= n) continue;
-            const i = covMap[ny * n + nx];
-            if (i >= 0 && !slides.has(i) && arrows[i].clear.length === 0) near.add(i);
-          }
-        }
-        if (!near.size) continue;
-        const keep = arrows.map((_, i) => !near.has(i));
-        const remap = new Map();
-        const kept = [];
-        arrows.forEach((a, i) => { if (keep[i]) { remap.set(i, kept.length); kept.push(a); } });
-        const keptPath = path.filter((st) => keep[st.line]).map((st) => ({ line: remap.get(st.line), to: st.to }));
-        for (let attempt = 0; attempt < 4; attempt++) {
-          const o = onionFill(n, kept, keptPath, rand, { maxLen: 6 });
-          const covO = new Set();
-          o.arrows.forEach((a) => a.cells.forEach(([x, y]) => covO.add(y * n + x)));
-          const leftO = N - covO.size;
-          if (leftO >= before - (before - gapsNow.length) || !covO.has(c)) continue;
-          if (!valid(o.arrows, o.path)) continue;
-          const h = hardness(o.arrows);
-          if (h < base) continue;
-          arrows = o.arrows; path = o.path; base = h; progress = true;
-          break;
-        }
-        }
-        if (progress) { snaps = states(); break; }
-      }
-      if (!progress) break;
-    }
+    if (!progress) break;
   }
+  relay();
   const cov = coveredMap();
   let left = 0;
   for (let c = 0; c < N; c++) if (cov[c] === -1) left++;

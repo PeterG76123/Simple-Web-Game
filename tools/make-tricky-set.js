@@ -20,7 +20,7 @@ for (let i = 0; i < args.length; i += 2) opt[args[i].replace(/^--/, '')] = args[
 const prefix = opt.prefix;
 const count = Number(opt.count || 25);
 const from = Number(opt.from || 31), to = Number(opt.to || 40);
-const tries = Number(opt.tries || 10);
+const tries = Number(opt.tries || 6);
 const kind = opt.kind || 'solid';
 const dir = path.join(__dirname, '..', 'levels-tricky');
 fs.mkdirSync(dir, { recursive: true });
@@ -37,7 +37,7 @@ for (let i = 0; i < count; i++) {
   if (kind === 'solid') flags.push('--pShuffle', '0.000001', '--window', '0.000001');
   else flags.push('--keys', 4 + Math.floor((i * 3) / count), '--window', 0.45);
   // No gaps allowed: new seeds until a level comes out with every square covered.
-  for (let round = 0; round < 4; round++) {
+  for (let round = 0; round < 3; round++) {
     const t0 = Date.now();
     const seeded = flags.map(String);
     seeded[seeded.indexOf('--seed') + 1] = String(1000 + i * 17 + (kind === 'clear' ? 7 : 0) + round * 100003);
@@ -45,13 +45,25 @@ for (let i = 0; i < count; i++) {
       const res = execFileSync('node', [path.join(__dirname, 'trick-gen.js'), ...seeded], { encoding: 'utf8', timeout: 45 * 60 * 1000 });
       const line = res.trim().split('\n').pop();
       console.log(`${name} (${size}x${size}) round ${round + 1}: ${line} [${((Date.now() - t0) / 1000).toFixed(0)}s]`);
-      const stats = JSON.parse(line);
+      let stats = JSON.parse(line);
+      // Another pass of the gap filler before deciding to try again.
+      if (stats.gaps > 0) {
+        execFileSync('node', [path.join(__dirname, 'refill-gaps.js'), out], { encoding: 'utf8', timeout: 30 * 60 * 1000 });
+        stats = JSON.parse(fs.readFileSync(out, 'utf8')).stats;
+        console.log(`  after the gap filler: ${stats.gaps} gaps`);
+      }
       if (stats.gaps === 0) break;
-      if (round < 3) fs.renameSync(out, `${out}.gaps`);
+      // Keep the best so far (fewest gaps) aside, and try a new seed.
+      if (round < 2) {
+        const prev = fs.existsSync(`${out}.gaps`) ? JSON.parse(fs.readFileSync(`${out}.gaps`, 'utf8')).stats.gaps : Infinity;
+        if (stats.gaps < prev) fs.renameSync(out, `${out}.gaps`); else fs.unlinkSync(out);
+      }
     } catch (e) {
       console.log(`${name}: failed (${(e.message || '').split('\n')[0]})`);
     }
   }
-  if (!fs.existsSync(out) && fs.existsSync(`${out}.gaps`)) fs.renameSync(`${out}.gaps`, out);
+  // Keep whichever came out with fewer gaps.
+  const gapsIn = (f) => (fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, 'utf8')).stats.gaps : Infinity);
+  if (gapsIn(`${out}.gaps`) < gapsIn(out)) fs.renameSync(`${out}.gaps`, out);
   if (fs.existsSync(`${out}.gaps`)) fs.unlinkSync(`${out}.gaps`);
 }
