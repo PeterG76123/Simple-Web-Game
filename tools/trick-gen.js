@@ -799,7 +799,7 @@ function fillGaps(n, arrows, path, rand, { maxLen = 5, glassTails = true, maxSta
         if (i < 0) continue;
         const a = arrows[i];
         const tail = a.cells[a.cells.length - 1];
-        if (tail[0] !== nx || tail[1] !== ny || a.cells.length >= 14) continue;
+        if (tail[0] !== nx || tail[1] !== ny || a.cells.length >= 40) continue;
         const trial = arrows.slice();
         trial[i] = { ...a, cells: a.cells.concat([[x, y]]) };
         if (valid(trial, path)) { arrows = trial; done = true; break; }
@@ -829,14 +829,17 @@ function fillGaps(n, arrows, path, rand, { maxLen = 5, glassTails = true, maxSta
         const ray = [];
         for (let rx = cells[0][0] + DIRS4[dir][0], ry = cells[0][1] + DIRS4[dir][1]; rx >= 0 && ry >= 0 && rx < n && ry < n; rx += DIRS4[dir][0], ry += DIRS4[dir][1]) ray.push(ry * n + rx);
         if (ray.some((rc) => own.has(rc))) continue;
-        // The first point where its way out is clear, with its body untouched until then.
-        for (let t = 0; t < snaps.length && !done; t++) {
-          if (cells.some(([bx, by]) => snaps[t][by * n + bx] !== -1)) break;
+        // It leaves as late as it can (staying longer only adds obstacles):
+        // the latest point its way out is clear, its body untouched until then.
+        let tLim = 0;
+        while (tLim < snaps.length && !cells.some(([bx, by]) => snaps[tLim][by * n + bx] !== -1)) tLim++;
+        let tries = 0;
+        for (let t = tLim - 1; t >= 0 && !done && tries < 6; t--) {
           if (ray.some((rc) => snaps[t][rc] !== -1)) continue;
+          tries++;
           const trial = arrows.concat([{ cells, dir, clear: [] }]);
           const p2 = path.slice(0, t).concat([{ line: arrows.length, to: -1 }], path.slice(t));
           if (valid(trial, p2)) { arrows = trial; path = p2; done = true; }
-          else break;
         }
       }
       if (done) { progress = true; snaps = states(); continue; }
@@ -863,16 +866,18 @@ function fillGaps(n, arrows, path, rand, { maxLen = 5, glassTails = true, maxSta
           const dir = DIRS4.findIndex(([ddx, ddy]) => ddx === cells[0][0] - cells[1][0] && ddy === cells[0][1] - cells[1][1]);
           const ray = [];
           for (let rx = cells[0][0] + DIRS4[dir][0], ry = cells[0][1] + DIRS4[dir][1]; rx >= 0 && ry >= 0 && rx < n && ry < n; rx += DIRS4[dir][0], ry += DIRS4[dir][1]) ray.push(ry * n + rx);
-          for (let tt = 0; tt < snaps.length && !done; tt++) {
-            if (cells.some(([bx, by]) => snaps[tt][by * n + bx] !== -1)) break;
+          let tLim = 0;
+          while (tLim < snaps.length && !cells.some(([bx, by]) => snaps[tLim][by * n + bx] !== -1)) tLim++;
+          let tries = 0;
+          for (let tt = tLim - 1; tt >= 0 && !done && tries < 6; tt--) {
             if (ray.some((rc) => snaps[tt][rc] !== -1)) continue;
+            tries++;
             const trial = arrows.concat([{ cells: cells.map((q) => q.slice()), dir, clear: [] }]);
             const p2 = path.slice(0, tt).concat([{ line: arrows.length, to: -1 }], path.slice(tt));
             if (valid(trial, p2)) {
               const h = hardness(trial);
               if (h >= base) { arrows = trial; path = p2; done = true; base = h; }
-              break;
-            } else break;
+            }
           }
         }
         if (!done) { arrows = saved; snaps = states(); }
@@ -889,7 +894,7 @@ function fillGaps(n, arrows, path, rand, { maxLen = 5, glassTails = true, maxSta
           if (i < 0) continue;
           const a = arrows[i];
           const tail = a.cells[a.cells.length - 1];
-          if (tail[0] !== nx || tail[1] !== ny || a.cells.length >= 14) continue;
+          if (tail[0] !== nx || tail[1] !== ny || a.cells.length >= 40) continue;
           const trial = arrows.slice();
           trial[i] = { ...a, cells: a.cells.concat([[x, y]]), clear: a.clear.concat([a.cells.length]) };
           if (valid(trial, path)) { arrows = trial; done = true; break; }
@@ -944,11 +949,14 @@ function fillGaps(n, arrows, path, rand, { maxLen = 5, glassTails = true, maxSta
           return false;
         };
         if (!dfs()) continue;
-        const trial = arrows.slice();
-        trial[i] = { ...a, cells: a.cells.slice(0, j + 1).concat(route) };
-        if (valid(trial, path)) {
-          const h = hardness(trial);
-          if (h >= base) { arrows = trial; base = h; done = true; }
+        for (const glass of [false, true]) {
+          if (done) break;
+          const trial = arrows.slice();
+          trial[i] = { ...a, cells: a.cells.slice(0, j + 1).concat(route), clear: glass ? a.clear.concat([j + 1]) : a.clear };
+          if (valid(trial, path)) {
+            const h = hardness(trial);
+            if (h >= base) { arrows = trial; base = h; done = true; }
+          }
         }
       }
       if (done) { progress = true; snaps = states(); continue; }
@@ -969,12 +977,13 @@ function fillGaps(n, arrows, path, rand, { maxLen = 5, glassTails = true, maxSta
         const trial = arrows.slice();
         trial[i] = { cells: [[x, y]].concat(a.cells), dir, clear: a.clear.map((k) => k + 1) };
         const without = path.filter((st) => st.line !== i);
-        for (let tt = 0; tt <= without.length && !done; tt++) {
+        let tries = 0;
+        for (let tt = without.length; tt >= 0 && !done && tries < 6; tt--) {
           const p2 = without.slice(0, tt).concat([{ line: i, to: -1 }], without.slice(tt));
           if (!valid(trial, p2)) continue;
+          tries++;
           const hh = hardness(trial);
           if (hh >= base) { arrows = trial; path = p2; base = hh; done = true; }
-          break;
         }
       }
       if (done) { progress = true; snaps = states(); continue; }
@@ -999,7 +1008,53 @@ function fillGaps(n, arrows, path, rand, { maxLen = 5, glassTails = true, maxSta
         }
       }
     }
-    if (!progress) break;
+    if (!progress) {
+      // Last: re-lay the patch around each stubborn gap. Filler eels touching
+      // it (ones that only ever leave, never slide) are removed and the patch
+      // is covered again by the onion fill along the solution's timeline.
+      const covNow = coveredMap();
+      const gapsNow = [];
+      for (let c = 0; c < N; c++) if (covNow[c] === -1) gapsNow.push(c);
+      const before = gapsNow.length;
+      const slides = new Set(path.filter((st) => st.to !== -1).map((st) => st.line));
+      for (const c of gapsNow) {
+        const cx = c % n, cy = Math.floor(c / n);
+        // Fillers touching the gap first; then those up to two squares away too.
+        for (const reach of [1, 2]) {
+        if (progress) break;
+        const near = new Set();
+        const covMap = coveredMap();
+        for (const [dx, dy] of DIRS4) {
+          for (let k = 1; k <= reach; k++) {
+            const nx = cx + dx * k, ny = cy + dy * k;
+            if (nx < 0 || ny < 0 || nx >= n || ny >= n) continue;
+            const i = covMap[ny * n + nx];
+            if (i >= 0 && !slides.has(i) && arrows[i].clear.length === 0) near.add(i);
+          }
+        }
+        if (!near.size) continue;
+        const keep = arrows.map((_, i) => !near.has(i));
+        const remap = new Map();
+        const kept = [];
+        arrows.forEach((a, i) => { if (keep[i]) { remap.set(i, kept.length); kept.push(a); } });
+        const keptPath = path.filter((st) => keep[st.line]).map((st) => ({ line: remap.get(st.line), to: st.to }));
+        for (let attempt = 0; attempt < 4; attempt++) {
+          const o = onionFill(n, kept, keptPath, rand, { maxLen: 6 });
+          const covO = new Set();
+          o.arrows.forEach((a) => a.cells.forEach(([x, y]) => covO.add(y * n + x)));
+          const leftO = N - covO.size;
+          if (leftO >= before - (before - gapsNow.length) || !covO.has(c)) continue;
+          if (!valid(o.arrows, o.path)) continue;
+          const h = hardness(o.arrows);
+          if (h < base) continue;
+          arrows = o.arrows; path = o.path; base = h; progress = true;
+          break;
+        }
+        }
+        if (progress) { snaps = states(); break; }
+      }
+      if (!progress) break;
+    }
   }
   const cov = coveredMap();
   let left = 0;
@@ -1076,4 +1131,4 @@ function main() {
 }
 
 if (require.main === module) main();
-module.exports = { build };
+module.exports = { build, fillGaps, onionFill };
