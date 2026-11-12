@@ -26,7 +26,9 @@ const ROUNDS = Number(opt.rounds || 12); // new seeds until a level has no gaps
 const dir = path.join(__dirname, '..', 'levels-tricky');
 fs.mkdirSync(dir, { recursive: true });
 
-for (let i = 0; i < count; i++) {
+// --stride 2 --offset 0/1 lets two runs share a group (alternate levels).
+const stride = Number(opt.stride || 1), offset = Number(opt.offset || 0);
+for (let i = offset; i < count; i += stride) {
   const name = `${prefix}-${String(i + 1).padStart(2, '0')}`;
   const out = path.join(dir, `${name}.json`);
   // A finished level with gaps isn't finished: set it aside as the best so far
