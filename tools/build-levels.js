@@ -124,6 +124,11 @@ async function main() {
         const pic = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'levels-pictures', `${name}.json`), 'utf8'));
         picked.push({ e: { level: pic.level, solution: pic.solution }, r: 10, kind: 'picture' });
       }
+      // Tricky levels (levels-tricky/<name>.json, from tools/trick-gen.js) after those.
+      for (const name of g.tricky || []) {
+        const t = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'levels-tricky', `${name}.json`), 'utf8'));
+        picked.push({ e: { level: t.level, solution: t.solution }, r: 10, kind: 'tricky' });
+      }
       // Known solutions for mixed levels, so hints can follow them instantly.
       const solutions = picked.map((p) => (MIXED.has(p.kind) || p.e.solution ? solutionFor(p.e) : null));
       groups.push({ name: g.name, levels: picked.map((p) => p.e.level), ratings: picked.map((p) => p.r), solutions });
