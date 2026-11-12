@@ -4,6 +4,7 @@
  * so the eels together draw the picture, and the level can always be solved.
  *
  *   node tools/picture-level.js grid.json out.json [--tries 200] [--min 3] [--max 9] [--seed 1]
+ *                               [--long red,white,green --longmin 10 --longmax 30]
  *
  * How: eels are laid in the order they will leave the board. Each new eel's
  * head is placed where its way out (straight ahead to the edge) runs only
@@ -94,7 +95,10 @@ function attempt(grid, n, rand, minLen, maxLen) {
       const { x, y, d, c } = cand;
       const path = [[x, y], [x - d[0], y - d[1]]];
       const inPath = new Set([y * n + x, (y - d[1]) * n + (x - d[0])]);
-      const want = minLen + Math.floor(rand() * (maxLen - minLen + 1));
+      // Colours listed with --long get long, winding eels; the rest stay short.
+      const long = attempt.long && attempt.long.has(c);
+      const lo = long ? attempt.longMin : minLen, hi = long ? attempt.longMax : maxLen;
+      const want = lo + Math.floor(rand() * (hi - lo + 1));
       // Grow the body, always into the most hemmed-in free neighbour.
       while (path.length < want) {
         const [tx, ty] = path[path.length - 1];
@@ -234,6 +238,12 @@ function main() {
   const tries = Number(opt.tries || 200), minLen = Number(opt.min || 3), maxLen = Number(opt.max || 9);
   attempt.jitter = Number(opt.jitter || 0.9);
   const { size: n, palette, grid } = JSON.parse(fs.readFileSync(src, 'utf8'));
+  // --long red,white,green: those colours' eels are long and winding (--longmin to --longmax squares).
+  if (opt.long) {
+    attempt.long = new Set(opt.long.split(',').map((name) => palette.findIndex((p) => p.name === name)).filter((i) => i >= 0));
+    attempt.longMin = Number(opt.longmin || 10);
+    attempt.longMax = Number(opt.longmax || 30);
+  }
   let best = null;
   for (let t = 0; t < tries && !(best && best.lines.recoloured === 0); t++) {
     const lines = attempt(grid, n, rng(Number(opt.seed || 1) * 7919 + t), minLen, maxLen);

@@ -1021,6 +1021,18 @@ h1 {
 }
 
 /* The pearls earned, on the win screen. */
+.dialog-picture {
+  display: block;
+  margin: 4px auto 12px;
+  border-radius: 8px;
+  box-shadow: 0 0 0 2px rgba(159, 216, 255, 0.35), 0 6px 24px rgba(0, 0, 0, 0.45);
+  image-rendering: pixelated;
+  animation: picture-in 0.9s ease-out both;
+}
+@keyframes picture-in {
+  from { opacity: 0; transform: scale(0.6); filter: blur(6px); }
+  to { opacity: 1; transform: none; filter: none; }
+}
 .dialog-reward {
   margin: -6px 0 18px;
   padding: 10px 12px;

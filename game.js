@@ -1759,7 +1759,31 @@
 
   function showWinDialog() {
     showWinDialogInner();
+    showPicture();
     showPearlReward();
+  }
+
+  /** A picture level's finished picture: every eel's squares, where they started, in its colour. */
+  function showPicture() {
+    const cv = $('dialogPicture');
+    if (!cv) return;
+    cv.hidden = !state.picture;
+    if (!state.picture) return;
+    const level = levelAt(state.group, state.index);
+    const n = level.size;
+    const px = Math.max(3, Math.floor(220 / n));
+    const dpr = window.devicePixelRatio || 1;
+    cv.width = n * px * dpr;
+    cv.height = n * px * dpr;
+    cv.style.width = cv.style.height = `${n * px}px`;
+    const g = cv.getContext('2d');
+    g.scale(dpr, dpr);
+    g.fillStyle = '#14365c';
+    g.fillRect(0, 0, n * px, n * px);
+    for (const a of level.lines) {
+      g.fillStyle = a.color || '#9fd8ff';
+      for (const [x, y] of a.cells) g.fillRect(x * px, y * px, px, px);
+    }
   }
 
   function showWinDialogInner() {
