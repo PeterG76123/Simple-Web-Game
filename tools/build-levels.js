@@ -126,7 +126,9 @@ async function main() {
       }
       // Tricky levels (levels-tricky/<name>.json, from tools/trick-gen.js) after those.
       for (const name of g.tricky || []) {
-        const t = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'levels-tricky', `${name}.json`), 'utf8'));
+        const file = path.join(__dirname, '..', 'levels-tricky', `${name}.json`);
+        if (!fs.existsSync(file)) { console.log(`  (${name} not made yet: skipped)`); continue; }
+        const t = JSON.parse(fs.readFileSync(file, 'utf8'));
         picked.push({ e: { level: t.level, solution: t.solution }, r: 10, kind: 'tricky' });
       }
       // Known solutions for mixed levels, so hints can follow them instantly.

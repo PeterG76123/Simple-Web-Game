@@ -191,15 +191,41 @@ module.exports = {
       ],
     },
     {
-      // Insane: boards up to 40x40. A first test group of 5 levels so far.
+      // Insane: boards from 31x31 up to 40x40. The first two groups come from
+      // tools/trick-gen.js (built-in jams that need exact slides in a set
+      // order; made by tools/make-tricky-set.js into levels-tricky/); the rest
+      // from the usual generators, on the biggest boards.
       name: 'Insane',
       minSize: 31,
       maxSize: 40,
       pool: 2,
       groups: [
-        // (pictures: hand-made picture levels, added after the group's own levels;
-        // tricky: levels from tools/trick-gen.js, in levels-tricky/, after those.)
-        { name: 'Solid lines', slots: [32, 34, 36, 38, 40].map((n) => s(n)), pictures: ['xmas-tree'], tricky: ['trick-24', 'trick-40'] },
+        // (tricky: levels in levels-tricky/<name>.json; pictures: in levels-pictures/.)
+        { name: 'Solid lines', slots: [], tricky: range(1, 25).map((i) => `insane-solid-${String(i).padStart(2, '0')}`) },
+        { name: 'See-through lines', slots: [], tricky: range(1, 25).map((i) => `insane-clear-${String(i).padStart(2, '0')}`) },
+        {
+          name: 'Reflectors',
+          slots: [...range(31, 40).flatMap((n) => {
+            const m = 8 + Math.floor((n - 31) / 2);
+            return [s(n, m), c(n, Math.min(m, 8))];
+          }), s(38, 12), c(39, 8), s(39, 12), c(40, 8), s(40, 12)],
+        },
+        {
+          name: 'Turning reflectors',
+          slots: range(31, 40).flatMap((n) => {
+            const m = 8 + Math.floor((n - 31) / 4);
+            return [rc(n, m), rc(n, m)];
+          }).concat([rc(38, 10), rc(39, 10), rc(39, 10), rc(40, 10), rc(40, 10)]),
+        },
+        {
+          name: 'Gates and plates',
+          slots: range(31, 40).flatMap((n) => [gc(n, 4), all(n, 7 + Math.floor((n - 31) / 3))])
+            .concat([all(38, 9), all(39, 9), all(39, 9), all(40, 10), all(40, 10)]),
+        },
+        {
+          name: 'Twin eels',
+          slots: [...twice(range(31, 40)).map((n) => tw(n, 4 + Math.floor((n - 31) / 4))), tw(38, 6), tw(39, 6), tw(39, 6), tw(40, 6), tw(40, 6)],
+        },
       ],
     },
   ],
