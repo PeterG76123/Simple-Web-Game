@@ -24,6 +24,13 @@ const tries = Number(opt.tries || 6);
 const kind = opt.kind || 'solid';
 const ROUNDS = Number(opt.rounds || 12); // new seeds until a level has no gaps
 const dir = path.join(__dirname, '..', 'levels-tricky');
+/** Runs tools/patch-gaps.js on a level file (up to 20 minutes); returns its stats after. */
+function repair(file) {
+  try {
+    execFileSync('node', [path.join(__dirname, 'patch-gaps.js'), file, '--tries', '4000'], { encoding: 'utf8', timeout: 20 * 60 * 1000 });
+  } catch (e) { /* not fixed (or out of time): the file keeps whatever progress was saved */ }
+  return JSON.parse(fs.readFileSync(file, 'utf8')).stats;
+}
 fs.mkdirSync(dir, { recursive: true });
 
 // --stride 2 --offset 0/1 lets two runs share a group (alternate levels).
@@ -38,6 +45,15 @@ for (let i = offset; i < count; i += stride) {
     firstRound = 3; // its first three seeds were already tried
     if (JSON.parse(fs.readFileSync(out, 'utf8')).stats.gaps === 0) continue;
     fs.renameSync(out, `${out}.gaps`);
+  }
+  // A set-aside level with gaps from an earlier run: try repairing it first.
+  if (fs.existsSync(`${out}.gaps`)) {
+    fs.copyFileSync(`${out}.gaps`, out);
+    const st = repair(out);
+    console.log(`${name}: patched the set-aside level: ${st.gaps} gaps`);
+    if (st.gaps === 0) { fs.unlinkSync(`${out}.gaps`); continue; }
+    fs.renameSync(out, `${out}.gaps`);
+    firstRound = Math.max(firstRound, 3);
   }
   const size = from + Math.floor((i * (to - from + 1)) / count);
   // Deeper jams further into the group.
@@ -61,6 +77,11 @@ for (let i = offset; i < count; i += stride) {
         execFileSync('node', [path.join(__dirname, 'refill-gaps.js'), out], { encoding: 'utf8', timeout: 30 * 60 * 1000 });
         stats = JSON.parse(fs.readFileSync(out, 'utf8')).stats;
         console.log(`  after the gap filler: ${stats.gaps} gaps`);
+      }
+      // Then repair the last gaps by re-covering the patch around each one.
+      if (stats.gaps > 0) {
+        stats = repair(out);
+        console.log(`  after patching: ${stats.gaps} gaps`);
       }
       if (stats.gaps === 0) break;
       // Keep the best so far (fewest gaps) aside, and try a new seed.
