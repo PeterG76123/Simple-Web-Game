@@ -55,6 +55,8 @@
 * { box-sizing: border-box; }
 
 html, body {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
   margin: 0;
   height: 100%;
   overflow: hidden;
