@@ -1,5 +1,6 @@
 /*
- * What can live in the aquarium: three tanks (goldfish, tropical, marine),
+ * What can live in the aquarium: three types of tank (goldfish, tropical, marine;
+ * a player can own any number of each),
  * each with its own 10 fish, 5 plants and 5 decorations.
  *
  *   ArrowAquariumItems.TANKS     [{ id, name, price, blurb }]

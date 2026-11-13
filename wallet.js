@@ -28,8 +28,9 @@
   const BLANK = {
     day: '', freeUsed: 0, rewardedToday: 0, dailyBonusTaken: false,
     owned: 0, coins: 0, pearls: 0, dailyPearlsTaken: false, feedPearlsTaken: false,
-    // The aquarium tanks the player owns: { goldfish: { items, next }, ... }, and the one on show.
-    tanks: null, shownTank: '',
+    // The aquarium tanks the player owns, in the order bought: { id: { type, items, next } }
+    // (type: goldfish, tropical or marine; any number of each), and the one on show.
+    tanks: null, shownTank: '', tankSeq: 0,
     tank: null, // (the single tank of earlier versions; becomes the goldfish tank)
     adsRemoved: false, starterBought: false, starterOffered: false,
     levelsFinished: 0, levelsSinceAd: 0, lastAdAt: 0,
@@ -45,6 +46,10 @@
   if (!w.purchases) w.purchases = [];
   // Earlier versions had one tank: it becomes the goldfish tank.
   if (w.tank && !w.tanks.goldfish) { w.tanks.goldfish = w.tank; w.tank = null; }
+  // Earlier versions had at most one tank of each type, kept under its type's name:
+  // those keep their ids, and get their type written down.
+  for (const [id, t] of Object.entries(w.tanks)) if (!t.type) t.type = id;
+  if (!w.tankSeq) w.tankSeq = 0;
 
   const listeners = [];
   const save = () => {
@@ -210,16 +215,22 @@
     },
     // ---------- Aquarium tanks ----------
     ownsTank: (id) => !!w.tanks[id],
+    /** The ids of the tanks the player owns, in the order they were bought. */
     ownedTanks: () => Object.keys(w.tanks),
-    /** Buys a tank (with a free starter fish); false if not enough pearls or already owned. */
-    buyTank(id, price, starter) {
-      if (w.tanks[id] || w.pearls < price) return false;
+    /** A tank's type (goldfish, tropical, marine), or '' if not owned. */
+    tankType: (id) => (w.tanks[id] ? w.tanks[id].type : ''),
+    /** Buys a new tank of a type (with a free starter fish): its id, or null if not enough pearls.
+     * A player can own any number of tanks, of any types. */
+    buyTank(type, price, starter) {
+      if (w.pearls < price) return null;
       w.pearls -= price;
-      w.tanks[id] = { items: starter ? [{ uid: 1, type: starter, x: 0.5, color: 0 }] : [], next: 2 };
+      let id;
+      do { id = `t${++w.tankSeq}`; } while (w.tanks[id]);
+      w.tanks[id] = { type, items: starter ? [{ uid: 1, type: starter, x: 0.5, color: 0 }] : [], next: 2 };
       w.shownTank = id;
-      w.purchases.push({ product: `tank:${id}`, at: Date.now(), pearls: price });
+      w.purchases.push({ product: `tank:${type}`, at: Date.now(), pearls: price });
       save();
-      return true;
+      return id;
     },
     shownTank: () => w.shownTank,
     showTank(id) { if (w.shownTank !== id) { w.shownTank = id; save(); } },

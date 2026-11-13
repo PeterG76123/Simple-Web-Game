@@ -1231,7 +1231,7 @@ svg.aq-chest .bubbles circle:nth-child(14) { --dx: -3px; --up: -65px; animation-
 .diver-bubbles i:nth-child(5) { animation-delay: 2.5s; width: 5px; height: 5px; }
 @keyframes diver-bubble { 0% { opacity: 0.9; transform: translate(0, 0); } 50% { transform: translate(8px, -150px); } 100% { opacity: 0; transform: translate(-4px, -320px); } }
 
-.tank-dots { position: absolute; top: 10px; left: 0; right: 0; display: flex; justify-content: center; gap: 7px; z-index: 500; pointer-events: none; }
+.tank-dots { position: absolute; top: 10px; left: 0; right: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 7px; padding: 0 24px; z-index: 500; pointer-events: none; }
 .tank-dots i { width: 8px; height: 8px; border-radius: 50%; background: rgba(255, 255, 255, 0.35); }
 .tank-dots i.on { background: #fff; box-shadow: 0 0 6px rgba(255, 255, 255, 0.8); }
 .tank-dots i.locked { background: transparent; border: 1.5px solid rgba(255, 255, 255, 0.55); }
@@ -1243,6 +1243,25 @@ svg.aq-chest .bubbles circle:nth-child(14) { --dx: -3px; --up: -65px; animation-
 .aq-locked-card h3 { margin: 0 0 6px; font-family: var(--font-display); font-weight: 600; font-size: 1.4rem; color: var(--accent); }
 .aq-locked-card p { margin: 0 0 10px; color: var(--text); }
 .aq-locked-card .btn { width: 100%; margin-top: 6px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.tank-dots i.add { position: relative; background: transparent; border: 1.5px solid rgba(255, 255, 255, 0.55); }
+.tank-dots i.add::before, .tank-dots i.add::after { content: ""; position: absolute; left: 50%; top: 50%; width: 5px; height: 1.5px; margin: -0.75px 0 0 -2.5px; background: rgba(255, 255, 255, 0.85); }
+.tank-dots i.add::after { transform: rotate(90deg); }
+.tank-dots i.add.on { border-color: #fff; box-shadow: 0 0 6px rgba(255, 255, 255, 0.8); }
+/* The page for buying another tank: one button per type. */
+.aq-locked { overflow-y: auto; }
+.aq-new-card { max-width: 340px; width: 100%; padding: 14px 14px 12px; }
+.aq-new-card > p { font-size: 0.9rem; }
+.aq-types { display: flex; flex-direction: column; gap: 8px; margin: 2px 0 8px; }
+.aq-type { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; width: 100%; padding: 9px 12px; border-radius: 14px; border: 1.5px solid rgba(160, 230, 255, 0.4); color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.aq-type strong { font-family: var(--font-display); font-weight: 600; font-size: 1.05rem; color: #fff; }
+.aq-type-blurb { font-size: 0.8rem; opacity: 0.85; line-height: 1.25; }
+.aq-type-foot { display: flex; align-items: center; justify-content: space-between; width: 100%; margin-top: 4px; }
+.aq-type-have { font-size: 0.75rem; opacity: 0.8; }
+.aq-type-goldfish { background: linear-gradient(135deg, rgba(11, 79, 125, 0.95), rgba(4, 34, 63, 0.95)); }
+.aq-type-tropical { background: linear-gradient(135deg, rgba(15, 106, 102, 0.95), rgba(5, 42, 49, 0.95)); }
+.aq-type-marine { background: linear-gradient(135deg, rgba(26, 138, 216, 0.95), rgba(6, 48, 94, 0.95)); }
+.aq-type:hover, .aq-type:focus-visible { border-color: var(--accent); outline: none; }
+.aq-type[aria-disabled="true"] { opacity: 0.5; cursor: default; }
 .aq-bar .action-btn:disabled { opacity: 0.35; cursor: default; }
 .tank.slide-l { animation: tank-in-l 0.35s ease-out; }
 .tank.slide-r { animation: tank-in-r 0.35s ease-out; }

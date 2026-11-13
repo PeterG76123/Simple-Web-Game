@@ -4,8 +4,10 @@
  *
  *   ArrowAquarium.open()    shows the aquarium screen
  *
- * There are three tanks (goldfish, tropical, marine: see aquarium-items.js),
- * bought with pearls; swipe (or use the arrows) to move between them. Fish
+ * Tanks come in three types (goldfish, tropical, marine: see aquarium-items.js)
+ * and the player can buy as many as they like, of any types, with pearls. Swipe
+ * (or use the arrows) to move between them; after the last one comes a page for
+ * buying another, where the player picks its type. Fish
  * swim about by themselves, each kind in its own way; plants sway; plants and
  * decorations sit on the sand and can be dragged along it. Tap a fish to
  * startle it, press and hold anything to sell it, tap the water (or Feed) to
@@ -118,10 +120,25 @@
   showPearls();
   W.onChange(showPearls);
 
-  // The tank on show: the last one looked at, else the first owned, else the goldfish tank.
-  let cur = TANKS.some((t) => t.id === W.shownTank()) ? W.shownTank() : (TANKS.find((t) => W.ownsTank(t.id)) || TANKS[0]).id;
-  const owned = () => W.ownsTank(cur);
-  const tankItems = () => (W.tank(cur) ? W.tank(cur).items : []);
+  // The pages to swipe through: the tanks owned (in the order bought), then the page for
+  // buying another (NEW). `cur` is the page on show: the tank last looked at, else the
+  // first one owned, else the buying page.
+  const NEW = 'new';
+  const pages = () => [...W.ownedTanks(), NEW];
+  const pickStart = () => (W.ownsTank(W.shownTank()) ? W.shownTank() : W.ownedTanks()[0] || NEW);
+  let cur = pickStart();
+  const owned = () => cur !== NEW && W.ownsTank(cur);
+  // The type of the tank on show (the buying page looks like an empty goldfish tank).
+  const typeOf = (id = cur) => (id !== NEW && tankById[W.tankType(id)] ? W.tankType(id) : 'goldfish');
+  const tankItems = () => (owned() ? W.tank(cur).items : []);
+  /** A tank's name: its type's, numbered when there's more than one of that type ("Marine tank 2"). */
+  function tankName(id = cur) {
+    if (id === NEW) return 'Buy a tank';
+    const type = W.tankType(id);
+    const same = W.ownedTanks().filter((x) => W.tankType(x) === type);
+    const name = tankById[type] ? tankById[type].name : 'Tank';
+    return same.length > 1 ? `${name} ${same.indexOf(id) + 1}` : name;
+  }
 
   let fish = [];
   // Food sinking in the tank ({ x, y, vy, el, life }), and the finger the fish follow ({ x, y } or null).
@@ -148,16 +165,20 @@
 
   /** The scenery, title, arrows and dots for the tank on show. */
   function renderScene() {
-    const t = tankById[cur];
-    TANKS.forEach((x) => tank.classList.toggle(`tank-${x.id}`, x.id === cur));
-    sceneBack.innerHTML = SCENES[cur].back;
-    sceneMid.innerHTML = SCENES[cur].mid;
-    sceneFront.innerHTML = SCENES[cur].front;
-    screen.querySelector('#aqName').textContent = t.name;
-    const i = TANKS.indexOf(t);
-    screen.querySelector('#aqPrev').disabled = i === 0;
-    screen.querySelector('#aqNext').disabled = i === TANKS.length - 1;
-    screen.querySelector('#tankDots').innerHTML = TANKS.map((x) => `<i class="${x.id === cur ? 'on' : ''}${W.ownsTank(x.id) ? '' : ' locked'}"></i>`).join('');
+    const type = typeOf();
+    TANKS.forEach((x) => tank.classList.toggle(`tank-${x.id}`, x.id === type));
+    tank.classList.toggle('tank-new', cur === NEW);
+    const scene = cur === NEW ? SCENES.goldfish : SCENES[type];
+    sceneBack.innerHTML = scene.back;
+    sceneMid.innerHTML = scene.mid;
+    sceneFront.innerHTML = scene.front;
+    screen.querySelector('#aqName').textContent = tankName();
+    const list = pages();
+    const i = list.indexOf(cur);
+    screen.querySelector('#aqPrev').disabled = i <= 0;
+    screen.querySelector('#aqNext').disabled = i === list.length - 1;
+    // A dot for each tank, and a "+" for the buying page.
+    screen.querySelector('#tankDots').innerHTML = list.map((x) => `<i class="${x === cur ? 'on' : ''}${x === NEW ? ' add' : ''}"></i>`).join('');
     screen.querySelectorAll('.aq-bar .action-btn').forEach((b) => { b.disabled = !owned(); });
     // Where the cave mouth is, if this tank has one.
     // The cave: its door (at the back of the ground) and how far it goes in behind the rock.
@@ -170,25 +191,38 @@
     }
   }
 
-  /** The "buy this tank" panel for a tank not owned yet. */
+  /** The buying page: pick which type of tank to buy (as many as you like, of any type). */
   function renderLocked() {
-    const t = tankById[cur];
-    lockedBox.hidden = owned();
-    if (owned()) return;
-    const price = tankPrice(t);
-    const afford = W.pearls() >= price;
-    lockedBox.innerHTML = `<div class="aq-locked-card"><h3>${t.name}</h3><p>${t.blurb}.</p><p class="shop-small">Comes with a free fish.</p>` +
-      `<button class="btn primary" data-act="buyTank"${afford ? '' : ' disabled'}><span class="pearl" aria-hidden="true"></span> Buy for ${price} pearls</button>` +
-      (afford ? '' : `<p class="shop-small">You have ${W.pearls().toLocaleString()} pearls. Finish levels to earn more.</p><button class="btn ghost" data-act="pearls">Get more pearls</button>`) +
-      '</div>';
-    lockedBox.querySelector('[data-act="buyTank"]').addEventListener('click', () => buyTank(t));
-    const more = lockedBox.querySelector('[data-act="pearls"]');
-    if (more) more.addEventListener('click', () => root.ArrowShop && root.ArrowShop.open());
+    lockedBox.hidden = cur !== NEW;
+    if (cur === NEW) {
+      const n = W.ownedTanks().length;
+      lockedBox.innerHTML = `<div class="aq-locked-card aq-new-card"><h3>${n ? 'Buy another tank' : 'Buy your first tank'}</h3>` +
+        '<p>Choose a type. You can have as many tanks as you like, of any type. Each comes with a free fish.</p>' +
+        '<div class="aq-types">' + TANKS.map((t) => {
+          const price = tankPrice(t);
+          const have = W.ownedTanks().filter((x) => W.tankType(x) === t.id).length;
+          return `<button class="aq-type aq-type-${t.id}" data-type="${t.id}"${W.pearls() >= price ? '' : ' aria-disabled="true"'}>` +
+            `<strong>${t.name}</strong><span class="aq-type-blurb">${t.blurb}</span>` +
+            `<span class="aq-type-foot"><span class="shop-price pearl-price"><span class="pearl" aria-hidden="true"></span>${price.toLocaleString()}</span>` +
+            `${have ? `<span class="aq-type-have">You have ${have}</span>` : ''}</span></button>`;
+        }).join('') + '</div>' +
+        `<p class="shop-small">You have ${W.pearls().toLocaleString()} pearls.</p>` +
+        (TANKS.some((t) => W.pearls() < tankPrice(t)) ? '<button class="btn ghost" data-act="pearls">Get more pearls</button>' : '') +
+        '</div>';
+      lockedBox.querySelectorAll('[data-type]').forEach((b) => b.addEventListener('click', () => {
+        const t = tankById[b.dataset.type];
+        if (W.pearls() < tankPrice(t)) { toast(`You need ${tankPrice(t).toLocaleString()} pearls for a ${t.name.toLowerCase()}. Finish levels to earn more.`); return; }
+        buyTank(t);
+      }));
+      const more = lockedBox.querySelector('[data-act="pearls"]');
+      if (more) more.addEventListener('click', () => root.ArrowShop && root.ArrowShop.open());
+    }
   }
 
   function buyTank(t) {
     const price = tankPrice(t);
-    const s = openSheet(`Buy the ${t.name.toLowerCase()}?`, `<p>${t.blurb}, for <strong>${price} pearls</strong>. A fish comes with it.</p>` +
+    const have = W.ownedTanks().filter((x) => W.tankType(x) === t.id).length;
+    const s = openSheet(`Buy ${have ? 'another' : 'a'} ${t.name.toLowerCase()}?`, `<p>${t.blurb}, for <strong>${price.toLocaleString()} pearls</strong>. A fish comes with it.</p>` +
       '<div class="dialog-buttons"><button class="btn primary" data-act="yes">Buy it</button><button class="btn ghost" data-act="no">Not now</button></div>');
     s.querySelector('[data-act="no"]').addEventListener('click', closeSheet);
     s.querySelector('[data-act="yes"]').addEventListener('click', () => {
@@ -196,9 +230,14 @@
       const cheap = CATALOG.filter((c) => c.tank === t.id && c.kind === 'fish').sort((a, b) => priceOf(a) - priceOf(b)).slice(0, 3);
       const starter = cheap[Math.floor(Math.random() * cheap.length)];
       closeSheet();
-      if (!W.buyTank(t.id, price, starter && starter.id)) { toast('Not enough pearls yet'); return; }
+      const id = W.buyTank(t.id, price, starter && starter.id);
+      if (!id) { toast('Not enough pearls yet'); return; }
+      cur = id;
+      tank.classList.remove('slide-l', 'slide-r');
+      void tank.offsetWidth;
+      tank.classList.add('slide-r');
       render();
-      toast(`Welcome to your ${t.name.toLowerCase()}! A ${starter.name.toLowerCase()} came with it.`);
+      toast(`Welcome to your ${tankName(id).toLowerCase()}! A ${starter.name.toLowerCase()} came with it.`);
     });
   }
 
@@ -644,15 +683,16 @@
 
   /** Shows the next (+1) or previous (-1) tank. */
   function switchTank(step) {
-    const i = TANKS.findIndex((t) => t.id === cur) + step;
-    if (i < 0 || i >= TANKS.length) {
+    const list = pages();
+    const i = list.indexOf(cur) + step;
+    if (i < 0 || i >= list.length) {
       tank.classList.remove('bump-l', 'bump-r');
       void tank.offsetWidth;
       tank.classList.add(step < 0 ? 'bump-l' : 'bump-r');
       return;
     }
-    cur = TANKS[i].id;
-    W.showTank(cur);
+    cur = list[i];
+    if (cur !== NEW) W.showTank(cur);
     closeSheet();
     tank.classList.remove('slide-l', 'slide-r');
     void tank.offsetWidth;
@@ -906,7 +946,7 @@
     const pal = palette();
     const have = tankItems().filter((i) => byId[i.type] && byId[i.type].kind === kind).length;
     const full = have >= LIMITS[kind];
-    const rows = CATALOG.filter((c) => c.tank === cur && c.kind === kind).sort((a, b) => priceOf(a) - priceOf(b)).map((c, i) => {
+    const rows = CATALOG.filter((c) => c.tank === typeOf() && c.kind === kind).sort((a, b) => priceOf(a) - priceOf(b)).map((c, i) => {
       const price = priceOf(c);
       const afford = W.pearls() >= price;
       return `<button class="shop-item aq-buy" data-id="${c.id}"${afford && !full ? '' : ' aria-disabled="true"'}>` +
@@ -915,7 +955,7 @@
         `<span class="shop-price pearl-price"><span class="pearl" aria-hidden="true"></span>${price}</span></button>`;
     }).join('');
     const s = openSheet(KIND_NAMES[kind],
-      `<p class="shop-balance"><span class="pearl" aria-hidden="true"></span> <strong>${W.pearls().toLocaleString()}</strong> pearls<span class="shop-small">${full ? `Your tank is full of ${KIND_NAMES[kind].toLowerCase()}: sell one to make room` : `${have} of ${LIMITS[kind]} in your ${tankById[cur].name.toLowerCase()}`}</span></p>` +
+      `<p class="shop-balance"><span class="pearl" aria-hidden="true"></span> <strong>${W.pearls().toLocaleString()}</strong> pearls<span class="shop-small">${full ? `Your tank is full of ${KIND_NAMES[kind].toLowerCase()}: sell one to make room` : `${have} of ${LIMITS[kind]} in your ${tankName().toLowerCase()}`}</span></p>` +
       `<div class="shop-list aq-grid">${rows}</div>` +
       '<div class="dialog-buttons aq-row"><button class="btn ghost" data-act="pearls">More pearls</button><button class="btn primary" data-act="done">Done</button></div>', true);
     s.querySelector('[data-act="done"]').addEventListener('click', closeSheet);
@@ -933,6 +973,7 @@
 
   // ---------- Opening and closing ----------
   function open() {
+    if (!owned() && cur !== NEW) cur = pickStart();
     document.querySelectorAll('.screen').forEach((s) => s.classList.toggle('active', s === screen));
     render();
     last = performance.now();
@@ -959,7 +1000,7 @@
     for (let i = 0; i < 3; i++) dropFood(rand(tw * 0.15, tw * 0.85), tank.clientHeight * 0.06, 4, i > 0);
   });
   // The "buy a tank" panel shows the pearls you have, so it changes when they do.
-  W.onChange(() => { if (screen.classList.contains('active') && !owned()) renderLocked(); });
+  W.onChange(() => { if (screen.classList.contains('active') && cur === NEW) renderLocked(); });
   root.addEventListener('resize', () => { if (screen.classList.contains('active')) render(); });
   const menuBtn = document.getElementById('menuAquariumBtn');
   if (menuBtn) menuBtn.addEventListener('click', open);
