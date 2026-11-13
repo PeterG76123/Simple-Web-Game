@@ -19,6 +19,11 @@ given more than once (red=#d83a33,red=#92201c) maps both shades to one colour.
 With no --colors, the colours are picked from the picture (--auto 7: up to
 7 colours), and its background is whatever colour runs round its edge.
 
+The picture is trimmed to its subject and made square (--no-trim 1 keeps it
+as it is). With picked colours, ones that would vanish into the game's
+dark-blue sea are changed: blues become a bright colour the picture doesn't
+use, and black or very dark colours are lifted (--no-recolour 1 keeps them).
+
 Small separate marks outside the main picture (watermarks, signatures,
 captions) are removed; --keep-marks 1 keeps them.
 
@@ -54,15 +59,103 @@ def border_colour(im):
     return tuple((v << 3) + 4 for v in k)
 
 
+def load_picture(src, trim=True):
+    """The picture on white, trimmed to its subject (plus a small margin) and
+    padded to a square with its background colour, so the subject fills the
+    board and isn't stretched."""
+    im = Image.open(src).convert('RGBA')
+    flat = Image.new('RGBA', im.size, (255, 255, 255, 255))
+    flat.alpha_composite(im)
+    im = flat.convert('RGB')
+    if not trim:
+        return im
+    bg = border_colour(im)
+    W, H = im.size
+    px = im.load()
+    far = lambda p: sum((a - b) ** 2 for a, b in zip(p, bg)) >= 40 ** 2
+    xs, ys = [], []
+    step = max(1, min(W, H) // 400)
+    for y in range(0, H, step):
+        for x in range(0, W, step):
+            if far(px[x, y]):
+                xs.append(x); ys.append(y)
+    if not xs:
+        return im
+    x0, x1, y0, y1 = min(xs), max(xs) + step, min(ys), max(ys) + step
+    side = max(x1 - x0, y1 - y0)
+    side += max(2, side // 25) * 2  # margin
+    cx, cy = (x0 + x1) // 2, (y0 + y1) // 2
+    out = Image.new('RGB', (side, side), bg)
+    out.paste(im.crop((x0, y0, x1, y1)), ((side - (x1 - x0)) // 2, (side - (y1 - y0)) // 2))
+    return out
+
+
+SEA = (0x14, 0x36, 0x5c)  # the game's sea, behind every picture
+
+
+def lum(rgb):
+    def ch(v):
+        v /= 255
+        return v / 12.92 if v <= 0.03928 else ((v + 0.055) / 1.055) ** 2.4
+    r, g, b = rgb
+    return 0.2126 * ch(r) + 0.7152 * ch(g) + 0.0722 * ch(b)
+
+
+def contrast(a, b):
+    la, lb = lum(a), lum(b)
+    return (max(la, lb) + 0.05) / (min(la, lb) + 0.05)
+
+
+def recolour(pal):
+    """Colours that would disappear into the dark-blue sea are changed, cartoon
+    style: blues (all shades together) move to a bright colour the picture
+    doesn't use, keeping their light and dark; black and very dark colours are
+    lifted until they show against the sea. Returns the new palette and notes."""
+    import colorsys
+    hls = [colorsys.rgb_to_hls(*(v / 255 for v in hex_rgb(h))) for _, h, _ in pal]
+    is_blue = [i > 0 and 0.5 <= hh <= 0.75 and ss > 0.2 and contrast(hex_rgb(p[1]), SEA) < 4.5 for i, ((hh, ll, ss), p) in enumerate(zip(hls, pal))]
+    notes = []
+    out = list(pal)
+    if any(is_blue):
+        used = [hh for (hh, ll, ss), b in zip(hls, is_blue) if not b and ss > 0.2]
+        # orange, green, pink, yellow, purple: the one furthest from the picture's own colours
+        cands = [(0.07, 'orange'), (0.31, 'green'), (0.93, 'pink'), (0.14, 'yellow'), (0.80, 'purple')]
+        dist = lambda h: min([min(abs(h - u), 1 - abs(h - u)) for u in used] or [1])
+        hue, name = max(cands, key=lambda c: dist(c[0]))
+        for i, b in enumerate(is_blue):
+            if not b:
+                continue
+            hh, ll, ss = hls[i]
+            ll = min(0.75, max(0.5, ll + 0.05))
+            r, g, bb = colorsys.hls_to_rgb(hue, ll, max(0.8, ss))
+            new = '#%02x%02x%02x' % (round(r * 255), round(g * 255), round(bb * 255))
+            notes.append(f'{pal[i][0]} {pal[i][1]} -> {new} (blue into {name})')
+            out[i] = (pal[i][0], new, pal[i][2])
+    for i, (name, hx, w) in enumerate(out):
+        rgb = hex_rgb(hx)
+        if i == 0 or contrast(rgb, SEA) >= 1.9:
+            continue
+        hh, ll, ss = colorsys.rgb_to_hls(*(v / 255 for v in rgb))
+        if ss < 0.15:  # black and greys: a dark slate with a touch of violet reads as an outline
+            hh, ss = 0.72, 0.18
+        while ll < 0.95:
+            ll += 0.02
+            r, g, b = colorsys.hls_to_rgb(hh, ll, ss)
+            rgb = (round(r * 255), round(g * 255), round(b * 255))
+            if contrast(rgb, SEA) >= 1.9:
+                break
+        new = '#%02x%02x%02x' % rgb
+        notes.append(f'{name} {hx} -> {new} (too dark against the sea)')
+        out[i] = (name, new, w)
+    return out, notes
+
+
 def auto_palette(src, n):
     """Up to n colours for the picture's subject (its background left out):
     its most common clearly different colours, as drawn (clip-art is mostly
     flat colours, so these are the real ones, not blends of them). Small ones
     (outlines, eyes, details) get extra weight so they survive shrinking."""
-    im = Image.open(src).convert('RGBA')
-    flat = Image.new('RGBA', im.size, (255, 255, 255, 255))
-    flat.alpha_composite(im)
-    im = flat.convert('RGB')
+    im = load_picture(src, trim=True).copy()
     im.thumbnail((300, 300))
     bg = border_colour(im)
     data = im.get_flattened_data() if hasattr(im, 'get_flattened_data') else im.getdata()
@@ -74,7 +167,7 @@ def auto_palette(src, n):
         if cnt < len(fg) * 0.006 or len(chosen) >= n:
             break
         rgb = tuple((v << 3) + 4 for v in k)
-        if near(rgb, bg, 60) or any(near(rgb, c, 70) for c, _ in chosen):
+        if near(rgb, bg, 60) or any(near(rgb, c, 45) for c, _ in chosen):
             continue
         chosen.append((rgb, cnt))
     out = []
@@ -108,10 +201,7 @@ def main():
     for i, p in enumerate(pal):
         alias.append(first.setdefault(p[0], i))
 
-    im = Image.open(src).convert('RGBA')
-    flat = Image.new('RGBA', im.size, (255, 255, 255, 255))
-    flat.alpha_composite(im)
-    im = flat.convert('RGB')
+    im = load_picture(src, trim=opt.get('no-trim') is None)
     W, H = im.size
     px = im.load()
 
@@ -134,6 +224,44 @@ def main():
             if k not in cache:
                 cache[k] = alias[nearest(rgb)]
             cls[y][x] = cache[k]
+
+    # Black outlines: thin black lines (outlines, mouths, eyebrows) take the
+    # colour beside them, so the picture is drawn in its own colours. Solid
+    # black areas (pupils, a black cat) stay. --keep-outlines 1 keeps them all.
+    if auto and opt.get('keep-outlines') is None:
+        from PIL import ImageFilter
+        darkest = [i for i in range(1, len(pal)) if lum(hex_rgb(pal[i][1])) < 0.02]
+        if darkest:
+            dark = set(darkest)
+            mask = Image.new('L', (W, H), 0)
+            mpx = mask.load()
+            for y in range(H):
+                row = cls[y]
+                for x in range(W):
+                    if row[x] in dark:
+                        mpx[x, y] = 255
+            k = max(3, (min(W, H) // 40) | 1)
+            solid = mask.filter(ImageFilter.MinFilter(k)).filter(ImageFilter.MaxFilter(k)).load()
+            todo = {(x, y) for y in range(H) for x in range(W) if cls[y][x] in dark and solid[x, y] == 0}
+            n0 = len(todo)
+            # Fill in from the sides, a pixel at a time, from neighbours that aren't outline.
+            for _ in range(4 * k):
+                if not todo:
+                    break
+                done = []
+                for (x, y) in todo:
+                    c = Counter()
+                    for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                        nx, ny = x + dx, y + dy
+                        if 0 <= nx < W and 0 <= ny < H and (nx, ny) not in todo:
+                            c[cls[ny][nx]] += 1
+                    if c:
+                        done.append((x, y, c.most_common(1)[0][0]))
+                for x, y, v in done:
+                    cls[y][x] = v
+                    todo.discard((x, y))
+            if n0:
+                print(f'removed black outlines ({n0 - len(todo)} pixels)')
 
     # The picture's own background: pixels connected to its border that are
     # near-white (or, with picked colours, near the border's main colour).
@@ -239,6 +367,13 @@ def main():
                 inside = sum(box[0] <= cx <= box[2] and box[1] <= cy <= box[3] for cx, cy in cells)
                 if inside * 2 >= len(cells):
                     continue
+                # Part of the picture standing apart (a whale's spout, bubbles) is near it;
+                # marks to drop are off in the margins: along an edge, or well away.
+                edge = max(2, size // 12)
+                at_edge = any(cx < edge or cy < edge or cx >= size - edge or cy >= size - edge for cx, cy in cells)
+                gap = min(max(abs(cx - mx), abs(cy - my)) for cx, cy in cells for mx, my in main_part[::3])
+                if not at_edge and gap <= max(2, size // 10):
+                    continue
                 for cx, cy in cells:
                     grid[cy][cx] = 0
                 dropped += len(cells)
@@ -290,6 +425,13 @@ def main():
     grid = [[renum[c] for c in row] for row in grid]
     pal = [pal[i] for i in keep]
     used = sorted({c for row in grid for c in row})
+    # Colours that would vanish into the sea are changed (picked colours only;
+    # --no-recolour 1 keeps them). Squares were matched to the picture's real
+    # colours above; only the colours the eels are drawn in change.
+    if auto and opt.get('no-recolour') is None:
+        pal, notes = recolour(pal)
+        for n in notes:
+            print('recoloured', n)
     data = {'size': size, 'palette': [{'name': p[0], 'hex': p[1]} for p in pal], 'grid': grid}
     json.dump(data, open(out, 'w'))
     print(f'{size}x{size}, {len(used)} colours used:', ', '.join(f'{pal[i][0]} ({sum(r.count(i) for r in grid)})' for i in used))

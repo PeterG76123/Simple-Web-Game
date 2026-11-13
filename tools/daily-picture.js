@@ -1,18 +1,20 @@
 /*
- * Turns one picture into a day's four daily puzzles (Easy, Medium, Hard,
- * Insane), each drawn by its eels and showing the picture when solved.
+ * Turns one picture into a day's daily puzzles: Insane is the picture itself
+ * (a 40x40 level drawn by its eels, shown when solved); Easy, Medium and Hard
+ * are ordinary puzzles drawn in the picture's colours.
  *
  *   node tools/daily-picture.js picture.png --day 2026-12-01 --title "Christmas tree" [--out dir]
  *     -> <out>/<day>.sql      (upserts the four rows into eel_daily_puzzles)
  *     -> <out>/<day>.json     (the rows, plus stats)
- *     -> <out>/<day>-<size>.png (previews of each grid)
+ *     -> <out>/<day>-40.png    (preview of the picture's grid)
+ *   --reuse-insane 1: keep the Insane picture puzzle already in <day>.json.
  *
- * Each difficulty: tools/picture-grid.py shrinks the picture to the board
- * size (colours picked from the picture itself), tools/picture-level.js
- * covers it with eels, and (Medium and up) tools/picture-tricky.js adds
- * jams by giving eels see-through parts and turning some round. Every
- * puzzle is checked: it plays through with its solution, and every square
- * is covered.
+ * Insane: tools/picture-grid.py shrinks the picture to 40x40 (colours picked
+ * from the picture, trimmed, recoloured where needed), tools/picture-level.js
+ * covers it with eels, and tools/picture-tricky.js adds jams. Easy, Medium
+ * and Hard: spare bank levels (tools/daily-spare.js) in the picture's
+ * colours. Every puzzle is checked: it plays through with its solution, and
+ * every square is covered.
  */
 'use strict';
 const fs = require('fs');
@@ -53,52 +55,67 @@ if (!src || !/^\d{4}-\d{2}-\d{2}$/.test(day || '')) {
 }
 fs.mkdirSync(out, { recursive: true });
 
-// Board size and how many partial slides (jams) to aim for, per difficulty.
-const PLAN = [
-  { name: 'Easy', size: 20, target: 0 },
-  { name: 'Medium', size: 26, target: 3 },
-  { name: 'Hard', size: 32, target: 10 },
-  { name: 'Insane', size: 40, target: 25 },
-];
-
+// The picture is the day's Insane puzzle: 40x40, with jams from see-through
+// and turned-round eels. Easy, Medium and Hard are ordinary puzzles (spare
+// levels from the bank) drawn in the picture's colours.
 const tools = __dirname;
 const tmp = fs.mkdtempSync(path.join(require('os').tmpdir(), 'daily-picture-'));
 const run = (cmd, a, timeout = 20 * 60 * 1000) => execFileSync(cmd, a, { encoding: 'utf8', timeout, stdio: ['ignore', 'pipe', 'pipe'] });
+const { takeSpare, recolour, solutionOf } = require('./daily-spare.js');
 
-const rows = [];
-PLAN.forEach((p, d) => {
-  const grid = path.join(tmp, `grid-${p.size}.json`);
-  const preview = path.join(out, `${day}-${p.size}.png`);
-  run('python3', [path.join(tools, 'picture-grid.py'), src, grid, '--size', String(p.size), '--preview', preview]);
-  const lvl = path.join(tmp, `level-${p.size}.json`);
-  run('node', [path.join(tools, 'picture-level.js'), grid, lvl, '--tries', '400', '--max', '6']);
-  let file = lvl;
-  if (p.target) {
-    const trk = path.join(tmp, `tricky-${p.size}.json`);
-    run('node', [path.join(tools, 'picture-tricky.js'), lvl, trk, '--target', String(p.target), '--steps', String(1000 + p.target * 200)]);
-    file = trk;
-  }
-  const j = JSON.parse(fs.readFileSync(file, 'utf8'));
-  const L = decodeLevel(j.level);
+function check(name, text, sol) {
+  const L = decodeLevel(text);
   const n = L.size;
-  let sol = j.solution ? pathFromText(j.solution) : null;
-  if (!sol) {
-    const r = solve(n, L.lines, { maxStates: 200000 });
-    if (!r.solvable) throw new Error(`${p.name}: not solvable`);
-    sol = r.path;
-  }
-  if (!playPath(n, L.lines, {}, sol)) throw new Error(`${p.name}: its solution doesn't play through`);
+  const opts = { mirrors: L.mirrors, rotatable: L.rotatable, gates: L.gates, plates: L.plates, twins: L.twins };
+  if (!sol || !playPath(n, L.lines, opts, pathFromText(sol))) throw new Error(`${name}: its solution doesn't play through`);
   const covered = new Set();
   L.lines.forEach((l) => l.cells.forEach(([x, y]) => covered.add(y * n + x)));
-  if (covered.size !== n * n) throw new Error(`${p.name}: ${n * n - covered.size} gaps`);
-  const stats = { size: n, eels: L.lines.length, partialSlides: (j.stats && j.stats.partialSlides) || 0, par: L.par };
-  console.log(`${p.name}: ${n}x${n}, ${stats.eels} eels, ${stats.partialSlides} partial slides, checked`);
-  rows.push({ day, difficulty: d, level: j.level, solution: pathToText(sol), title, picture: true, stats });
+  (L.mirrors || []).forEach(([x, y]) => covered.add(y * n + x));
+  (L.gates || []).forEach(([x, y]) => covered.add(y * n + x));
+  if (covered.size !== n * n) throw new Error(`${name}: ${n * n - covered.size} gaps`);
+  return L;
+}
+
+// Insane: the picture (or, with --reuse-insane 1, the one made before for this day).
+let insane;
+const prev = path.join(out, `${day}.json`);
+if (opt['reuse-insane'] && fs.existsSync(prev)) {
+  insane = JSON.parse(fs.readFileSync(prev, 'utf8')).find((r) => r.difficulty === 3);
+}
+if (!insane) {
+  const size = 40;
+  const grid = path.join(tmp, 'grid.json');
+  run('python3', [path.join(tools, 'picture-grid.py'), src, grid, '--size', String(size), '--preview', path.join(out, `${day}-${size}.png`)]);
+  const lvl = path.join(tmp, 'level.json');
+  // A try can fail to find a solvable layout: new seeds, a few times.
+  for (let seed = 1; ; seed++) {
+    try { run('node', [path.join(tools, 'picture-level.js'), grid, lvl, '--tries', '400', '--max', '6', '--seed', String(seed * 7919)]); break; }
+    catch (e) { if (seed >= 5) throw e; }
+  }
+  const trk = path.join(tmp, 'tricky.json');
+  run('node', [path.join(tools, 'picture-tricky.js'), lvl, trk, '--target', '25', '--steps', '6000']);
+  const j = JSON.parse(fs.readFileSync(trk, 'utf8'));
+  insane = { day, difficulty: 3, level: j.level, solution: j.solution || solutionOf(j.level), title, picture: true };
+}
+const IL = check('Insane', insane.level, insane.solution);
+console.log(`Insane: ${IL.size}x${IL.size} picture, ${IL.lines.length} eels, checked`);
+
+// The picture's colours (not its sea) for the other three.
+const palette = IL.colors.palette.slice(1).map((c) => c.replace(/^#/, ''));
+const dayNum = Number(day.replace(/-/g, ''));
+const rows = [];
+takeSpare(dayNum).forEach((spare, d) => {
+  const level = recolour(spare, palette, dayNum + d);
+  const solution = solutionOf(level);
+  const L = check(['Easy', 'Medium', 'Hard'][d], level, solution);
+  console.log(`${['Easy', 'Medium', 'Hard'][d]}: ${L.size}x${L.size}, ${L.lines.length} eels, in the picture's colours, checked`);
+  rows.push({ day, difficulty: d, level, solution, title, picture: false });
 });
+rows.push({ ...insane, day, title, picture: true });
 fs.rmSync(tmp, { recursive: true, force: true });
 
 const q = (v) => `'${String(v).replace(/'/g, "''")}'`;
-const sql = rows.map((r) => `insert into public.eel_daily_puzzles (day, difficulty, level, solution, title, picture) values (${q(r.day)}, ${r.difficulty}, ${q(r.level)}, ${q(r.solution)}, ${q(r.title)}, true) on conflict (day, difficulty) do update set level = excluded.level, solution = excluded.solution, title = excluded.title, picture = excluded.picture;`).join('\n');
+const sql = rows.map((r) => `insert into public.eel_daily_puzzles (day, difficulty, level, solution, title, picture) values (${q(r.day)}, ${r.difficulty}, ${q(r.level)}, ${q(r.solution)}, ${q(r.title)}, ${r.picture}) on conflict (day, difficulty) do update set level = excluded.level, solution = excluded.solution, title = excluded.title, picture = excluded.picture;`).join('\n');
 fs.writeFileSync(path.join(out, `${day}.sql`), sql + '\n');
 fs.writeFileSync(path.join(out, `${day}.json`), JSON.stringify(rows, null, 1));
 console.log(`wrote ${path.join(out, `${day}.sql`)}`);
