@@ -29,9 +29,9 @@ and the picture calendar's database/comments without prompts.
 | Day | Picture | Files | In Supabase |
 |---|---|---|---|
 | 2026-11-14 | Sea turtle | done | yes (checked by md5) |
-| 2026-11-15 | Whale | done | NO: run levels-daily/pictures/2026-11-15.sql |
-| 2026-11-16 | Octopus | done | NO: run levels-daily/pictures/2026-11-16.sql |
-| 2026-12-01 | Christmas tree | done (new version, no outlines) | OLD version there: run levels-daily/pictures/2026-12-01.sql |
+| 2026-11-15 | Whale | done | yes (checked by md5) |
+| 2026-11-16 | Octopus | done | yes (checked by md5) |
+| 2026-12-01 | Christmas tree | done (new version, no outlines) | yes, new version (checked by md5) |
 
 After loading, update the calendar's `uploads` rows (whale, octopus: status
 "ready", day, preview/puzzle/reward assets; turtle too), reply on any "Send to
