@@ -64,6 +64,10 @@ def load_picture(src, trim=True):
     padded to a square with its background colour, so the subject fills the
     board and isn't stretched."""
     im = Image.open(src).convert('RGBA')
+    # Huge pictures (stock downloads can be 8000 px) only slow things down:
+    # the grid is 40x40, so 1000 px is plenty.
+    if max(im.size) > 1000:
+        im.thumbnail((1000, 1000), Image.LANCZOS)
     flat = Image.new('RGBA', im.size, (255, 255, 255, 255))
     flat.alpha_composite(im)
     im = flat.convert('RGB')
@@ -272,26 +276,65 @@ def main():
             return sum((a - b) ** 2 for a, b in zip(rgb, bg_rgb)) < 40 ** 2
         return min(rgb) > 232
 
+    # Flood from the border through plain pixels, but only through gaps wider
+    # than a few pixels: white parts of the subject (a clownfish's stripes, eye
+    # whites) often touch the background through thin anti-aliased edges, and
+    # must not drain away into the sea.
+    from PIL import ImageFilter
+    pm = Image.new('L', (W, H), 0)
+    pmp = pm.load()
+    for y in range(H):
+        for x in range(W):
+            if plain(px[x, y]):
+                pmp[x, y] = 255
+    gap = max(3, (min(W, H) // int(opt.get('inside-gap', 60))) | 1)
+    core = pm.filter(ImageFilter.MinFilter(gap)).load()
     seen = [[False] * W for _ in range(H)]
     q = deque()
     for x in range(W):
         for y in (0, H - 1):
-            if plain(px[x, y]) and not seen[y][x]:
+            if core[x, y] and not seen[y][x]:
                 seen[y][x] = True
                 q.append((x, y))
     for y in range(H):
         for x in (0, W - 1):
-            if plain(px[x, y]) and not seen[y][x]:
+            if core[x, y] and not seen[y][x]:
                 seen[y][x] = True
                 q.append((x, y))
     while q:
         x, y = q.popleft()
-        cls[y][x] = 0
         for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
             nx, ny = x + dx, y + dy
-            if 0 <= nx < W and 0 <= ny < H and not seen[ny][nx] and plain(px[nx, ny]):
+            if 0 <= nx < W and 0 <= ny < H and not seen[ny][nx] and core[nx, ny]:
                 seen[ny][nx] = True
                 q.append((nx, ny))
+    # Grow the reached core back out to the plain pixels around it.
+    reached = Image.new('L', (W, H), 0)
+    rp = reached.load()
+    for y in range(H):
+        for x in range(W):
+            if seen[y][x]:
+                rp[x, y] = 255
+    grown = reached.filter(ImageFilter.MaxFilter(gap + 2)).load()
+    inside = []
+    for y in range(H):
+        for x in range(W):
+            if pmp[x, y]:
+                if grown[x, y]:
+                    cls[y][x] = 0
+                else:
+                    inside.append((x, y))
+    # Plain-coloured parts inside the subject keep that colour (white, usually)
+    # when there's enough of them to show; the palette left it out as background.
+    if auto and len(inside) > W * H * 0.004:
+        rgb = bg_rgb if bg_rgb is not None else (245, 245, 245)
+        pal.append(('white' if min(rgb) > 200 else 'plain', '#%02x%02x%02x' % tuple(rgb), 1.0))
+        refs.append(tuple(rgb))
+        alias.append(len(pal) - 1)
+        wi = len(pal) - 1
+        for x, y in inside:
+            cls[y][x] = wi
+        print(f'kept {len(inside)} pixels of {pal[wi][0]} inside the picture')
 
     # Watermark text and other thin marks on the background: the picture's
     # subject is solid shapes, text is thin strokes. Shapes thinner than about

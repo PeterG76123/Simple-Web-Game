@@ -96,6 +96,16 @@ h1 { font-size: clamp(1.6rem, 4vw, 2.2rem); line-height: 1.15; }
 .d-pic img.eels { background: var(--sea); image-rendering: pixelated; }
 .d-state { display: flex; align-items: center; gap: 4px; font-size: 0.7rem; font-weight: 700; color: var(--muted); }
 .d-view { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+/* Build progress: a banner while Claude is making puzzles, and a strip on the day being made. */
+.build { background: var(--surface); border: 1.5px solid var(--accent); border-radius: 14px; padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; }
+.build-top { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 14px; align-items: baseline; }
+.build-top b { font-family: var(--display); font-weight: 600; font-size: 1.02rem; }
+.build-now { font-size: 0.9rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.meter { height: 10px; border-radius: 99px; background: var(--line); overflow: hidden; }
+.meter i { display: block; height: 100%; width: 0; background: var(--accent); border-radius: 99px; transition: width 1s linear; }
+.d-bar { height: 5px; border-radius: 99px; background: var(--line); overflow: hidden; }
+.d-bar i { display: block; height: 100%; background: var(--waiting); border-radius: 99px; transition: width 1s linear; }
+.day.building { border-color: var(--waiting); box-shadow: 0 0 0 2px var(--waiting); }
 
 /* Day dialog. */
 dialog.dd { border: 1.5px solid var(--line); border-radius: 16px; background: var(--surface); color: var(--ink); padding: 18px; width: min(640px, calc(100vw - 32px)); max-height: calc(100vh - 32px); }
@@ -152,6 +162,10 @@ dialog.dd::backdrop { background: rgba(4, 16, 26, .6); }
     <span class="legend"><i class="dot problem"></i>Problem <span class="count" id="nProb">0</span></span>
   </div>
   <div class="status" id="status" role="status">Loading the uploads…</div>
+  <section class="build" id="build" hidden aria-live="polite">
+    <div class="build-top"><b id="buildTitle">Building puzzles</b><span class="build-now" id="buildNow"></span></div>
+    <div class="meter" aria-hidden="true"><i id="buildBar"></i></div>
+  </section>
 
   <section class="tray" id="tray" hidden aria-labelledby="trayTitle">
     <h3 id="trayTitle">Uploaded, needs a day</h3>
@@ -331,6 +345,16 @@ function renderCell(b) {
     const t = document.createElement('span'); t.className = 't'; t.textContent = key === 'ready' ? '' : STATE[key];
     st.append(dot, t);
     if (key === 'ready') { const v = document.createElement('span'); v.className = 'd-view'; v.textContent = 'View'; st.append(v); }
+    if (key === 'making' && build && build.active) {
+      const now = build.day === day;
+      t.textContent = now ? STAGES[(u.progress && u.progress.stage) || 'start'].label : (build.queue || []).includes(day) ? 'Queued' : STATE[key];
+      if (now) {
+        b.classList.add('building');
+        const bar = document.createElement('div'); bar.className = 'd-bar';
+        const fill = document.createElement('i'); fill.dataset.day = day; fill.style.width = `${Math.round(dayFraction(u) * 100)}%`;
+        bar.append(fill); b.append(st, bar);
+      }
+    }
     b.append(st);
   }
   const parts = [fmtLong(day)];
@@ -339,7 +363,43 @@ function renderCell(b) {
   b.setAttribute('aria-label', parts.join(', '));
 }
 
+// Build progress, written by Claude as each stage starts. Between stages the
+// bar creeps along at the stage's usual pace, so it keeps moving.
+const STAGES = {
+  start: { label: 'Starting', from: 0, to: 0.03, secs: 10 },
+  eels: { label: 'Drawing it in eels', from: 0.03, to: 0.7, secs: 150 },
+  spares: { label: 'Making Easy, Medium and Hard', from: 0.7, to: 0.92, secs: 45 },
+  loading: { label: 'Putting it in the game', from: 0.92, to: 0.99, secs: 60 },
+};
+let build = null; // { active, total, done, day, name, queue: [days] }
+function dayFraction(u) {
+  const p = (u && u.progress) || {};
+  const st = STAGES[p.stage] || STAGES.start;
+  const secs = p.at ? (Date.now() - p.at) / 1000 : 0;
+  return st.from + (st.to - st.from) * Math.min(1, secs / st.secs) * 0.95;
+}
+const mmss = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+function renderBuild() {
+  const box = $('build');
+  if (!build || !build.active) { box.hidden = true; return; }
+  box.hidden = false;
+  const u = uploads[build.day];
+  const total = build.total || 1, done = build.done || 0;
+  const frac = Math.min(1, (done + (u && u.status === 'making' ? dayFraction(u) : 0)) / total);
+  $('buildBar').style.width = `${Math.round(frac * 100)}%`;
+  $('buildTitle').textContent = `Building puzzles: ${done} of ${total} done`;
+  if (u && u.status === 'making') {
+    const p = u.progress || {};
+    const st = STAGES[p.stage] || STAGES.start;
+    const el = build.started ? mmss((Date.now() - build.started) / 1000) : '';
+    $('buildNow').textContent = `Now: ${u.name} (${new Date(`${build.day}T12:00:00Z`).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' })}), ${st.label.toLowerCase()}${el ? ` · ${el}` : ''}`;
+  } else $('buildNow').textContent = '';
+  for (const f of document.querySelectorAll('.d-bar i')) f.style.width = `${Math.round(dayFraction(uploads[f.dataset.day]) * 100)}%`;
+}
+setInterval(() => { if (build && build.active) renderBuild(); }, 1000);
+
 function renderAll() {
+  renderBuild();
   for (const b of document.querySelectorAll('.day')) renderCell(b);
   const rows = Object.values(uploads);
   $('nReady').textContent = rows.filter((u) => u.status === 'ready').length;
@@ -598,6 +658,7 @@ renderAll();
   const may = user ? await user.can('data.write') : null;
   canWrite = may !== false && !!assets;
   const timer = setTimeout(() => status('Can’t reach the uploads yet. They’ll appear when the connection comes back.'), 10000);
+  db.collection('build').doc('now').onSnapshot((d) => { build = d.exists ? d.data() : null; renderAll(); }, () => {});
   db.collection('uploads').onSnapshot((snap) => {
     clearTimeout(timer);
     const byDay = {}, rest = [];

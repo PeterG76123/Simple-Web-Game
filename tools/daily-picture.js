@@ -8,6 +8,7 @@
  *     -> <out>/<day>.json     (the rows, plus stats)
  *     -> <out>/<day>-40.png    (preview of the picture's grid)
  *   --reuse-insane 1: keep the Insane picture puzzle already in <day>.json.
+ *   --inside-gap N, --keep-outlines 1, --keep-marks 1, --auto N: passed to picture-grid.py.
  *
  * Insane: tools/picture-grid.py shrinks the picture to 40x40 (colours picked
  * from the picture, trimmed, recoloured where needed), tools/picture-level.js
@@ -85,7 +86,9 @@ if (opt['reuse-insane'] && fs.existsSync(prev)) {
 if (!insane) {
   const size = 40;
   const grid = path.join(tmp, 'grid.json');
-  run('python3', [path.join(tools, 'picture-grid.py'), src, grid, '--size', String(size), '--preview', path.join(out, `${day}-${size}.png`)]);
+  // Options passed on to picture-grid.py as they are (e.g. --inside-gap 16).
+  const gridOpts = ['inside-gap', 'keep-outlines', 'keep-marks', 'auto'].filter((k) => opt[k] !== undefined).flatMap((k) => [`--${k}`, String(opt[k])]);
+  run('python3', [path.join(tools, 'picture-grid.py'), src, grid, '--size', String(size), '--preview', path.join(out, `${day}-${size}.png`), ...gridOpts]);
   const lvl = path.join(tmp, 'level.json');
   // A try can fail to find a solvable layout: new seeds, a few times.
   for (let seed = 1; ; seed++) {
