@@ -24,18 +24,27 @@ and the picture calendar's database/comments without prompts.
 - Peter decided (13 Nov): watermarked reference images (e.g. Alamy previews) are
   fine to use as reference; the picture is redrawn as a 40x40 eel grid.
 
-## Status of picture days
+## Status of picture days (13 Nov, end of session)
 
-| Day | Picture | Files | In Supabase |
-|---|---|---|---|
-| 2026-11-14 | Sea turtle | done | yes (checked by md5) |
-| 2026-11-15 | Whale | done | yes (checked by md5) |
-| 2026-11-16 | Octopus | done | yes (checked by md5) |
-| 2026-12-01 | Christmas tree | done (new version, no outlines) | yes, new version (checked by md5) |
+All loaded into Supabase and md5-checked against levels-daily/pictures/<day>.sql,
+and shown as "In the game" on the calendar with preview, puzzle and reward:
 
-After loading, update the calendar's `uploads` rows (whale, octopus: status
-"ready", day, preview/puzzle/reward assets; turtle too), reply on any "Send to
-Claude" threads, and resolve them.
+13 Nov Clownfish, 14 Sea turtle, 15 Whale, 16 Octopus, 17 Crab, 18 Starfish,
+19 Jellyfish, 20 Pufferfish, 21 Shark, 22 Anchor, 23 Treasure chest,
+24 Lighthouse, 25 Submarine, 26 Turkey, 27 Shell, 28 Coral, 29 Seahorse,
+30 Manta ray, 1 Dec Christmas tree.
+
+Tool changes this session:
+- picture-grid.py: big uploads shrunk to 1000 px first; white parts inside the
+  subject (stripes, eye whites) keep a white colour instead of turning to sea.
+  `--inside-gap N` (default 60; smaller N = wider gap allowed) tunes how wide an
+  opening to the background may be before a white area counts as background:
+  the clownfish needed 16, the jellyfish 120.
+- daily-spare.js: Hard spares are solved with the staged solver first and a
+  capped full search, and a spare too big to solve is swapped for another
+  (the starfish and pufferfish builds had run out of memory).
+- daily-picture.js passes --inside-gap, --keep-outlines, --keep-marks, --auto
+  through to picture-grid.py.
 
 ## Calendar page (rebuilt 13 Nov as the 52-week grid)
 
@@ -55,8 +64,10 @@ a "needs a day" tray where Peter picks a day and presses Move.
 
 ## Other open items
 
-- The hourly "Picture uploads check" scheduled task and the artifact watch are
-  tied to the old session: recreate them in the new one (watch the artifact
-  with ArtifactComments action "watch"; hourly send_later/create_trigger).
+- The calendar page shows a live build bar from its `build/now` doc
+  ({active, total, done, day, name, queue}) and each upload's `progress`
+  ({stage: eels|spares|loading, at}); set active false when nothing is building.
+- No hourly uploads check is scheduled; new uploads arrive as "Send to Claude"
+  comments on the calendar, which wake the session watching the artifact.
 - Remove the TEMPORARY "Unlock all levels" setting before production.
 - Insane tier: all 150 levels done and checked (tools/check-levels.js).
