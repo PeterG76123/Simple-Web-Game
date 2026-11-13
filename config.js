@@ -18,9 +18,9 @@
       // No full-screen ads until the player has finished this many levels.
       graceLevels: 10,
       // Then at most one after every N levels finished...
-      minLevelsBetween: 2,
-      // ...and never more often than this.
-      minSecondsBetween: 180,
+      minLevelsBetween: 4,
+      // ...and never more often than this (8 minutes).
+      minSecondsBetween: 480,
       // On the web (no real ads): show the stand-in test ads (for trying the
       // flow), or skip them (full-screen ads skipped, rewards just given).
       webTestAds: true,

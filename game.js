@@ -425,13 +425,15 @@
    * levels) the starter bundle offer, then on to wherever the player chose.
    */
   async function afterLevel(next) {
-    hideDialog();
     const W = window.ArrowWallet;
     if (state && state.adDue && window.ArrowAds) {
       state.adDue = false;
+      // The win screen stays up until the ad covers it, so the board never
+      // sits empty while the ad opens.
       await window.ArrowAds.showInterstitial();
       if (W) W.adShown();
     }
+    hideDialog();
     if (W && W.starterDue() && window.ArrowShop) await window.ArrowShop.offerStarter();
     next();
   }

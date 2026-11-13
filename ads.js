@@ -61,13 +61,47 @@
     return ready;
   }
 
+  // The next full-screen ad is loaded ahead of time (Google can take a few
+  // seconds), so it opens straight away when a level ends. A loaded ad is
+  // good for about an hour; older ones are loaded again.
+  let loaded = null; // { promise, at }
+  function preloadInterstitial() {
+    if (loaded && Date.now() - loaded.at < 50 * 60 * 1000) return loaded.promise;
+    const promise = setUp()
+      .then(() => AdMob.prepareInterstitial({ adId: unit('interstitial'), isTesting: isTest('interstitial') }))
+      .then(() => true, () => false);
+    loaded = { promise, at: Date.now() };
+    promise.then((ok) => { if (!ok && loaded && loaded.promise === promise) loaded = null; });
+    return promise;
+  }
+
+  /** "Ad coming up…" over the board while an ad that isn't loaded yet loads. */
+  function coming() {
+    const box = document.createElement('div');
+    box.className = 'ad-coming';
+    box.innerHTML = '<div class="ad-coming-card"><span class="ad-coming-spin"></span><p>Ad coming up…</p></div>';
+    (document.getElementById('app') || document.body).appendChild(box);
+    return () => box.remove();
+  }
+
   async function nativeInterstitial() {
-    await setUp();
+    const ready = loaded && Date.now() - loaded.at < 50 * 60 * 1000;
+    const done = ready ? () => {} : coming();
     try {
       quiet(true);
-      await AdMob.prepareInterstitial({ adId: unit('interstitial'), isTesting: isTest('interstitial') });
-      await AdMob.showInterstitial();
-    } catch (e) { /* no ad to show: carry on */ } finally { quiet(false); }
+      // Up to 6 seconds for it to load; after that, no ad this time.
+      const ok = await Promise.race([preloadInterstitial(), new Promise((r) => setTimeout(() => r(false), 6000))]);
+      done();
+      if (ok) {
+        loaded = null;
+        await AdMob.showInterstitial();
+      }
+    } catch (e) { /* no ad to show: carry on */ } finally {
+      done();
+      quiet(false);
+      // Get the next one ready.
+      setTimeout(() => { preloadInterstitial(); }, 2000);
+    }
   }
 
   async function nativeRewarded() {
@@ -146,7 +180,7 @@
     showInterstitial: () => (AdMob ? nativeInterstitial() : webTestAds() ? webAd({ rewarded: false }) : Promise.resolve()),
     showRewarded: () => (AdMob ? nativeRewarded() : webTestAds() ? webAd({ rewarded: true }) : Promise.resolve(true)),
     // Start the consent / tracking prompts early in the app.
-    init: () => { if (AdMob) setUp(); },
+    init: () => { if (AdMob) { setUp(); setTimeout(preloadInterstitial, 3000); } },
     // Lets players change their ad consent later (EU/UK), from Settings.
     // (Google's privacy options form.)
     privacyOptions: async () => {

@@ -2,8 +2,8 @@
   "_note": "Live monetisation settings. Anything left out keeps its default (see config.js). Edit, commit and push: players pick it up on their next launch.",
   "ads": {
     "graceLevels": 10,
-    "minLevelsBetween": 2,
-    "minSecondsBetween": 180,
+    "minLevelsBetween": 4,
+    "minSecondsBetween": 480,
     "webTestAds": true
   },
   "hints": {
