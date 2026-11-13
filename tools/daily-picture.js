@@ -62,7 +62,7 @@ fs.mkdirSync(out, { recursive: true });
 const tools = __dirname;
 const tmp = fs.mkdtempSync(path.join(require('os').tmpdir(), 'daily-picture-'));
 const run = (cmd, a, timeout = 20 * 60 * 1000) => execFileSync(cmd, a, { encoding: 'utf8', timeout, stdio: ['ignore', 'pipe', 'pipe'] });
-const { takeSpare, recolour, solutionOf } = require('./daily-spare.js');
+const { takeSpare, takeOneSpare, recolour, solutionOf } = require('./daily-spare.js');
 
 function check(name, text, sol) {
   const L = decodeLevel(text);
@@ -108,8 +108,14 @@ const palette = IL.colors.palette.slice(1).map((c) => c.replace(/^#/, ''));
 const dayNum = Number(day.replace(/-/g, ''));
 const rows = [];
 takeSpare(dayNum).forEach((spare, d) => {
-  const level = recolour(spare, palette, dayNum + d);
-  const solution = solutionOf(level);
+  let level = recolour(spare, palette, dayNum + d);
+  let solution = solutionOf(level);
+  // A spare too big to solve here: take another of the same difficulty.
+  for (let k = 1; !solution && k <= 5; k++) {
+    console.log(`${['Easy', 'Medium', 'Hard'][d]}: spare level too big to solve, trying another`);
+    level = recolour(takeOneSpare(d, dayNum + 77 * k), palette, dayNum + d);
+    solution = solutionOf(level);
+  }
   const L = check(['Easy', 'Medium', 'Hard'][d], level, solution);
   console.log(`${['Easy', 'Medium', 'Hard'][d]}: ${L.size}x${L.size}, ${L.lines.length} eels, in the picture's colours, checked`);
   rows.push({ day, difficulty: d, level, solution, title, picture: false });

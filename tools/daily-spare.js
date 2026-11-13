@@ -10,7 +10,7 @@ const path = require('path');
 require('../rules.js');
 globalThis.window = globalThis;
 require('../levels-data.js');
-const { decodeLevel, encodeLevel, solve, pathToText } = globalThis.ArrowRules;
+const { decodeLevel, encodeLevel, solve, solveStaged, playPath, pathToText } = globalThis.ArrowRules;
 
 const root = path.join(__dirname, '..');
 const usedFile = path.join(root, 'levels-daily', 'used.json');
@@ -76,13 +76,33 @@ function recolour(text, palette, seed) {
   return encodeLevel({ size: n, par: L.par, lines: L.lines, mirrors: L.mirrors, extras, colors: { palette, lines: col } });
 }
 
+/** A solution for a level, or null. The staged solver first (quick, and light on
+ * memory) when the level has no gates, plates, twins or turning eels; then the
+ * full search, capped so a big Hard board can't run out of memory. */
 function solutionOf(text) {
   const L = decodeLevel(text);
-  for (const maxStates of [100000, 2000000]) {
-    const r = solve(L.size, L.lines, { mirrors: L.mirrors, rotatable: L.rotatable, gates: L.gates, plates: L.plates, twins: L.twins, maxStates });
+  const opts = { mirrors: L.mirrors, rotatable: L.rotatable, gates: L.gates, plates: L.plates, twins: L.twins };
+  const plain = !L.rotatable && !(L.gates || []).length && !(L.plates || []).length && !(L.twins || []).length;
+  if (plain) {
+    try {
+      const r = solveStaged(L.size, L.lines, { mirrors: L.mirrors, maxStates: 50000 });
+      if (r.solvable && playPath(L.size, L.lines, opts, r.path)) return pathToText(r.path);
+    } catch (e) { /* fall through to the full search */ }
+  }
+  for (const maxStates of [100000, 400000]) {
+    const r = solve(L.size, L.lines, { ...opts, maxStates });
     if (r.solvable) return pathToText(r.path);
   }
   return null;
 }
 
-module.exports = { takeSpare, recolour, solutionOf };
+/** One more spare level of difficulty d (0-2), for when a pick can't be solved. */
+function takeOneSpare(d, seed) {
+  for (let k = 0; k < 50; k++) {
+    const pick = takeSpare(seed + 1000 * (k + 1))[d];
+    if (pick) return pick;
+  }
+  throw new Error('No spare level found');
+}
+
+module.exports = { takeSpare, takeOneSpare, recolour, solutionOf };
