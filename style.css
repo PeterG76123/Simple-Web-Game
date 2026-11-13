@@ -1248,7 +1248,7 @@ svg.aq-chest .bubbles circle:nth-child(14) { --dx: -3px; --up: -65px; animation-
 .tank-dots i.add::after { transform: rotate(90deg); }
 .tank-dots i.add.on { border-color: #fff; box-shadow: 0 0 6px rgba(255, 255, 255, 0.8); }
 /* The page for buying another tank: one button per type. */
-.aq-locked { overflow-y: auto; }
+.aq-locked { overflow-y: auto; touch-action: pan-y; } /* sideways swipes reach the page (to change tank) */
 .aq-new-card { max-width: 340px; width: 100%; padding: 14px 14px 12px; }
 .aq-new-card > p { font-size: 0.9rem; }
 .aq-types { display: flex; flex-direction: column; gap: 8px; margin: 2px 0 8px; }

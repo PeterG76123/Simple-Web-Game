@@ -681,6 +681,25 @@
     tank.addEventListener('pointercancel', () => { start = null; lure = null; });
   })();
 
+  // The buying page's card covers most of the tank, so a quick sideways swipe that
+  // starts on it moves between tanks too (taps on its buttons still work).
+  (function cardSwipes() {
+    let start = null, swiped = false;
+    lockedBox.addEventListener('pointerdown', (e) => { if (!e.target.closest('.aq-locked-card')) return; start = { x: e.clientX, y: e.clientY, t: performance.now() }; swiped = false; });
+    lockedBox.addEventListener('pointerup', (e) => {
+      if (!start) return;
+      const dx = e.clientX - start.x, dy = e.clientY - start.y;
+      if (performance.now() - start.t < 500 && Math.abs(dx) > tank.clientWidth * 0.18 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+        swiped = true;
+        switchTank(dx < 0 ? 1 : -1);
+      }
+      start = null;
+    });
+    lockedBox.addEventListener('pointercancel', () => { start = null; });
+    // A swipe that ends on a button isn't a tap on it.
+    lockedBox.addEventListener('click', (e) => { if (swiped) { e.stopPropagation(); e.preventDefault(); swiped = false; } }, true);
+  })();
+
   /** Shows the next (+1) or previous (-1) tank. */
   function switchTank(step) {
     const list = pages();
