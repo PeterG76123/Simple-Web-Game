@@ -1344,7 +1344,7 @@ svg.aq-snail .foot, svg.aq-snail .feelers { transition: opacity 0.3s; }
 .reward-daily { margin-top: 6px; color: var(--muted); font-size: 0.8rem; }
 
 /* ---------- Daily puzzles (daily.js) ---------- */
-.daily-menu-btn { margin-bottom: 10px; }
+.daily-menu-btn { margin-bottom: 0; }
 .daily-cal svg rect { fill: rgba(94, 242, 255, 0.12); stroke: var(--accent); stroke-width: 2.4; }
 .daily-cal .cal-top { fill: var(--accent); opacity: 0.85; }
 .daily-cal .cal-ring { stroke: var(--accent); stroke-width: 3; stroke-linecap: round; fill: none; }
