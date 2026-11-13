@@ -1353,11 +1353,25 @@ svg.aq-snail .foot, svg.aq-snail .feelers { transition: opacity 0.3s; }
 .daily-dots { display: flex; gap: 5px; margin-left: auto; padding-left: 8px; }
 .daily-dots i { width: 9px; height: 9px; border-radius: 50%; background: rgba(255, 255, 255, 0.18); }
 .daily-dots i.on { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
-.daily-list { display: flex; flex-direction: column; gap: 14px; max-height: min(60vh, 520px); overflow-y: auto; margin: 4px -4px 8px; padding: 0 4px; text-align: left; }
+.daily-list { display: flex; flex-direction: column; gap: 12px; margin: 4px 0 8px; text-align: left; }
+/* The day selector: a pill bar like the difficulty tabs, today first. */
+.daily-days { display: flex; gap: 2px; padding: 3px; border-radius: 18px; background: var(--glass); border: 1px solid var(--glass-edge); overflow-x: auto; scrollbar-width: none; }
+.daily-days::-webkit-scrollbar { display: none; }
+.daily-day-tab { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 5px 2px 4px; border: none; border-radius: 14px; background: transparent; color: var(--muted); font: inherit; cursor: pointer; transition: background 0.2s, color 0.2s, box-shadow 0.2s; }
+.daily-day-tab .dd-name { font-size: 0.64rem; font-weight: 700; line-height: 1.1; }
+.daily-day-tab .dd-num { font-family: var(--font-display); font-weight: 600; font-size: 1.05rem; line-height: 1.1; }
+.daily-day-tab .dd-mark { display: flex; gap: 2px; height: 10px; align-items: center; font-size: 0.7rem; font-weight: 700; color: var(--accent); }
+.daily-day-tab .dd-mark i { width: 4px; height: 4px; border-radius: 50%; background: rgba(255, 255, 255, 0.25); }
+.daily-day-tab .dd-mark i.on { background: var(--accent); }
+.daily-day-tab.today:not([aria-selected="true"]) { color: var(--text); }
+.daily-day-tab[aria-selected="true"] { background: linear-gradient(180deg, var(--accent), var(--accent-2)); color: var(--accent-text); box-shadow: 0 0 12px rgba(94, 242, 255, 0.5); }
+.daily-day-tab[aria-selected="true"] .dd-mark { color: var(--accent-text); }
+.daily-day-tab[aria-selected="true"] .dd-mark i { background: rgba(0, 0, 0, 0.25); }
+.daily-day-tab[aria-selected="true"] .dd-mark i.on { background: var(--accent-text); }
+.daily-day-tab:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 .daily-day-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 6px; }
 .daily-day-head strong { font-family: var(--font-display); font-size: 1.05rem; }
 .daily-day-head span { font-size: 0.8rem; opacity: 0.7; text-align: right; }
-.daily-day:not(.today) { opacity: 0.85; }
 .daily-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
 .daily-tile {
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;

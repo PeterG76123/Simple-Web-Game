@@ -197,34 +197,48 @@
     root.ArrowGame.playDaily({ day, difficulty: d, level: p.level, solution: p.solution, label: DIFF[d], title: p.title, picture: !!p.picture });
   }
 
-  /** The daily puzzles panel: today's four, then the catch-up days. */
+  // The day picked in the daily puzzles panel (today when it first opens; kept while you
+  // play one of its puzzles, so Back and "More daily puzzles" return to it).
+  let picked = null;
+  const shortDay = (day, i) => (i === 0 ? 'Today' : new Date(`${day}T12:00:00`).toLocaleDateString(undefined, { weekday: 'short' }));
+
+  /** The daily puzzles panel: a row of days to pick from (today first), and the picked day's four. */
   function openPuzzles(fetched) {
     const cfg = C();
-    const list = days();
-    const has = list.some((day) => puzzles[day]);
+    const list = days().filter((day) => puzzles[day]);
     let html = '';
-    if (!has) {
+    if (!list.length) {
       html = `<p class="daily-lead">${fetched === false ? 'Couldn’t load the daily puzzles. Check your connection and try again.' : 'Loading today’s puzzles…'}</p>`;
     } else {
-      list.forEach((day, i) => {
-        const set = puzzles[day];
-        if (!set) return;
-        const all = solvedOn(day) === 4;
-        html += `<div class="daily-day${i === 0 ? ' today' : ''}"><div class="daily-day-head"><strong>${dayName(day, i)}</strong>` +
-          `<span>${all ? `All four solved${done.bonus[day] ? ' ✓' : ''}` : i === 0 ? `+${cfg.allFour || 0} for all four` : 'Catch up: pearls, no streak'}</span></div><div class="daily-row">`;
-        for (let d = 0; d < 4; d++) {
-          if (!set[d]) { html += '<span class="daily-tile missing"></span>'; continue; }
-          const ok = isSolved(day, d);
-          html += `<button class="daily-tile${ok ? ' done' : ''}" data-day="${day}" data-d="${d}" aria-label="${dayName(day, i)}, ${DIFF[d]}${ok ? ', solved' : ''}">` +
-            `<span class="daily-diff">${DIFF[d]}</span>` +
-            `<span class="daily-reward">${ok ? '✓' : `+${(cfg.rewards || [])[d] || 0}<span class="pearl"></span>`}</span>` +
-            `${set[d].title ? `<span class="daily-title">${set[d].title}</span>` : ''}</button>`;
-        }
-        html += '</div></div>';
-      });
+      if (!list.includes(picked)) picked = list[0];
+      const all = days();
+      const idx = (day) => all.indexOf(day);
+      // The day selector: like the difficulty tabs on the menu.
+      html += '<div class="daily-days" role="tablist" aria-label="Day">' + list.map((day) => {
+        const i = idx(day), n = solvedOn(day);
+        return `<button class="daily-day-tab${i === 0 ? ' today' : ''}" role="tab" data-pick="${day}" aria-selected="${day === picked}" aria-label="${dayName(day, i)}${n === 4 ? ', all four solved' : n ? `, ${n} of 4 solved` : ''}">` +
+          `<span class="dd-name">${shortDay(day, i)}</span><span class="dd-num">${Number(day.slice(8))}</span>` +
+          `<span class="dd-mark">${n === 4 ? '✓' : [0, 1, 2, 3].map((d) => `<i class="${isSolved(day, d) ? 'on' : ''}"></i>`).join('')}</span></button>`;
+      }).join('') + '</div>';
+      const day = picked, i = idx(day), set = puzzles[day];
+      const allDone = solvedOn(day) === 4;
+      html += `<div class="daily-day${i === 0 ? ' today' : ''}"><div class="daily-day-head"><strong>${dayName(day, i)}</strong>` +
+        `<span>${allDone ? `All four solved${done.bonus[day] ? ' ✓' : ''}` : i === 0 ? `+${cfg.allFour || 0} for all four` : 'Catch up: pearls, no streak'}</span></div><div class="daily-row">`;
+      for (let d = 0; d < 4; d++) {
+        if (!set[d]) { html += '<span class="daily-tile missing"></span>'; continue; }
+        const ok = isSolved(day, d);
+        html += `<button class="daily-tile${ok ? ' done' : ''}" data-day="${day}" data-d="${d}" aria-label="${dayName(day, i)}, ${DIFF[d]}${ok ? ', solved' : ''}">` +
+          `<span class="daily-diff">${DIFF[d]}</span>` +
+          `<span class="daily-reward">${ok ? '✓' : `+${(cfg.rewards || [])[d] || 0}<span class="pearl"></span>`}</span>` +
+          `${set[d].title ? `<span class="daily-title">${set[d].title}</span>` : ''}</button>`;
+      }
+      html += '</div></div>';
     }
     dialog('Daily puzzles', `<div class="daily-list">${html}</div>`, [{ label: 'Close', action: close }]);
     box.querySelectorAll('.daily-tile[data-day]').forEach((b) => b.addEventListener('click', () => play(b.dataset.day, Number(b.dataset.d))));
+    box.querySelectorAll('[data-pick]').forEach((b) => b.addEventListener('click', () => { picked = b.dataset.pick; openPuzzles(true); }));
+    const sel = box.querySelector('.daily-day-tab[aria-selected="true"]');
+    if (sel && sel.scrollIntoView) sel.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     // Nothing yet, or not today's (e.g. a new day began since the last fetch): ask the server again.
     if (fetched === undefined && !puzzles[localDay(0)]) load().then((ok) => { if (box && box.querySelector('.daily-list')) openPuzzles(ok); });
   }
@@ -240,7 +254,7 @@
     if (text) text.textContent = n === 4 ? 'All four solved today!' : puzzles[today] ? `${4 - n} new ${4 - n === 1 ? 'puzzle' : 'puzzles'} today` : 'Four new puzzles every day';
     if (dots) dots.innerHTML = [0, 1, 2, 3].map((d) => `<i class="${isSolved(today, d) ? 'on' : ''}"></i>`).join('');
   }
-  if (card) card.addEventListener('click', () => openPuzzles());
+  if (card) card.addEventListener('click', () => { picked = null; openPuzzles(); });
   showDailyCard();
   load();
   // A new day (left open past midnight, or back from the background).
