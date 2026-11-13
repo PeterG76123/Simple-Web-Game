@@ -231,10 +231,12 @@
     // Twin eels share a colour of their own (and are drawn banded): each pair
     // gets a colour no other eel on the board uses.
     const twins = level.twins || [];
-    const TWIN_COLOURS = [8, 1, 6, 3]; // sunny yellow, pink, coral, orange
+    // (Insane levels have up to 6 pairs. With more pairs than colours, the
+    // colours repeat rather than leave a pair without one.)
+    const TWIN_COLOURS = [8, 1, 6, 3, 4, 7]; // sunny yellow, pink, coral, orange, violet, lime
     const reserved = TWIN_COLOURS.slice(0, twins.length);
     lines.forEach((l) => { while (reserved.includes(l.colorIndex)) l.colorIndex = (l.colorIndex + 1) % 10; });
-    twins.forEach(([a, b], k) => { lines[a].colorIndex = lines[b].colorIndex = reserved[k]; });
+    twins.forEach(([a, b], k) => { lines[a].colorIndex = lines[b].colorIndex = TWIN_COLOURS[k % TWIN_COLOURS.length]; });
 
     state = {
       tier, group, index, n, lines, mirrors, history: [], finished: false,
