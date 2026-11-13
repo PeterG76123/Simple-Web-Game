@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "mcp__Supabase"
+      "mcp__Supabase",
+      "ArtifactData",
+      "ArtifactComments"
     ]
   }
 }
