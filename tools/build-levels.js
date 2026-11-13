@@ -134,6 +134,8 @@ async function main() {
         const file = path.join(__dirname, '..', 'levels-tricky', `${name}.json`);
         if (!fs.existsSync(file)) { console.log(`  (${name} not made yet: skipped)`); continue; }
         const t = JSON.parse(fs.readFileSync(file, 'utf8'));
+        // A level with gaps is still being made (or repaired): leave it out.
+        if (t.stats && t.stats.gaps > 0) { console.log(`  (${name} still has gaps: skipped)`); continue; }
         picked.push({ e: { level: t.level, solution: t.solution }, r: 10, kind: 'tricky' });
       }
       // Known solutions for mixed levels, so hints can follow them instantly.
