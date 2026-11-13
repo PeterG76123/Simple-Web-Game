@@ -364,7 +364,9 @@
     } else if (f.plan === 'hide' && cave && (f.fleeing || !foodDown)) {
       // Off to the cave door, then in.
       tx = cave.x; tfy = G.top; speed *= f.fleeing ? 7 : 1.5;
-      if (Math.abs(f.x - cave.x) < 4 && f.fy - G.top < 3) { f.inCave = true; f.fleeing = false; f.hideX = hideSpot(); }
+      // In once it's anywhere in the doorway (not just its very middle).
+      const slack = Math.max(4, (cave.doorR - cave.doorL - f.w) / 2);
+      if (Math.abs(f.x - cave.x) < slack && f.fy - G.top < 4) { f.inCave = true; f.fleeing = false; f.hideX = hideSpot(); }
     } else if (f.fleeing) {
       tx = f.fleeX; speed *= 7;
       if (Math.abs(tx - f.x) < 3) f.fleeing = false;
@@ -734,6 +736,8 @@
         // Crawlers only jostle each other, sideways, along the sand.
         const crawlers = !!a.m.crawl + !!b.m.crawl;
         if (crawlers === 1) continue;
+        // Crabs going into or out of the cave squeeze past each other, so the door never jams.
+        if (crawlers === 2 && (a.plan === 'hide' || a.plan === 'leave' || b.plan === 'hide' || b.plan === 'leave')) continue;
         const [arx, ary] = body(a), [brx, bry] = body(b);
         const dx = b.x - a.x, dy = b.y - a.y;
         // Overlap of two ellipses, roughly: distance in "sum of radii" units.
