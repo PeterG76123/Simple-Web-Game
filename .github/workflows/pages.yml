@@ -33,8 +33,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      # The same files the phone app gets.
-      - run: node tools/build-www.js
+      # Fresh version tags on the scripts and styles, so phones don't keep using
+      # cached old copies; then the same files the phone app gets.
+      - run: node tools/stamp-versions.js && node tools/build-www.js
       - uses: actions/configure-pages@v5
         with:
           enablement: true
