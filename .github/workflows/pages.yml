@@ -1,0 +1,45 @@
+# Publishes the game as a website with GitHub Pages, so it can be played in a
+# phone's browser without building the app:
+#   https://peterg76123.github.io/Simple-Web-Game/
+#
+# Runs on every push to main (and by hand from the Actions tab). The first time,
+# GitHub Pages has to be switched on: Settings > Pages > Build and deployment >
+# Source: "GitHub Actions".
+name: Web version (GitHub Pages)
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ['README.md', 'HANDOFF.md', 'tools/**', 'levels-bank/**', 'levels-daily/**', 'levels-pictures/**', 'levels-tricky/**', 'android/**', 'ios/**', 'store/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # The same files the phone app gets.
+      - run: node tools/build-www.js
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: www
+      - id: deployment
+        uses: actions/deploy-pages@v4
