@@ -2024,7 +2024,12 @@
     });
   }
 
-  $('menuBtn').addEventListener('click', goToMenu);
+  // Back: from a daily puzzle, back to the daily puzzles; otherwise to the menu.
+  $('menuBtn').addEventListener('click', () => {
+    const fromDaily = state && state.tier === DAILY;
+    goToMenu();
+    if (fromDaily && window.ArrowDaily) window.ArrowDaily.openPuzzles();
+  });
   $('restartBtn').addEventListener('click', askRestart);
   $('undoBtn').addEventListener('click', undo);
   $('helpBtn').addEventListener('click', () => { if (state) showIntro(state.group); });
