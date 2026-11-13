@@ -19,6 +19,9 @@ given more than once (red=#d83a33,red=#92201c) maps both shades to one colour.
 With no --colors, the colours are picked from the picture (--auto 7: up to
 7 colours), and its background is whatever colour runs round its edge.
 
+Small separate marks outside the main picture (watermarks, signatures,
+captions) are removed; --keep-marks 1 keeps them.
+
 Output JSON: { size, palette: [{ name, hex }], grid: [[colour index per square]] }
 (colour 0 is the background).
 """
@@ -162,6 +165,33 @@ def main():
                 seen[ny][nx] = True
                 q.append((nx, ny))
 
+    # Watermark text and other thin marks on the background: the picture's
+    # subject is solid shapes, text is thin strokes. Shapes thinner than about
+    # 3% of the picture, standing on their own in the background, go.
+    if opt.get('keep-marks') is None:
+        from PIL import ImageFilter
+        mask = Image.new('L', (W, H), 0)
+        mpx = mask.load()
+        for y in range(H):
+            row = cls[y]
+            for x in range(W):
+                if row[x] != 0:
+                    mpx[x, y] = 255
+        k = max(3, (min(W, H) // 30) | 1)
+        opened = mask.filter(ImageFilter.MinFilter(k)).filter(ImageFilter.MaxFilter(k))
+        # Keep the outlines and details that touch the solid parts.
+        near = opened.filter(ImageFilter.MaxFilter(k))
+        npx = near.load()
+        thin = 0
+        for y in range(H):
+            row = cls[y]
+            for x in range(W):
+                if row[x] != 0 and npx[x, y] == 0:
+                    row[x] = 0
+                    thin += 1
+        if thin:
+            print(f'removed {thin} pixels of thin marks (watermark text?) on the background')
+
     # Shrink: each square takes its (weighted) most common colour.
     grid = [[0] * size for _ in range(size)]
     for gy in range(size):
@@ -174,6 +204,46 @@ def main():
                 for x in range(x0, x1):
                     c[row[x]] += 1
             grid[gy][gx] = max(c, key=lambda i: c[i] * pal[i][2])
+
+    # Watermarks and stray marks: keep the picture's main subject (its biggest
+    # patch of non-background squares), anything inside its outline box, and
+    # any other big part; small separate bits outside it (a logo in a corner,
+    # a signature, a line of text along the bottom) become background.
+    if opt.get('keep-marks') is None:
+        seen = [[False] * size for _ in range(size)]
+        comps = []
+        for y in range(size):
+            for x in range(size):
+                if seen[y][x] or grid[y][x] == 0:
+                    continue
+                cells, q = [], deque([(x, y)])
+                seen[y][x] = True
+                while q:
+                    cx, cy = q.popleft()
+                    cells.append((cx, cy))
+                    for dx in (-1, 0, 1):
+                        for dy in (-1, 0, 1):
+                            nx, ny = cx + dx, cy + dy
+                            if 0 <= nx < size and 0 <= ny < size and not seen[ny][nx] and grid[ny][nx] != 0:
+                                seen[ny][nx] = True
+                                q.append((nx, ny))
+                comps.append(cells)
+        if comps:
+            main_part = max(comps, key=len)
+            xs = [c[0] for c in main_part]; ys = [c[1] for c in main_part]
+            box = (min(xs), min(ys), max(xs), max(ys))
+            dropped = 0
+            for cells in comps:
+                if cells is main_part or len(cells) >= 0.1 * len(main_part):
+                    continue
+                inside = sum(box[0] <= cx <= box[2] and box[1] <= cy <= box[3] for cx, cy in cells)
+                if inside * 2 >= len(cells):
+                    continue
+                for cx, cy in cells:
+                    grid[cy][cx] = 0
+                dropped += len(cells)
+            if dropped:
+                print(f'removed {dropped} squares of stray marks (watermarks?) outside the picture')
 
     # Merge patches of fewer than 3 squares into their most common neighbouring colour.
     def patches():
