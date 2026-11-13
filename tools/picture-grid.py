@@ -16,6 +16,9 @@ The palette is given as name=#hex pairs: every pixel takes the nearest one.
 Weights for small details: name=#hex*1.8 gives that colour 1.8x weight. A name
 given more than once (red=#d83a33,red=#92201c) maps both shades to one colour.
 
+With no --colors, the colours are picked from the picture (--auto 7: up to
+7 colours), and its background is whatever colour runs round its edge.
+
 Output JSON: { size, palette: [{ name, hex }], grid: [[colour index per square]] }
 (colour 0 is the background).
 """
@@ -31,6 +34,53 @@ def hex_rgb(h):
     return tuple(int(h[i:i + 2], 16) for i in (0, 2, 4))
 
 
+def border_colour(im):
+    """The most common colour round the picture's edge (its background)."""
+    W, H = im.size
+    px = im.load()
+    c = Counter()
+    for x in range(W):
+        for y in (0, H - 1):
+            r, g, b = px[x, y][:3]
+            c[(r >> 3, g >> 3, b >> 3)] += 1
+    for y in range(H):
+        for x in (0, W - 1):
+            r, g, b = px[x, y][:3]
+            c[(r >> 3, g >> 3, b >> 3)] += 1
+    k = c.most_common(1)[0][0]
+    return tuple((v << 3) + 4 for v in k)
+
+
+def auto_palette(src, n):
+    """Up to n colours for the picture's subject (its background left out):
+    its most common clearly different colours, as drawn (clip-art is mostly
+    flat colours, so these are the real ones, not blends of them). Small ones
+    (outlines, eyes, details) get extra weight so they survive shrinking."""
+    im = Image.open(src).convert('RGBA')
+    flat = Image.new('RGBA', im.size, (255, 255, 255, 255))
+    flat.alpha_composite(im)
+    im = flat.convert('RGB')
+    im.thumbnail((300, 300))
+    bg = border_colour(im)
+    data = im.get_flattened_data() if hasattr(im, 'get_flattened_data') else im.getdata()
+    near = lambda a, b, d: sum((x - y) ** 2 for x, y in zip(a, b)) < d * d
+    fg = [p for p in data if not near(p, bg, 40)]
+    bins = Counter((r >> 3, g >> 3, b >> 3) for r, g, b in fg)
+    chosen = []
+    for k, cnt in bins.most_common():
+        if cnt < len(fg) * 0.006 or len(chosen) >= n:
+            break
+        rgb = tuple((v << 3) + 4 for v in k)
+        if near(rgb, bg, 60) or any(near(rgb, c, 70) for c, _ in chosen):
+            continue
+        chosen.append((rgb, cnt))
+    out = []
+    for rgb, cnt in chosen:
+        share = cnt / max(1, len(fg))
+        out.append((f'c{len(out) + 1}', '#%02x%02x%02x' % rgb, 2.0 if share < 0.08 else 1.0))
+    return out
+
+
 def main():
     args = sys.argv[1:]
     src, out = args[0], args[1]
@@ -38,10 +88,16 @@ def main():
     size = int(opt.get('size', 40))
     background = opt.get('background', '#14365c')
     pal = [('background', background, 1.0)]
-    for part in opt['colors'].split(','):
-        name, rest = part.split('=')
-        hx, _, w = rest.partition('*')
-        pal.append((name.strip(), hx.strip(), float(w or 1)))
+    auto = 'colors' not in opt
+    if not auto:
+        for part in opt['colors'].split(','):
+            name, rest = part.split('=')
+            hx, _, w = rest.partition('*')
+            pal.append((name.strip(), hx.strip(), float(w or 1)))
+    else:
+        # No colours given: pick them from the picture itself (up to --auto,
+        # default 7), leaving out its plain background (see below).
+        pal += auto_palette(src, int(opt.get('auto', 7)))
     refs = [hex_rgb(p[1]) for p in pal]
     # A name given more than once (e.g. red=#d83a33,red=#92201c for its shading) is one colour.
     first = {}
@@ -76,8 +132,13 @@ def main():
                 cache[k] = alias[nearest(rgb)]
             cls[y][x] = cache[k]
 
-    # The picture's own background: near-white pixels connected to its border.
+    # The picture's own background: pixels connected to its border that are
+    # near-white (or, with picked colours, near the border's main colour).
+    bg_rgb = border_colour(im) if auto else None
+
     def plain(rgb):
+        if bg_rgb is not None:
+            return sum((a - b) ** 2 for a, b in zip(rgb, bg_rgb)) < 40 ** 2
         return min(rgb) > 232
 
     seen = [[False] * W for _ in range(H)]

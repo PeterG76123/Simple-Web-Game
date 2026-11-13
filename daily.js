@@ -139,7 +139,7 @@
   }
   const read = (key, fallback) => { try { return JSON.parse(localStorage.getItem(key)) || fallback; } catch (e) { return fallback; } };
   const write = (key, v) => { try { localStorage.setItem(key, JSON.stringify(v)); } catch (e) { /* private mode */ } };
-  let puzzles = read(CACHE_KEY, {}); // { day: { difficulty: { level, solution, title } } }
+  let puzzles = read(CACHE_KEY, {}); // { day: { difficulty: { level, solution, title, picture } } }
   const done = read(DONE_KEY, { solved: {}, bonus: {} }); // solved["day:diff"], bonus[day]
 
   let loading = null;
@@ -150,12 +150,12 @@
     if (!cfg.url || !cfg.key || !root.fetch) return Promise.resolve(false);
     const from = localDay(cfg.catchUpDays || 7);
     const to = localDay(0);
-    const url = `${cfg.url}/rest/v1/eel_daily_puzzles?select=day,difficulty,level,solution,title&day=gte.${from}&day=lte.${to}`;
+    const url = `${cfg.url}/rest/v1/eel_daily_puzzles?select=day,difficulty,level,solution,title,picture&day=gte.${from}&day=lte.${to}`;
     loading = fetch(url, { headers: { apikey: cfg.key } })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
       .then((rows) => {
         const got = {};
-        for (const r of rows) (got[r.day] = got[r.day] || {})[r.difficulty] = { level: r.level, solution: r.solution, title: r.title };
+        for (const r of rows) (got[r.day] = got[r.day] || {})[r.difficulty] = { level: r.level, solution: r.solution, title: r.title, picture: !!r.picture };
         puzzles = got;
         write(CACHE_KEY, puzzles);
         showDailyCard();
@@ -194,7 +194,7 @@
     const p = puzzles[day] && puzzles[day][d];
     if (!p || !root.ArrowGame) return;
     close();
-    root.ArrowGame.playDaily({ day, difficulty: d, level: p.level, solution: p.solution, label: DIFF[d], title: p.title });
+    root.ArrowGame.playDaily({ day, difficulty: d, level: p.level, solution: p.solution, label: DIFF[d], title: p.title, picture: !!p.picture });
   }
 
   /** The daily puzzles panel: today's four, then the catch-up days. */

@@ -135,6 +135,25 @@ A picture becomes a 40x40 level whose eels draw it:
 2. `node tools/picture-level.js grid.json levels-pictures/<name>.json --tries 300 --max 6` covers it with eels of 3+ squares, each in its square's colour, laid so the level is always solvable (checked with the game's solver). It reports how many squares had to change colour.
 3. List the name under a group's `pictures` in `tools/level-plan.js` and run `node tools/build-levels.js`.
 
+### Daily picture puzzles (from the picture calendar)
+
+The picture calendar page (claude.ai artifact 8wFiGkkMGxHyvvbhvQXfzF) has an
+**Upload** button by each picture idea. An upload stores the picture with the
+page, adds a row to the page's `uploads` collection (`status: "new"`, the
+theme's `from`/`to` days, `asset` id) and sends Claude a "Send to Claude"
+comment. For each new upload:
+
+1. Set the row's `status` to `"making"`; download the picture (artifact read with its `asset` id).
+2. `node tools/daily-picture.js --days <from> <to>` lists the theme's days still to come; pick the first with no
+   picture puzzles yet (`select distinct day from eel_daily_puzzles where picture`).
+3. `node tools/daily-picture.js picture.png --day <day> --title "<name>"` makes the four puzzles
+   (Easy 20x20, Medium 26x26, Hard 32x32, Insane 40x40; colours picked from the picture), checks each
+   plays through and has no gaps, and writes `levels-daily/pictures/<day>.sql`, `.json` and grid previews.
+4. Run the SQL on the database (it upserts that day's four rows with `picture = true`, so the game
+   shows the picture when each is solved).
+5. Upload the 40x40 preview to the page's assets; set the row to `status: "ready"`, `day`, `preview`
+   (or `status: "problem"`, `note`), reply on the comment thread and resolve it; commit the files.
+
 ### Icon, splash screen and store listing
 
 `node tools/make-art.js` draws the app icon, splash screen and Play Store feature graphic (into `assets/` and `store/`); `npx @capacitor/assets generate --android --ios --iconBackgroundColor '#031127' --splashBackgroundColor '#031127' --splashBackgroundColorDark '#031127'` then makes every size the apps need. `store/listing.md` has the Play listing text (name, descriptions) and the answers for Play Console's content forms; `store/screenshots/` has the phone screenshots.
