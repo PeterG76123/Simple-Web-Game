@@ -144,7 +144,7 @@ dialog.dd::backdrop { background: rgba(4, 16, 26, .6); }
 <div class="wrap">
   <header>
     <h1>Eel Escape picture calendar</h1>
-    <p class="lead">A year of daily puzzle pictures, one row per week. Each day shows the theme's suggestion. Click a day to upload its picture, or drop a picture onto it, or click a day and paste. Claude turns it into that day's four puzzles (Easy to Insane). Finished days have a <b>View</b> link with the picture, the eel puzzle and the reward.</p>
+    <p class="lead">A year of daily puzzle pictures, one row per week. Each day shows the theme's suggestion. Click a day to upload its picture, or drop a picture onto it, or click a day and paste. You'll see the picture and its day before anything is saved. Claude turns it into that day's four puzzles (Easy to Insane). Finished days have a <b>View</b> link with the picture, the eel puzzle and the reward.</p>
   </header>
   <div class="summary" id="summary">
     <span class="legend"><i class="dot ready"></i>In the game <span class="count" id="nReady">0</span></span>
@@ -423,7 +423,7 @@ function showDay(day) {
   if (!$('dd').open) $('dd').showModal();
 }
 $('ddClose').addEventListener('click', () => $('dd').close());
-$('dd').addEventListener('close', () => { openDay = null; });
+$('dd').addEventListener('close', () => { if (staged && staged.day === openDay) { clearStaged(); status('Nothing was uploaded.'); } openDay = null; });
 $('dd').addEventListener('click', (e) => { if (e.target === $('dd')) $('dd').close(); });
 
 function fillDialog(day) {
@@ -458,16 +458,45 @@ function fillDialog(day) {
     return;
   }
   const box = document.createElement('div'); box.className = 'upbox';
-  const lab = document.createElement('label'); lab.htmlFor = 'ddName'; lab.textContent = u ? 'Replace the picture: what is it?' : 'What is the picture?';
+  const st = staged && staged.day === day ? staged : null;
+  if (st) {
+    // A picture is waiting: show it and ask before anything is saved.
+    const prev = document.createElement('img'); prev.src = st.url; prev.alt = 'The picture you chose';
+    prev.style.cssText = 'max-height:180px;width:auto;max-width:100%;object-fit:contain;background:#fff;border-radius:10px;align-self:flex-start';
+    box.append(prev);
+  }
+  const lab = document.createElement('label'); lab.htmlFor = 'ddName';
+  lab.textContent = st ? 'What is this picture?' : u ? 'Replace the picture: what is it?' : 'What is the picture?';
   const name = document.createElement('input'); name.type = 'text'; name.id = 'ddName'; name.maxLength = 60;
-  name.value = (u && u.name) || s.idea || '';
+  name.value = st ? st.name : (u && u.name) || s.idea || '';
   name.placeholder = 'For example: Clownfish';
+  if (st) name.addEventListener('input', () => { st.name = name.value; });
   const row = document.createElement('div'); row.className = 'row';
-  const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'btn'; btn.id = 'ddPick';
-  btn.textContent = u ? 'Choose a new picture' : 'Choose a picture';
-  btn.addEventListener('click', () => { pendingDay = day; $('filePick').value = ''; $('filePick').click(); });
-  const hint = document.createElement('span'); hint.className = 'hint'; hint.textContent = 'or paste one (Ctrl+V or ⌘V), or drop it here';
-  row.append(btn, hint);
+  if (st) {
+    if (u) {
+      const warn = document.createElement('p'); warn.className = 'note'; warn.style.color = 'var(--found)'; warn.style.fontWeight = '700';
+      warn.textContent = `This day already has ${u.name || 'a picture'}${u.status === 'ready' ? ', with its puzzles in the game' : ''}. Uploading replaces it.`;
+      box.append(warn);
+    }
+    const go = document.createElement('button'); go.type = 'button'; go.className = 'btn'; go.id = 'ddPick';
+    go.textContent = u ? `Replace ${u.name || 'the picture'}` : 'Upload';
+    go.addEventListener('click', () => {
+      const nm = name.value.trim() || s.idea || 'Picture';
+      const file = st.file; clearStaged();
+      uploadPicture(day, nm, file);
+    });
+    const cancel = document.createElement('button'); cancel.type = 'button'; cancel.className = 'btn'; cancel.id = 'ddCancel';
+    cancel.style.cssText = 'background:var(--surface);color:var(--ink);border-color:var(--line)';
+    cancel.textContent = 'Cancel';
+    cancel.addEventListener('click', () => { clearStaged(); fillDialog(day); status('Nothing was uploaded.'); });
+    row.append(go, cancel);
+  } else {
+    const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'btn'; btn.id = 'ddPick';
+    btn.textContent = u ? 'Choose a new picture' : 'Choose a picture';
+    btn.addEventListener('click', () => { pendingDay = day; $('filePick').value = ''; $('filePick').click(); });
+    const hint = document.createElement('span'); hint.className = 'hint'; hint.textContent = 'or paste one (Ctrl+V or ⌘V), or drop it here';
+    row.append(btn, hint);
+  }
   box.append(lab, name, row);
   box.addEventListener('dragover', (e) => { if (hasFiles(e)) { e.preventDefault(); box.classList.add('drop'); } });
   box.addEventListener('dragleave', () => box.classList.remove('drop'));
@@ -498,10 +527,17 @@ $('filePick').addEventListener('change', () => {
   if (f && day) startUpload(day, f);
 });
 
+// A chosen, dropped or pasted picture is only staged: the day opens with a
+// preview and nothing is saved until the Upload (or Replace) button is pressed.
+let staged = null; // { day, file, url, name }
+function clearStaged() { if (staged) URL.revokeObjectURL(staged.url); staged = null; }
 function startUpload(day, file) {
-  const typed = openDay === day && $('ddName') ? $('ddName').value.trim() : '';
-  const name = typed || (uploads[day] && uploads[day].name) || suggestion(new Date(`${day}T00:00:00Z`)).idea || 'Picture';
-  uploadPicture(day, name, file);
+  clearStaged();
+  const s = suggestion(new Date(`${day}T00:00:00Z`));
+  staged = { day, file, url: URL.createObjectURL(file), name: uploads[day] ? s.idea : ((openDay === day && $('ddName') && $('ddName').value.trim()) || s.idea || '') };
+  select(day);
+  showDay(day);
+  status(`Check the picture for ${fmtLong(day)}, then press ${uploads[day] ? 'Replace' : 'Upload'}.`);
 }
 
 async function uploadPicture(day, name, file) {
