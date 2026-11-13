@@ -32,8 +32,15 @@ const MIXED = new Set(['rotclear', 'gatesclear', 'combo', 'twins', 'twinsclear',
 function solutionFor(entry) {
   if (entry.solution) return entry.solution;
   const L = decodeLevel(entry.level);
-  const r = solve(L.size, L.lines, { mirrors: L.mirrors, rotatable: L.rotatable, gates: L.gates, plates: L.plates, twins: L.twins, maxStates: 100000 });
-  return r.solvable ? pathToText(r.path) : null;
+  const opts = { mirrors: L.mirrors, rotatable: L.rotatable, gates: L.gates, plates: L.plates, twins: L.twins };
+  // Quick search first; a few levels (turning reflectors) need a much bigger
+  // one, and every level should ship with its solution so hints are instant.
+  for (const maxStates of [100000, 2000000]) {
+    const r = solve(L.size, L.lines, { ...opts, maxStates });
+    if (r.solvable) return pathToText(r.path);
+  }
+  console.log('  WARNING: no solution found for a level');
+  return null;
 }
 
 async function main() {
@@ -139,7 +146,12 @@ async function main() {
         picked.push({ e: { level: t.level, solution: t.solution }, r: 10, kind: 'tricky' });
       }
       // Known solutions for mixed levels, so hints can follow them instantly.
-      const solutions = picked.map((p) => (MIXED.has(p.kind) || p.e.solution ? solutionFor(p.e) : null));
+      // Others too, when they're too big a search to do quickly on a phone.
+      const quick = (e) => {
+        const L = decodeLevel(e.level);
+        return solve(L.size, L.lines, { mirrors: L.mirrors, rotatable: L.rotatable, gates: L.gates, plates: L.plates, twins: L.twins, maxStates: 100000 }).solvable;
+      };
+      const solutions = picked.map((p) => (MIXED.has(p.kind) || p.e.solution || !quick(p.e) ? solutionFor(p.e) : null));
       groups.push({ name: g.name, levels: picked.map((p) => p.e.level), ratings: picked.map((p) => p.r), solutions });
       console.log(`  ratings: ${picked.map((p) => p.r.toFixed(1)).join(' ')}`);
     }
