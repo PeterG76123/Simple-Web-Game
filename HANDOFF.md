@@ -37,15 +37,21 @@ After loading, update the calendar's `uploads` rows (whale, octopus: status
 "ready", day, preview/puzzle/reward assets; turtle too), reply on any "Send to
 Claude" threads, and resolve them.
 
-## Next: calendar page redesign (Peter's request)
+## Calendar page (rebuilt 13 Nov as the 52-week grid)
 
-A 7 x 52 grid for the year (rows = weeks Mon-Sun, from this week): each day
-shows its suggested picture (from the themes), the uploaded picture and its
-build status if there is one, and, when complete, a link that pops up the
-original image, the eel puzzle and the reward picture. Upload by clicking a
-day, pasting or dropping onto it; uploads keyed by day (doc id = YYYY-MM-DD)
-so the day is Peter's choice. A draft of the page is in the previous session's
-scratchpad (not saved); rebuild from this description and the current page.
+Source: `tools/picture-calendar.html` (publish it to the artifact URL above).
+Rows = weeks Mon-Sun from the current week. Each day shows the suggested idea
+(the next unused idea of the shortest theme covering that day), the uploaded
+picture with its status, and for ready days a View dialog with the original,
+the Insane eel puzzle and the reward picture. Upload by clicking a day, dropping
+onto it, or clicking a day and pasting.
+
+`uploads` rows are now keyed by day (doc id YYYY-MM-DD): fields day, name,
+theme, asset, url, status (new/making/ready/problem), note, preview, puzzle,
+reward (`/_blob/<id>` urls). The four finished days (14, 15, 16 Nov and 1 Dec)
+are in this form. Rows still keyed by idea (clownfish, seahorse, crab, starfish,
+jellyfish, pufferfish, shark: all status "new", no puzzles made yet) appear in
+a "needs a day" tray where Peter picks a day and presses Move.
 
 ## Other open items
 
