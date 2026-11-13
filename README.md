@@ -152,7 +152,9 @@ comment. For each new upload:
    Watermarks: thin marks on the picture's background (watermark text, captions, signatures) and small
    separate bits outside the subject are removed automatically. Look at the 40x40 preview before step 4:
    a watermark printed across the subject itself can't be removed, so mark that upload as a problem
-   ("the picture has a watermark across it") instead.
+   ("the picture has a watermark across it") instead. Never use a stock site's watermarked preview
+   (Alamy, Shutterstock, iStock, Adobe Stock...): the watermark means it isn't licensed. Mark it as a
+   problem and ask for the licensed, clean download or another picture.
 4. Run the SQL on the database (it upserts that day's four rows with `picture = true`, so the game
    shows the picture when each is solved).
 5. Upload the 40x40 preview to the page's assets; set the row to `status: "ready"`, `day`, `preview`
