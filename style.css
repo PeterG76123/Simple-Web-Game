@@ -1345,6 +1345,11 @@ svg.aq-snail .foot, svg.aq-snail .feelers { transition: opacity 0.3s; }
 
 /* ---------- Daily puzzles (daily.js) ---------- */
 .daily-menu-btn { margin-bottom: 0; }
+.daily-menu-btn .aq-menu-tank { position: relative; }
+/* "New" on the daily puzzles card until today's are first opened. */
+.daily-new { position: absolute; top: -7px; right: -10px; padding: 1px 6px; border-radius: 999px; background: #ff6fb5; color: #fff; font: 700 0.62rem/1.4 var(--font-body, inherit); letter-spacing: 0.04em; text-transform: uppercase; box-shadow: 0 0 10px rgba(255, 111, 181, 0.7); animation: daily-new-pulse 1.6s ease-in-out infinite; }
+@keyframes daily-new-pulse { 50% { transform: scale(1.12); } }
+@media (prefers-reduced-motion: reduce) { .daily-new { animation: none; } }
 .daily-cal svg rect { fill: rgba(94, 242, 255, 0.12); stroke: var(--accent); stroke-width: 2.4; }
 .daily-cal .cal-top { fill: var(--accent); opacity: 0.85; }
 .daily-cal .cal-ring { stroke: var(--accent); stroke-width: 3; stroke-linecap: round; fill: none; }

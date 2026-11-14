@@ -115,10 +115,14 @@
       { label: 'Start a new streak', action: () => { W.dropStreak(); close(); showBadge(); open(); } },
     ]);
   }
-  // Shortly after the menu appears, unless something else is already on screen.
-  setTimeout(() => {
-    const busy = document.querySelector('.shop-overlay') || !document.getElementById('overlay').hidden;
-    if (!busy) greet();
+  // Shortly after the menu appears, unless something else is already on screen: first
+  // (once a day) news of today's new daily puzzles, then the daily bonus greeting.
+  const busy = () => !!document.querySelector('.shop-overlay') || !document.getElementById('overlay').hidden ||
+    !document.getElementById('menu').classList.contains('active');
+  setTimeout(async () => {
+    if (busy()) return;
+    const played = await announceNew();
+    if (!played && !busy()) greet();
   }, 900);
 
   // ---------- Daily puzzles ----------
@@ -204,6 +208,7 @@
 
   /** The daily puzzles panel: a row of days to pick from (today first), and the picked day's four. */
   function openPuzzles(fetched) {
+    markSeen();
     const cfg = C();
     const list = days().filter((day) => puzzles[day]);
     let html = '';
@@ -243,16 +248,71 @@
     if (fetched === undefined && !puzzles[localDay(0)]) load().then((ok) => { if (box && box.querySelector('.daily-list')) openPuzzles(ok); });
   }
 
-  // The menu's card: how many of today's four are solved.
+  // How many puzzles are still to solve: today's, and the catch-up days'.
+  const leftOn = (day) => (puzzles[day] ? [0, 1, 2, 3].filter((d) => puzzles[day][d] && !isSolved(day, d)).length : 0);
+  function unsolved() {
+    const today = localDay(0);
+    const earlier = days().slice(1).reduce((n, day) => n + leftOn(day), 0);
+    return { today: leftOn(today), earlier, total: leftOn(today) + earlier, has: !!puzzles[today] };
+  }
+
+  // Today's new puzzles: a "New" badge on the menu's card until the daily puzzles are
+  // opened today, and (once a day, on opening the game) a message saying they're here.
+  const SEEN_KEY = 'eel-daily-seen-v1'; // { seen: day the panel was last opened, told: day last announced }
+  const seen = read(SEEN_KEY, { seen: '', told: '' });
+  function markSeen() { if (seen.seen !== localDay(0)) { seen.seen = localDay(0); write(SEEN_KEY, seen); showDailyCard(); } }
+
+  /** Announces today's new puzzles, once a day. Resolves true if the player chose to play. */
+  async function announceNew() {
+    const today = localDay(0);
+    if (seen.told === today || seen.seen === today) return false;
+    if (!puzzles[today]) await Promise.race([load(), new Promise((r) => setTimeout(r, 6000))]);
+    const u = unsolved();
+    if (!puzzles[today] || !u.today || busy()) return false;
+    seen.told = today;
+    write(SEEN_KEY, seen);
+    const t = puzzles[today][3] || puzzles[today][0];
+    const pic = t && t.picture && t.title ? `<p class="daily-lead">Today’s picture is a <strong>${t.title.toLowerCase()}</strong>. Solve the Insane puzzle to reveal it.</p>` : '';
+    const more = u.earlier ? `<p class="shop-small">You also have ${plural(u.earlier, 'puzzle', 'puzzles')} left from earlier days.</p>` : '';
+    return new Promise((resolve) => {
+      dialog('New daily puzzles!', `<p class="daily-lead">${u.today === 4 ? 'Four new puzzles are ready, Easy to Insane.' : `${plural(u.today, 'puzzle', 'puzzles')} to solve today.`}</p>${pic}${more}`, [
+        { label: 'Play now', primary: true, action: () => { close(); picked = null; openPuzzles(); resolve(true); } },
+        { label: 'Later', action: () => { close(); resolve(false); } },
+      ]);
+      // (Closed by tapping outside or Escape: carry on as for Later.)
+      const mine = box;
+      const watch = new MutationObserver(() => { if (!mine.isConnected) { watch.disconnect(); resolve(false); } });
+      watch.observe(app, { childList: true });
+    });
+  }
+
+  // The menu's card: how many puzzles are left to solve (today's and earlier days'), and
+  // today's four as dots.
   const card = document.getElementById('menuDailyBtn');
   function showDailyCard() {
     if (!card) return;
     const today = localDay(0);
-    const n = solvedOn(today);
+    const u = unsolved();
     const text = document.getElementById('menuDailyText');
     const dots = document.getElementById('menuDailyDots');
-    if (text) text.textContent = n === 4 ? 'All four solved today!' : puzzles[today] ? `${4 - n} new ${4 - n === 1 ? 'puzzle' : 'puzzles'} today` : 'Four new puzzles every day';
+    let line;
+    if (!u.has && !u.earlier) line = 'Four new puzzles every day';
+    else if (!u.total) line = 'All solved! New ones tomorrow';
+    else if (!u.earlier) line = `${plural(u.today, 'puzzle', 'puzzles')} to solve today`;
+    else if (!u.today) line = `${u.earlier} to solve from earlier days`;
+    else line = `${u.total} to solve: ${u.today} today, ${u.earlier} earlier`;
+    if (text) text.textContent = line;
+    card.setAttribute('aria-label', `Daily puzzles: ${line}`);
     if (dots) dots.innerHTML = [0, 1, 2, 3].map((d) => `<i class="${isSolved(today, d) ? 'on' : ''}"></i>`).join('');
+    // "New" until today's are first looked at.
+    const fresh = u.has && u.today > 0 && seen.seen !== today;
+    let tag = card.querySelector('.daily-new');
+    if (fresh && !tag) {
+      tag = document.createElement('span');
+      tag.className = 'daily-new';
+      tag.textContent = 'New';
+      card.querySelector('.aq-menu-tank').appendChild(tag);
+    } else if (!fresh && tag) tag.remove();
   }
   if (card) card.addEventListener('click', () => { picked = null; openPuzzles(); });
   showDailyCard();
