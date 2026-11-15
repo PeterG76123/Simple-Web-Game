@@ -278,7 +278,35 @@
       out[i] = pal[best];
       used[best]++;
     }
+    out.pal = pal;
     return out;
+  }
+
+  // Twin eels' colours: strong, well-spread colours, each pair's as unlike the others'
+  // (and the level's own colours) as can be.
+  const TWIN_CHOICES = ['#ff3b3b', '#ff9a1f', '#ffe23d', '#8dff2e', '#1fe07a', '#29f0ff', '#3d7bff', '#a04dff', '#ff3fd8', '#ffffff'];
+  /** How different two colours look (0 to about 765; "redmean" weighting of red, green and blue). */
+  function looksApart(a, b) {
+    const ch = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+    const [r1, g1, b1] = ch(a), [r2, g2, b2] = ch(b);
+    const rm = (r1 + r2) / 2, dr = r1 - r2, dg = g1 - g2, db = b1 - b2;
+    return Math.sqrt((2 + rm / 256) * dr * dr + 4 * dg * dg + (2 + (255 - rm) / 256) * db * db);
+  }
+  function twinColours(n, others) {
+    const chosen = [];
+    for (let k = 0; k < n; k++) {
+      let best = null, score = -1;
+      for (const c of TWIN_CHOICES) {
+        if (chosen.includes(c) && chosen.length < TWIN_CHOICES.length) continue;
+        // Unlike the other pairs, and unlike the other eels.
+        const pairs = Math.min(9999, ...chosen.map((x) => looksApart(c, x)));
+        const rest = Math.min(9999, ...others.map((x) => looksApart(c, x)));
+        const sc = Math.min(pairs, rest);
+        if (sc > score) { score = sc; best = c; }
+      }
+      chosen.push(best);
+    }
+    return chosen;
   }
 
   // ---------- Game state ----------
@@ -319,12 +347,12 @@
     // (Twin eels keep their own pair colours, so pairs still stand out.)
     const twinned = new Set(twins.flat());
     if (theme) lines.forEach((l, i) => { if (!twinned.has(i)) l.ownColor = theme[i]; });
-    // (Insane levels have up to 6 pairs. With more pairs than colours, the
-    // colours repeat rather than leave a pair without one.)
-    const TWIN_COLOURS = [8, 1, 6, 3, 4, 7]; // sunny yellow, pink, coral, orange, violet, lime
-    const reserved = TWIN_COLOURS.slice(0, twins.length);
-    lines.forEach((l) => { while (reserved.includes(l.colorIndex)) l.colorIndex = (l.colorIndex + 1) % 10; });
-    twins.forEach(([a, b], k) => { lines[a].colorIndex = lines[b].colorIndex = TWIN_COLOURS[k % TWIN_COLOURS.length]; });
+    // Each pair gets a colour clearly unlike the other pairs' and the level's own colours.
+    // (Insane levels have up to 6 pairs.)
+    if (twins.length) {
+      const others = theme ? theme.pal : lines.filter((l, i) => !twinned.has(i)).map((l) => l.ownColor || colors.lines[l.colorIndex]);
+      twinColours(twins.length, others).forEach((c, k) => { lines[twins[k][0]].ownColor = lines[twins[k][1]].ownColor = c; });
+    }
 
     state = {
       tier, group, index, n, lines, mirrors, history: [], finished: false,
@@ -1728,7 +1756,7 @@
       }
       if (partnerOf(l)) {
         // Twins are banded, like sea snakes: dark rings along the body.
-        ctx.strokeStyle = mix(colors.lines[l.colorIndex], '#021022', 0.62);
+        ctx.strokeStyle = mix(l.ownColor || colors.lines[l.colorIndex], '#021022', 0.62);
         ctx.lineWidth = bodyWidth * 1.02;
         ctx.setLineDash([cell * 0.13, cell * 0.3]);
         for (const [, pts] of solidRuns) stroke(pts);

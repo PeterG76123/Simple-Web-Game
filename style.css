@@ -417,8 +417,11 @@ h1 {
   gap: 12px;
   flex: none;
 }
-.hud-center { text-align: left; min-width: 0; padding-left: 4px; }
-.hud-buttons { display: flex; gap: 8px; }
+/* The buttons along the top; under them, the level's name, difficulty and moves,
+   centred over the board. */
+.hud { row-gap: 6px; }
+.hud-center { grid-row: 2; grid-column: 1 / -1; text-align: center; min-width: 0; }
+.hud-buttons { grid-row: 1; grid-column: 2; display: flex; gap: 8px; }
 .help-btn { font-family: var(--font-display); font-weight: 700; font-size: 1.35rem; line-height: 1; }
 .level-label, .moves { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .level-label {
