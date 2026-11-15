@@ -1454,3 +1454,36 @@ svg.aq-snail .foot, svg.aq-snail .feelers { transition: opacity 0.3s; }
   padding: 1px 7px; border-radius: 999px; background: #ffd166; color: #3a2400;
   font-size: 0.72rem; font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; pointer-events: none;
 }
+/* The win screen's Pearl Rush offer: big, gold and shining. */
+.btn.rush-btn {
+  position: relative; overflow: hidden;
+  display: flex; align-items: center; gap: 12px; text-align: left;
+  min-height: 64px; padding: 8px 14px;
+  border: 2px solid #ffe08a; color: #3a2400;
+  background: linear-gradient(180deg, #ffe58a 0%, #ffc23d 55%, #f59e0b 100%);
+  box-shadow: 0 0 22px rgba(255, 196, 61, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  animation: rush-glow 1.6s ease-in-out infinite alternate;
+}
+.btn.rush-btn::after {
+  content: ''; position: absolute; top: 0; bottom: 0; width: 40%; left: -60%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.65), transparent);
+  animation: rush-shine 2.6s ease-in-out infinite;
+}
+.btn.rush-btn:hover { box-shadow: 0 0 30px rgba(255, 196, 61, 0.9), inset 0 1px 0 rgba(255, 255, 255, 0.7); }
+.rush-btn-icon { position: relative; flex: none; width: 40px; height: 40px; }
+.rush-btn-icon .pearl { width: 36px; height: 36px; box-shadow: 0 0 12px rgba(255, 255, 255, 0.9); }
+.rush-btn-x {
+  position: absolute; right: -6px; bottom: -4px; padding: 0 5px; border-radius: 999px;
+  background: #e2361f; color: #fff; font-family: var(--font-display); font-weight: 700; font-size: 0.8rem; line-height: 1.35;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+.rush-btn-text { flex: 1; display: flex; flex-direction: column; line-height: 1.15; }
+.rush-btn-text strong { font-family: var(--font-display); font-size: 1.3rem; font-weight: 700; }
+.rush-btn-text span { font-size: 0.85rem; font-weight: 700; opacity: 0.85; }
+.rush-btn-ad {
+  flex: none; display: inline-flex; align-items: center; gap: 2px; padding: 3px 8px 3px 5px; border-radius: 999px;
+  background: rgba(58, 36, 0, 0.16); font-size: 0.78rem; font-weight: 800;
+}
+@keyframes rush-glow { to { box-shadow: 0 0 34px rgba(255, 196, 61, 0.95), inset 0 1px 0 rgba(255, 255, 255, 0.7); } }
+@keyframes rush-shine { 0%, 55% { left: -60%; } 100% { left: 130%; } }
+@media (prefers-reduced-motion: reduce) { .btn.rush-btn, .btn.rush-btn::after { animation: none; } }

@@ -1901,10 +1901,10 @@
     $('dialogText').textContent = text;
     const box = $('dialogButtons');
     box.innerHTML = '';
-    buttons.forEach(({ label, primary, action }) => {
+    buttons.forEach(({ label, primary, action, cls, html }) => {
       const b = document.createElement('button');
-      b.className = `btn ${primary ? 'primary' : 'ghost'}`;
-      b.textContent = label;
+      b.className = `btn ${primary ? 'primary' : 'ghost'}${cls ? ` ${cls}` : ''}`;
+      if (html) { b.innerHTML = html; b.setAttribute('aria-label', label); } else b.textContent = label;
       b.addEventListener('click', action);
       box.appendChild(b);
     });
@@ -1918,7 +1918,14 @@
   function withDouble(buttons) {
     if (!state.pearls || state.pearlsDoubled || !rushOffered()) return buttons;
     const out = buttons.slice();
-    out.splice(1, 0, { label: `Pearl Rush: 2× pearls for ${rushMinutes()} min (ad)`, action: doublePearls });
+    out.splice(1, 0, {
+      label: `Pearl Rush: watch an ad for 2× pearls for ${rushMinutes()} minutes`,
+      cls: 'rush-btn',
+      html: '<span class="rush-btn-icon" aria-hidden="true"><span class="pearl"></span><span class="rush-btn-x">×2</span></span>' +
+        `<span class="rush-btn-text"><strong>Pearl Rush!</strong><span>2× pearls for ${rushMinutes()} minutes</span></span>` +
+        '<span class="rush-btn-ad" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>Ad</span>',
+      action: doublePearls,
+    });
     return out;
   }
   const rushMinutes = () => (window.ArrowConfig && window.ArrowConfig.get('pearls.rush.minutes')) || 10;
