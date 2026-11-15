@@ -2001,6 +2001,8 @@
       '<button class="btn primary sp-ok">Awesome!</button></div>';
     host.appendChild(el);
     const ok = el.querySelector('.sp-ok');
+    // The bonus pearls pour from the card up to the pearl count, once it has popped up.
+    setTimeout(() => { if (el.isConnected) P.pour(el.querySelector('.sp-pearls .pearl'), { to: hudChip, amount: total }); }, 700);
     const done = () => { celebrating = false; pourPearls(el.querySelector('.sp-pearls .pearl')); el.classList.add('out'); setTimeout(() => el.remove(), 250); };
     celebrating = true;
     ok.addEventListener('click', done);

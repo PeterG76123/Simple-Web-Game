@@ -8,7 +8,8 @@
  *   ArrowPearls.onShow(fn)        fn(n) whenever that changes
  *   ArrowPearls.hold()            keep the counts where they are (pearls about to pour)
  *   ArrowPearls.pour(from, opts)  pour what's been added since: from an element, or
- *                                 { x, y, size } on screen; opts.to picks the count
+ *                                 { x, y, size } on screen; opts.to picks the count,
+ *                                 opts.amount pours just that many (the rest later)
  *   ArrowPearls.release()         stop pouring and show the real total
  *
  * Add the pearls to the wallet first, then call pour() straight away (the counts wait a
@@ -21,6 +22,7 @@
   const subs = [];
   let shown = W.pearls();
   let frozen = false;
+  let holding = false; // hold() was asked for: stay put until the last pour (without an amount) or release()
   const flights = new Set();
   const show = (n) => { shown = n; subs.forEach((fn) => fn(n)); };
 
@@ -31,6 +33,7 @@
   function release() {
     for (const f of [...flights]) f.stop(true);
     frozen = false;
+    holding = false;
     show(W.pearls());
   }
 
@@ -46,12 +49,18 @@
 
   function pour(from, opts = {}) {
     frozen = true;
-    const gain = W.pearls() - shown - [...flights].reduce((a, f) => a + f.left(), 0);
+    if (!opts.amount) holding = false; // the last of them
+    const waiting = W.pearls() - shown - [...flights].reduce((a, f) => a + f.left(), 0);
+    const gain = opts.amount ? Math.min(opts.amount, waiting) : waiting;
     const chip = opts.to || visibleCount();
     const reduce = root.matchMedia && root.matchMedia('(prefers-reduced-motion: reduce)').matches;
     let a = from && from.getBoundingClientRect ? from.getBoundingClientRect() : from;
     if (a && a.x !== undefined && a.width === undefined) a = { left: a.x - (a.size || 16) / 2, top: a.y - (a.size || 16) / 2, width: a.size || 16, height: a.size || 16 };
-    if (gain <= 0 || !chip || !chip.offsetParent || !a || reduce) { if (!flights.size) release(); return; }
+    if (gain <= 0 || !chip || !chip.offsetParent || !a || reduce) {
+      if (opts.amount && gain > 0) { show(shown + gain); return; } // (just count them, no pour)
+      if (!flights.size && !holding) release();
+      return;
+    }
     const b = chip.getBoundingClientRect();
 
     // On top of everything (the count may be under a dialog's shade): a copy of the
@@ -79,7 +88,7 @@
         timers.forEach(clearTimeout);
         layer.remove();
         flights.delete(flight);
-        if (!quiet && !flights.size) release();
+        if (!quiet && !flights.size && !holding) release();
       },
     };
     flights.add(flight);
@@ -120,7 +129,7 @@
   root.ArrowPearls = {
     shown: () => shown,
     onShow: (fn) => subs.push(fn),
-    hold: () => { frozen = true; },
+    hold: () => { frozen = true; holding = true; },
     release,
     pour,
     short,
