@@ -242,9 +242,61 @@
   }
 
   /** Draws everything in the tank afresh. */
+  // ---------- Each tank carries on where it was ----------
+  // Swiping to another tank (or leaving the aquarium) and back keeps each tank as it was:
+  // where every fish and crab is, what it was doing, and the food still in the water.
+  // Kept for this visit to the game (in memory), per tank.
+  const snapshots = {};
+  let shownId = null; // the tank whose fish and food are on screen now
+  let shownSize = [0, 0]; // its size (px) when drawn, which the positions are measured in
+  // Things that belong to the drawing or point at other objects: rebuilt, never copied.
+  const SKIP = new Set(['el', 'c', 'm', 'item', 'w', 'h', 'plantsX', 'leader', 'snack', 'skip', 'held', 'offsetEl']);
+  // Positions in pixels: scaled if the tank changed size since (e.g. the phone turned).
+  const XS = ['x', 'tx', 'hideX', 'fleeX', 'vx'], YS = ['y', 'ty', 'fy', 'tfy', 'vy', 'vfy'];
+  function snapshot() {
+    if (shownId == null || !W.ownsTank(shownId)) return;
+    const fishState = {};
+    for (const f of fish) {
+      const o = {};
+      for (const [k, v] of Object.entries(f)) if (!SKIP.has(k) && (typeof v !== 'object' || Array.isArray(v))) o[k] = Array.isArray(v) ? v.slice() : v;
+      o.scared = 0; // a fright doesn't carry over
+      fishState[f.item.uid] = o;
+    }
+    const foodState = food.filter((p) => !p.eaten && p.life > 0).map((p) => ({ x: p.x, y: p.y, vy: p.vy, sway: p.sway, life: p.life, age: p.age, land: p.land, landed: !!p.landed, color: p.el.style.background }));
+    snapshots[shownId] = { fish: fishState, food: foodState, tw: shownSize[0], th: shownSize[1], feedTime };
+  }
+  /** Puts the fish (already made, in their starting spots) and the food back as they were. */
+  function restore(id, tw, th) {
+    const snap = snapshots[id];
+    if (!snap) { feedTime = 0; return; }
+    const sx = snap.tw ? tw / snap.tw : 1, sy = snap.th ? th / snap.th : 1;
+    for (const f of fish) {
+      const o = snap.fish[f.item.uid];
+      if (!o) continue; // new since: keeps its fresh start
+      for (const [k, v] of Object.entries(o)) {
+        if (typeof v === 'number' && XS.includes(k)) f[k] = v * sx;
+        else if (typeof v === 'number' && YS.includes(k)) f[k] = v * sy;
+        else f[k] = v;
+      }
+      f.el.classList.toggle('in-cave', !!f.inCave);
+      f.el.classList.remove('scared', 'retract');
+      if (f.retract > 0) f.el.classList.add('retract');
+    }
+    for (const p of snap.food) {
+      const el = document.createElement('div');
+      el.className = 'aq-food';
+      el.style.background = p.color;
+      layer.appendChild(el);
+      food.push({ ...p, x: p.x * sx, y: p.y * sy, land: p.land * sy, el });
+    }
+    feedTime = snap.feedTime || 0;
+  }
+
   function render() {
     renderScene();
     renderLocked();
+    // Remember the tank that was on show (this one too, if redrawing it after a purchase).
+    snapshot();
     layer.innerHTML = '';
     fish = [];
     food = [];
@@ -315,6 +367,9 @@
       if (!leaders[f.c.id]) leaders[f.c.id] = f;
       else f.leader = leaders[f.c.id];
     }
+    shownId = owned() ? cur : null;
+    shownSize = [tw, th];
+    if (shownId) restore(shownId, tw, th);
     showPearls();
   }
 
@@ -1003,6 +1058,8 @@
     if (!raf) raf = requestAnimationFrame(frame);
   }
   function close() {
+    snapshot();
+    shownId = null; // saved; while hidden the loop runs at zero size, so don't save again on reopening
     closeSheet();
     screen.classList.remove('active');
     const menu = document.getElementById('menu');

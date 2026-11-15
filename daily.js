@@ -201,6 +201,16 @@
     root.ArrowGame.playDaily({ day, difficulty: d, level: p.level, solution: p.solution, label: DIFF[d], title: p.title, picture: !!p.picture });
   }
 
+  // A puzzle's name, as shown on its tile. A picture day's name is the picture, so it
+  // stays hidden (a surprise) until that day's Insane puzzle, the picture, is solved.
+  function title(day, d) {
+    const set = puzzles[day] || {};
+    const p = set[d];
+    if (!p || !p.title) return '';
+    const picDay = [0, 1, 2, 3].some((k) => set[k] && set[k].picture);
+    return picDay && !isSolved(day, 3) ? '' : p.title;
+  }
+
   // The day picked in the daily puzzles panel (today when it first opens; kept while you
   // play one of its puzzles, so Back and "More daily puzzles" return to it).
   let picked = null;
@@ -235,7 +245,7 @@
         html += `<button class="daily-tile${ok ? ' done' : ''}" data-day="${day}" data-d="${d}" aria-label="${dayName(day, i)}, ${DIFF[d]}${ok ? ', solved' : ''}">` +
           `<span class="daily-diff">${DIFF[d]}</span>` +
           `<span class="daily-reward">${ok ? '✓' : `+${(cfg.rewards || [])[d] || 0}<span class="pearl"></span>`}</span>` +
-          `${set[d].title ? `<span class="daily-title">${set[d].title}</span>` : ''}</button>`;
+          `${title(day, d) ? `<span class="daily-title">${title(day, d)}</span>` : ''}</button>`;
       }
       html += '</div></div>';
     }
@@ -271,9 +281,10 @@
     if (!puzzles[today] || !u.today || busy()) return false;
     seen.told = today;
     write(SEEN_KEY, seen);
-    const t = puzzles[today][3] || puzzles[today][0];
-    const pic = t && t.picture && t.title ? `<p class="daily-lead">Today’s picture is a <strong>${t.title.toLowerCase()}</strong>. Solve the Insane puzzle to reveal it.</p>` : '';
-    const more = u.earlier ? `<p class="shop-small">You also have ${plural(u.earlier, 'puzzle', 'puzzles')} left from earlier days.</p>` : '';
+    // (Today's picture stays a surprise until the Insane puzzle is solved.)
+    const t = puzzles[today][3];
+    const pic = t && t.picture ? '<p class="daily-lead">Solve the Insane puzzle to reveal today’s picture.</p>' : '';
+    const more = u.earlier ? `<p class="shop-small">You also have ${u.earlier} unsolved daily ${u.earlier === 1 ? 'puzzle' : 'puzzles'} still available.</p>` : '';
     return new Promise((resolve) => {
       dialog('New daily puzzles!', `<p class="daily-lead">${u.today === 4 ? 'Four new puzzles are ready, Easy to Insane.' : `${plural(u.today, 'puzzle', 'puzzles')} to solve today.`}</p>${pic}${more}`, [
         { label: 'Play now', primary: true, action: () => { close(); picked = null; openPuzzles(); resolve(true); } },
