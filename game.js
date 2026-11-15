@@ -199,6 +199,87 @@
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', readColors);
   new MutationObserver(readColors).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 
+  // ---------- Level colour themes ----------
+  // Each level's eels share a theme of 3 or 4 colours built around its group's colour
+  // (Kelp Shallows: sea-glass cyan), different for every level, rather than every
+  // colour at once. The theme is worked out from the level's place, so a level always
+  // looks the same. (Being tried on Easy Kelp Shallows first.)
+  const THEMED = (t, g) => t === 0 && g === 0;
+  const GROUP_COLOUR = [0, 2, 3, 4, 1, 8]; // index into colors.lines, as the menu's group colours
+  function seeded(n) {
+    return () => { n = (n + 0x6d2b79f5) | 0; let t = Math.imul(n ^ (n >>> 15), 1 | n); t ^= t + Math.imul(t ^ (t >>> 7), 61 | t); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  }
+  function hueOf(hex) {
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+    const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
+    if (!d) return 0;
+    const h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+    return (h * 60 + 360) % 360;
+  }
+  function hsl(h, s, l) {
+    h = ((h % 360) + 360) % 360; s /= 100; l /= 100;
+    const f = (n) => { const k = (n + h / 30) % 12; return l - s * Math.min(l, 1 - l) * Math.max(-1, Math.min(k - 3, 9 - k, 1)); };
+    return '#' + [0, 8, 4].map((n) => Math.round(f(n) * 255).toString(16).padStart(2, '0')).join('');
+  }
+  const rgbDist = (a, b) => Math.hypot(...[1, 3, 5].map((i) => parseInt(a.slice(i, i + 2), 16) - parseInt(b.slice(i, i + 2), 16)));
+  /** The level's 3 or 4 theme colours. */
+  function themePalette(tier, group, index) {
+    const rnd = seeded(((tier * 31 + group) * 1009 + index) * 2654435761);
+    const r = (a, b) => a + rnd() * (b - a);
+    const base = hueOf(colors.lines[GROUP_COLOUR[group]] || '#5ef2ff');
+    for (let tries = 0; ; tries++) {
+      const k = rnd() < 0.5 ? 3 : 4;
+      const centre = base + r(-28, 28);
+      const style = rnd();
+      let pal;
+      if (style < 0.4) {
+        // Neighbouring hues, evenly spread either side of the centre.
+        const spread = r(28, 55);
+        pal = Array.from({ length: k }, (_, i) => hsl(centre + spread * (i / (k - 1) * 2 - 1), r(70, 95), r(56, 72)));
+      } else if (style < 0.7) {
+        // One hue, from deep to pale.
+        pal = Array.from({ length: k }, (_, i) => hsl(centre + r(-10, 10), r(65, 95), 46 + (i / (k - 1)) * 36));
+      } else {
+        // Mostly the group's colours, with one accent from across the colour wheel.
+        const spread = r(20, 40);
+        pal = Array.from({ length: k - 1 }, (_, i) => hsl(centre + spread * (k === 3 ? (i ? 1 : -1) : i - 1), r(70, 95), r(55, 72)));
+        pal.push(hsl(centre + r(150, 210), r(80, 100), r(60, 70)));
+      }
+      // Every pair easy to tell apart (else try another).
+      let ok = true;
+      for (let i = 0; i < pal.length && ok; i++) for (let j = i + 1; j < pal.length; j++) if (rgbDist(pal[i], pal[j]) < 70) { ok = false; break; }
+      if (ok || tries > 30) return { pal, rnd };
+    }
+  }
+  /** Each eel's colour from the level's theme: eels side by side get different ones where possible. */
+  function levelTheme(level, tier, group, index) {
+    if (!THEMED(tier, group)) return null;
+    const { pal, rnd } = themePalette(tier, group, index);
+    const n = level.lines.length;
+    const owner = new Map();
+    level.lines.forEach((a, i) => a.cells.forEach(([x, y]) => owner.set(x * 1000 + y, i)));
+    const near = Array.from({ length: n }, () => new Set());
+    level.lines.forEach((a, i) => a.cells.forEach(([x, y]) => {
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const j = owner.get((x + dx) * 1000 + y + dy);
+        if (j !== undefined && j !== i) near[i].add(j);
+      }
+    }));
+    const out = new Array(n), used = pal.map(() => 0);
+    const order = [...Array(n).keys()].sort((a, b) => near[b].size - near[a].size || level.lines[b].cells.length - level.lines[a].cells.length);
+    for (const i of order) {
+      let best = 0, score = Infinity;
+      pal.forEach((c, k) => {
+        const clash = [...near[i]].filter((j) => out[j] === c).length;
+        const sc = clash * 100 + used[k] + rnd() * 0.9;
+        if (sc < score) { score = sc; best = k; }
+      });
+      out[i] = pal[best];
+      used[best]++;
+    }
+    return out;
+  }
+
   // ---------- Game state ----------
   let state = null;
   let drag = null;
@@ -231,6 +312,11 @@
     // Twin eels share a colour of their own (and are drawn banded): each pair
     // gets a colour no other eel on the board uses.
     const twins = level.twins || [];
+    // A colour theme of its own for the level, around its group's colour.
+    const theme = tier < REAL_TIERS && !level.colors ? levelTheme(level, tier, group, index) : null;
+    // (Twin eels keep their own pair colours, so pairs still stand out.)
+    const twinned = new Set(twins.flat());
+    if (theme) lines.forEach((l, i) => { if (!twinned.has(i)) l.ownColor = theme[i]; });
     // (Insane levels have up to 6 pairs. With more pairs than colours, the
     // colours repeat rather than leave a pair without one.)
     const TWIN_COLOURS = [8, 1, 6, 3, 4, 7]; // sunny yellow, pink, coral, orange, violet, lime
