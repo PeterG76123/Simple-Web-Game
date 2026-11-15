@@ -1859,7 +1859,12 @@
     showPicture();
     showPearlReward();
     // The Level complete box first, then (a beat later) the streak celebration over it.
-    if (state.daily && state.daily.day) { const d = state.daily; setTimeout(() => celebrateStreak(d), 450); }
+    // (Once: not again when the box comes back, e.g. after the double-pearls ad.)
+    if (state.daily && state.daily.day && !state.daily.celebrated) {
+      const d = state.daily;
+      d.celebrated = true;
+      setTimeout(() => celebrateStreak(d), 450);
+    }
   }
 
   /**
