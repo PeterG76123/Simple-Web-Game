@@ -24,32 +24,19 @@
     "hints": 25
   },
   "pearls": {
-    "perLevel": [
-      10,
-      20,
-      30,
-      40
-    ],
-    "firstClear": [
-      10,
-      15,
-      20,
-      25
-    ],
-    "bestSolve": [
-      5,
-      10,
-      15,
-      20
-    ],
-    "replay": [
-      2,
-      4,
-      6,
-      8
-    ],
+    "level": {
+      "base": 5,
+      "perEel": 0.5,
+      "tier": [
+        1,
+        1.1,
+        1.2,
+        1.3
+      ],
+      "bestSolve": 0.25,
+      "replay": 0.1
+    },
     "feedDaily": 10,
-    "doubleByAd": true,
     "streak": {
       "levels": 3,
       "rewards": [
@@ -61,6 +48,15 @@
       ],
       "weekly": 100,
       "saver": true
+    },
+    "rush": {
+      "minutes": 10,
+      "perDay": 3,
+      "multiplier": 2
+    },
+    "packs": {
+      "pearls500": 1000,
+      "pearls3000": 6000
     }
   },
   "aquariumPrices": {},

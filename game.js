@@ -1251,6 +1251,13 @@
     if (state && screens.game.classList.contains('active')) {
       update(dt);
       draw();
+      // Pearl Rush: the clock runs only while a level is being played.
+      const W = window.ArrowWallet;
+      if (W && W.rushLeft() && !state.finished && overlay.hidden && !document.hidden && !document.querySelector('.shop-overlay')) {
+        const before = W.rushLeft();
+        W.rushTick(dt);
+        if (W.rushLeft() !== before) showRush();
+      }
     }
     requestAnimationFrame(frame);
   }
@@ -1911,16 +1918,21 @@
 
   function hideDialog() { overlay.hidden = true; }
 
-  // Adds "Double pearls (watch an ad)" after the main button, while it's on offer.
+  // Adds the Pearl Rush offer after the main button, while there's one to be had.
   function withDouble(buttons) {
-    const on = window.ArrowConfig && window.ArrowConfig.get('pearls.doubleByAd') !== false;
-    if (!on || !state.pearls || state.pearlsDoubled || !window.ArrowAds) return buttons;
+    if (!state.pearls || state.pearlsDoubled || !rushOffered()) return buttons;
     const out = buttons.slice();
-    out.splice(1, 0, { label: `Double pearls (watch an ad)`, action: doublePearls });
+    out.splice(1, 0, { label: `Pearl Rush: 2× pearls for ${rushMinutes()} min (ad)`, action: doublePearls });
     return out;
   }
+  const rushMinutes = () => (window.ArrowConfig && window.ArrowConfig.get('pearls.rush.minutes')) || 10;
+  const rushOffered = () => { const W = window.ArrowWallet; return !!(W && window.ArrowAds && W.rushMultiplier() === 1 && W.rushesLeft() > 0); };
 
-  /** Pearls for the aquarium: per level by difficulty, plus first-clear and best-solve bonuses. */
+  /**
+   * Pearls for the aquarium: by the level's size and difficulty (ArrowWallet.levelPay), a
+   * share more for a best-possible solve (once per level), a small share for a replay, and
+   * doubled during a Pearl Rush.
+   */
   function awardPearls(firstClear) {
     const W = window.ArrowWallet;
     const C = window.ArrowConfig;
@@ -1928,40 +1940,88 @@
     state.pearlsDoubled = false;
     if (!W || !C) return;
     const t = state.tier;
-    const pick = (name) => Number((C.get(`pearls.${name}`) || [])[t]) || 0;
-    const best = state.history.length <= levelAt(state.group, state.index).par;
-    // The best-solve bonus is paid once per level; replays pay a smaller amount.
-    const bestBonus = best && W.firstBestSolve(`${t}-${state.group}-${state.index}`) ? pick('bestSolve') : 0;
+    const L = C.get('pearls.level') || {};
+    const level = levelAt(state.group, state.index);
+    const full = W.levelPay(level.lines.length, t);
+    const best = state.history.length <= level.par;
+    const bestBonus = best && W.firstBestSolve(`${t}-${state.group}-${state.index}`) ? W.roundPay(full * (L.bestSolve ?? 0.25)) : 0;
     state.pearlParts = [
-      firstClear ? ['Level', pick('perLevel')] : ['Replay', pick('replay')],
-      ['First clear', firstClear ? pick('firstClear') : 0],
+      firstClear ? ['Level', full] : ['Replay', W.roundPay(full * (L.replay ?? 0.1))],
       ['Best solve', bestBonus],
     ].filter(([, n]) => n > 0);
+    const base = state.pearlParts.reduce((a, [, n]) => a + n, 0);
+    const mult = W.rushMultiplier();
+    if (base && mult > 1) state.pearlParts.push([`Pearl Rush ×${mult}`, base * (mult - 1)]);
     state.pearls = state.pearlParts.reduce((a, [, n]) => a + n, 0);
     if (state.pearls > 0) W.addPearls(state.pearls);
   }
 
-  /** Watch an ad on the win screen to double that level's pearls (stands in for the between-levels ad). */
+  /**
+   * Watch an ad on the win screen to start a Pearl Rush: this level's pearls double
+   * straight away, and so do the next ones for the rush's minutes of play. (Stands in
+   * for the between-levels ad.)
+   */
   async function doublePearls() {
     hideDialog();
     const W = window.ArrowWallet;
     if (await window.ArrowAds.showRewarded()) {
       holdPearls();
-      W.addPearls(state.pearls);
-      state.pearls *= 2;
+      W.startRush();
+      const extra = state.pearls * (W.rushMultiplier() - 1);
+      W.addPearls(extra);
+      state.pearlParts.push([`Pearl Rush ×${W.rushMultiplier()}`, extra]);
+      state.pearls += extra;
       state.pearlsDoubled = true;
       W.adShown();
       state.adDue = false;
+      showRush();
     }
     showWinDialog();
   }
+
+  // ---------- Pearl Rush: the countdown under the pearl count, and its offer ----------
+  const rushTag = document.createElement('span');
+  rushTag.className = 'rush-tag';
+  rushTag.hidden = true;
+  $('hudPearls').appendChild(rushTag);
+  const mmss = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  function showRush() {
+    const W = window.ArrowWallet;
+    const left = W ? W.rushLeft() : 0;
+    rushTag.hidden = !left;
+    $('hudPearls').classList.toggle('rush', !!left);
+    if (left) rushTag.textContent = `×${W.rushMultiplier()} ${mmss(left)}`;
+  }
+  showRush();
+  /** Tapping the pearl count: how the rush is going, or an offer to start one. */
+  function rushInfo() {
+    const W = window.ArrowWallet, S = window.ArrowShop;
+    if (!W || !S || !S.dialog) return;
+    const ok = [{ label: 'OK', primary: true, action: () => S.close() }];
+    const what = `Level and daily puzzle pearls are doubled. The clock only runs while you’re playing a level.`;
+    if (W.rushLeft()) {
+      S.dialog('Pearl Rush', `<p class="daily-lead">⏱ ${mmss(W.rushLeft())} left</p><p class="shop-small">${what}</p>`, ok);
+    } else if (rushOffered()) {
+      const n = W.rushesLeft();
+      S.dialog('Pearl Rush', `<p class="daily-lead">Watch a short ad for <strong>2× pearls</strong> for ${rushMinutes()} minutes of play.</p><p class="shop-small">${what} ${n} left today.</p>`, [
+        { label: 'Watch an ad', primary: true, action: async () => {
+          S.close();
+          if (await window.ArrowAds.showRewarded()) { W.startRush(); W.adShown(); showRush(); S.toast(`Pearl Rush! 2× pearls for ${rushMinutes()} minutes`); }
+          else S.toast('Watch to the end to start a Pearl Rush');
+        } },
+        { label: 'Not now', action: () => S.close() },
+      ]);
+    } else {
+      S.dialog('Pearl Rush', `<p class="daily-lead">You’ve had today’s Pearl Rushes.</p><p class="shop-small">More tomorrow! ${what}</p>`, ok);
+    }
+  }
+  $('hudPearls').addEventListener('click', rushInfo);
 
   /** The pearls earned, big, with a pearl icon, under the win message. */
   function showPearlReward() {
     const box = $('dialogReward');
     if (!state.pearls) return;
     const parts = state.pearlParts.map(([name, n]) => `${name} +${n}`);
-    if (state.pearlsDoubled) parts.push('Doubled ×2');
     const d = state.daily;
     const daily = !d ? ''
       : d.day ? `<div class="reward-streak">🔥 Day ${d.day} streak! Daily bonus +${d.reward}${d.bonus ? ` · Weekly bonus +${d.bonus}` : ''}</div>`

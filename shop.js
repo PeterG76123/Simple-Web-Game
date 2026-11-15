@@ -177,5 +177,5 @@
   const shopBtn = document.getElementById('menuShopBtn');
   if (shopBtn) shopBtn.addEventListener('click', () => open());
 
-  root.ArrowShop = { open, outOfHints, offerStarter, isOpen, toast };
+  root.ArrowShop = { open, outOfHints, offerStarter, isOpen, toast, dialog, close };
 })(window);

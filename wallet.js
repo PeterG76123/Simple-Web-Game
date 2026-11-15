@@ -37,6 +37,8 @@
     purchases: [],
     // Levels whose best-solve pearl bonus has been paid ("tier-group-index").
     bestPaid: [],
+    // Pearl Rush: seconds of play left, and how many were started today.
+    rush: null,
   };
   let w = { ...BLANK };
   try { w = { ...BLANK, ...JSON.parse(root.localStorage.getItem(KEY)) }; } catch (e) { /* new player */ }
@@ -50,6 +52,7 @@
   // those keep their ids, and get their type written down.
   for (const [id, t] of Object.entries(w.tanks)) if (!t.type) t.type = id;
   if (!w.tankSeq) w.tankSeq = 0;
+  if (!w.rush) w.rush = { left: 0, used: 0 };
 
   const listeners = [];
   const save = () => {
@@ -65,8 +68,10 @@
     w.dailyBonusTaken = false;
     w.dailyPearlsTaken = false;
     w.feedPearlsTaken = false;
+    w.rush.used = 0;
     save();
   };
+  let rushSaved = 0; // (the countdown is saved every few seconds, not every frame)
 
   const Wallet = {
     onChange: (fn) => listeners.push(fn),
@@ -131,6 +136,32 @@
 
     // Pearls (the aquarium's currency).
     pearls: () => w.pearls,
+    /** What a level of this many eels pays at this difficulty (0 Easy to 3 Insane), times scale. */
+    levelPay(eels, tier, scale = 1) {
+      const L = cfg('pearls.level') || {};
+      const x = ((L.base ?? 5) + (L.perEel ?? 0.5) * eels) * ((L.tier || [])[tier] || 1) * scale;
+      return Wallet.roundPay(x);
+    },
+    /** Pearls rounded nicely: to the nearest 5 from 20 up, else to a whole pearl (at least 1). */
+    roundPay: (x) => (x < 20 ? Math.max(1, Math.round(x)) : Math.round(x / 5) * 5),
+
+    // ---------- Pearl Rush ----------
+    rushLeft: () => Math.max(0, Math.ceil(w.rush.left)),
+    rushMultiplier: () => (w.rush.left > 0 ? (cfg('pearls.rush.multiplier') || 2) : 1),
+    rushesLeft() { roll(); return Math.max(0, (cfg('pearls.rush.perDay') || 0) - w.rush.used); },
+    startRush() {
+      roll();
+      w.rush.used++;
+      w.rush.left = (cfg('pearls.rush.minutes') || 10) * 60;
+      save();
+    },
+    /** The rush clock: called while a level is being played. */
+    rushTick(dt) {
+      if (w.rush.left <= 0) return;
+      w.rush.left = Math.max(0, w.rush.left - dt);
+      rushSaved += dt;
+      if (rushSaved > 5 || w.rush.left === 0) { rushSaved = 0; save(); }
+    },
     addPearls(n) { w.pearls += n; save(); },
     spendPearls(n) {
       if (w.pearls < n) return false;

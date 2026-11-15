@@ -175,19 +175,30 @@
   const solvedOn = (day) => [0, 1, 2, 3].filter((d) => isSolved(day, d)).length;
   const dayName = (day, i) => (i === 0 ? 'Today' : i === 1 ? 'Yesterday' : new Date(`${day}T12:00:00`).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'short' }));
 
+  /** What a daily puzzle pays: like a level of its size, times daily.scale. */
+  function payOf(level, d) {
+    const eels = String(level || '').split('|')[2];
+    const n = eels ? eels.split(',').length : 0;
+    return n ? W.levelPay(n, d, C().scale || 2) : ((C().rewards || [])[d] || 0);
+  }
+
   /** A daily puzzle was solved: pays its pearls the first time (and the all-four bonus). */
   function puzzleFinished(meta) {
     const cfg = C();
     const parts = [];
     if (!isSolved(meta.day, meta.difficulty)) {
       done.solved[`${meta.day}:${meta.difficulty}`] = Date.now();
-      parts.push([`Daily ${DIFF[meta.difficulty]}`, (cfg.rewards || [])[meta.difficulty] || 0]);
+      parts.push([`Daily ${DIFF[meta.difficulty]}`, payOf(meta.level, meta.difficulty)]);
       if (solvedOn(meta.day) === 4 && !done.bonus[meta.day]) {
         done.bonus[meta.day] = true;
         parts.push(['All four', cfg.allFour || 0]);
       }
       write(DONE_KEY, done);
     }
+    // A Pearl Rush multiplies them.
+    const base = parts.reduce((a, [, n]) => a + n, 0);
+    const mult = W.rushMultiplier();
+    if (base && mult > 1) parts.push([`Pearl Rush ×${mult}`, base * (mult - 1)]);
     const pearls = parts.reduce((a, [, n]) => a + n, 0);
     if (pearls) W.addPearls(pearls);
     showDailyCard();
@@ -247,7 +258,7 @@
         const ok = isSolved(day, d), shut = locked(day, d);
         html += `<button class="daily-tile${ok ? ' done' : ''}${shut ? ' locked' : ''}" data-day="${day}" data-d="${d}"${shut ? ' disabled' : ''} aria-label="${dayName(day, i)}, ${DIFF[d]}${ok ? ', solved' : shut ? `, locked: solve ${DIFF[d - 1]} first` : ''}">` +
           `<span class="daily-diff">${DIFF[d]}</span>` +
-          `<span class="daily-reward">${ok ? '✓' : shut ? '🔒' : `+${(cfg.rewards || [])[d] || 0}<span class="pearl"></span>`}</span>` +
+          `<span class="daily-reward">${ok ? '✓' : shut ? '🔒' : `+${payOf(set[d].level, d)}<span class="pearl"></span>`}</span>` +
           `${title(day, d) ? `<span class="daily-title">${title(day, d)}</span>` : ''}</button>`;
       }
       html += '</div></div>';

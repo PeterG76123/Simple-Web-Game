@@ -34,7 +34,8 @@
     daily: {
       url: 'https://ikekuyyvunkulgvhwpqi.supabase.co',
       key: 'sb_publishable_LaZ5-yxMEFhRbjFnw3QKpw_v_GZOTGW', // publishable: safe in the app
-      rewards: [20, 30, 40, 60],
+      // A daily puzzle pays like a level of its size (pearls.level), times this.
+      scale: 2,
       allFour: 50, // bonus for solving all four of a day
       catchUpDays: 7,
     },
@@ -54,21 +55,23 @@
     // Pearls, for the aquarium. Per level finished, by difficulty (Easy,
     // Medium, Hard, Insane), plus bonuses for a first clear and a best-possible solve.
     pearls: {
-      perLevel: [10, 20, 30, 40],
-      firstClear: [10, 15, 20, 25],
-      bestSolve: [5, 10, 15, 20],
-      // Finishing a level again pays this instead (the best-solve bonus is once per level).
-      replay: [2, 4, 6, 8],
+      // A level pays by its size, so bigger (slower) levels pay more: base + perEel for each
+      // eel, times the difficulty's tier factor (Easy, Medium, Hard, Insane), rounded (to 5s
+      // from 20 up). bestSolve: the share added for a best-possible solve (once per level);
+      // replay: the share paid for finishing it again.
+      level: { base: 5, perEel: 0.5, tier: [1, 1.1, 1.2, 1.3], bestSolve: 0.25, replay: 0.1 },
       // The daily streak: solve this many levels in a day for that day's bonus. Day 1, 2, 3...
       // of a streak pays these (the last repeats), plus a weekly bonus every 7th day.
       // A streak broken by one missed day can be saved once by watching an ad.
       streak: { levels: 3, rewards: [10, 20, 30, 40, 50], weekly: 100, saver: true },
       // Feeding the aquarium fish, once a day.
       feedDaily: 10,
-      // Watch an ad on the win screen to double that level's pearls.
-      doubleByAd: true,
+      // Pearl Rush: watch an ad for this many minutes of play (the clock runs only while a
+      // level is being played) with level and daily puzzle pearls times multiplier; perDay
+      // rushes a day.
+      rush: { minutes: 10, perDay: 3, multiplier: 2 },
       // Pearl packs in the shop.
-      packs: { pearls500: 500, pearls3000: 3000 },
+      packs: { pearls500: 1000, pearls3000: 6000 },
     },
     // Real purchases, through RevenueCat (see store.js). keys: RevenueCat's public SDK keys
     // for each app (Project settings > API keys: "goog_…" for Android, "appl_…" for iOS);
