@@ -201,10 +201,9 @@
 
   // ---------- Level colour themes ----------
   // Each level's eels share a theme of 3 or 4 colours built around its group's colour
-  // (Kelp Shallows: sea-glass cyan), different for every level, rather than every
+  // (Kelp Shallows: sea-glass cyan; Jellyfish Bay: green; and so on), different for every level, rather than every
   // colour at once. The theme is worked out from the level's place, so a level always
-  // looks the same. (Being tried on Easy Kelp Shallows first.)
-  const THEMED = (t, g) => t === 0 && g === 0;
+  // looks the same.
   const GROUP_COLOUR = [0, 2, 3, 4, 1, 8]; // index into colors.lines, as the menu's group colours
   function seeded(n) {
     return () => { n = (n + 0x6d2b79f5) | 0; let t = Math.imul(n ^ (n >>> 15), 1 | n); t ^= t + Math.imul(t ^ (t >>> 7), 61 | t); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
@@ -238,7 +237,7 @@
         pal = Array.from({ length: k }, (_, i) => hsl(centre + spread * (i / (k - 1) * 2 - 1), r(70, 95), r(56, 72)));
       } else if (style < 0.7) {
         // One hue, from deep to pale.
-        pal = Array.from({ length: k }, (_, i) => hsl(centre + r(-10, 10), r(65, 95), 46 + (i / (k - 1)) * 36));
+        pal = Array.from({ length: k }, (_, i) => hsl(centre + r(-10, 10), r(65, 95), 52 + (i / (k - 1)) * 32));
       } else {
         // Mostly the group's colours, with one accent from across the colour wheel.
         const spread = r(20, 40);
@@ -248,13 +247,12 @@
       // Every pair easy to tell apart (else try another).
       let ok = true;
       for (let i = 0; i < pal.length && ok; i++) for (let j = i + 1; j < pal.length; j++) if (rgbDist(pal[i], pal[j]) < 70) { ok = false; break; }
-      if (ok || tries > 30) return { pal, rnd };
+      if (ok || tries > 30) return { pal, rnd, accent: style >= 0.7 ? pal.length - 1 : -1 };
     }
   }
   /** Each eel's colour from the level's theme: eels side by side get different ones where possible. */
   function levelTheme(level, tier, group, index) {
-    if (!THEMED(tier, group)) return null;
-    const { pal, rnd } = themePalette(tier, group, index);
+    const { pal, rnd, accent } = themePalette(tier, group, index);
     const n = level.lines.length;
     const owner = new Map();
     level.lines.forEach((a, i) => a.cells.forEach(([x, y]) => owner.set(x * 1000 + y, i)));
@@ -271,7 +269,10 @@
       let best = 0, score = Infinity;
       pal.forEach((c, k) => {
         const clash = [...near[i]].filter((j) => out[j] === c).length;
-        const sc = clash * 100 + used[k] + rnd() * 0.9;
+        // (The accent colour is for picking out a few eels, not a share of them all.)
+        // Past about one eel in seven it's not used at all (two touching eels may share a colour instead).
+        const over = k === accent && used[k] >= Math.max(1, Math.round(n / 7));
+        const sc = (over ? 1000 : 0) + clash * 100 + used[k] * (k === accent ? 5 : 1) + rnd() * 0.9;
         if (sc < score) { score = sc; best = k; }
       });
       out[i] = pal[best];
