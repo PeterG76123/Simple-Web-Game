@@ -1385,6 +1385,7 @@ svg.aq-snail .foot, svg.aq-snail .feelers { transition: opacity 0.3s; }
 }
 .daily-day.today .daily-tile { border-color: var(--accent); background: rgba(94, 242, 255, 0.1); }
 .daily-tile.done { border-color: rgba(255, 255, 255, 0.15); background: rgba(255, 255, 255, 0.03); opacity: 0.75; }
+.daily-tile.locked { cursor: default; opacity: 0.45; border-style: dashed; }
 .daily-tile.missing { border: 1.5px dashed rgba(255, 255, 255, 0.12); border-radius: 12px; min-height: 64px; }
 .daily-diff { font-family: var(--font-display); font-size: 0.85rem; }
 .daily-reward { display: inline-flex; align-items: center; gap: 3px; font-size: 0.8rem; font-weight: 700; }

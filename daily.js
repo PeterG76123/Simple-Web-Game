@@ -194,9 +194,12 @@
     return { pearls, parts: parts.filter(([, n]) => n > 0) };
   }
 
+  // A day's puzzles are played in order: each opens once the one before it is solved.
+  const locked = (day, d) => d > 0 && !!(puzzles[day] && puzzles[day][d - 1]) && !isSolved(day, d - 1);
+
   function play(day, d) {
     const p = puzzles[day] && puzzles[day][d];
-    if (!p || !root.ArrowGame) return;
+    if (!p || !root.ArrowGame || locked(day, d)) return;
     close();
     root.ArrowGame.playDaily({ day, difficulty: d, level: p.level, solution: p.solution, label: DIFF[d], title: p.title, picture: !!p.picture });
   }
@@ -241,10 +244,10 @@
         `<span>${allDone ? `All four solved${done.bonus[day] ? ' ✓' : ''}` : i === 0 ? `+${cfg.allFour || 0} for all four` : 'Catch up: pearls, no streak'}</span></div><div class="daily-row">`;
       for (let d = 0; d < 4; d++) {
         if (!set[d]) { html += '<span class="daily-tile missing"></span>'; continue; }
-        const ok = isSolved(day, d);
-        html += `<button class="daily-tile${ok ? ' done' : ''}" data-day="${day}" data-d="${d}" aria-label="${dayName(day, i)}, ${DIFF[d]}${ok ? ', solved' : ''}">` +
+        const ok = isSolved(day, d), shut = locked(day, d);
+        html += `<button class="daily-tile${ok ? ' done' : ''}${shut ? ' locked' : ''}" data-day="${day}" data-d="${d}"${shut ? ' disabled' : ''} aria-label="${dayName(day, i)}, ${DIFF[d]}${ok ? ', solved' : shut ? `, locked: solve ${DIFF[d - 1]} first` : ''}">` +
           `<span class="daily-diff">${DIFF[d]}</span>` +
-          `<span class="daily-reward">${ok ? '✓' : `+${(cfg.rewards || [])[d] || 0}<span class="pearl"></span>`}</span>` +
+          `<span class="daily-reward">${ok ? '✓' : shut ? '🔒' : `+${(cfg.rewards || [])[d] || 0}<span class="pearl"></span>`}</span>` +
           `${title(day, d) ? `<span class="daily-title">${title(day, d)}</span>` : ''}</button>`;
       }
       html += '</div></div>';
