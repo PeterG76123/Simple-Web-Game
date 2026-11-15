@@ -27,8 +27,10 @@ on:
         description: "Use Google's test ads instead of real ones"
         type: boolean
         default: false
-  push:
-    paths-ignore: ['README.md', 'tools/**', 'levels-bank/**', '*.png']
+  # Paused while tweaking on the web version: builds run only by hand (Run workflow).
+  # To build on every push again, put back:
+  # push:
+  #   paths-ignore: ['README.md', 'tools/**', 'levels-bank/**', '*.png']
 
 jobs:
   build:

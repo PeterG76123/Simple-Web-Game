@@ -340,5 +340,10 @@
   }
   atMidnight();
 
-  root.ArrowDaily = { levelFinished, open, openPuzzles, puzzleFinished, localDay };
+  /** The next of that day's four puzzles after difficulty d, if there is one: { day, d, label }. */
+  function nextOf(day, d) {
+    const n = d + 1;
+    return puzzles[day] && puzzles[day][n] ? { day, d: n, label: DIFF[n] } : null;
+  }
+  root.ArrowDaily = { levelFinished, open, openPuzzles, puzzleFinished, localDay, nextOf, play };
 })(window);

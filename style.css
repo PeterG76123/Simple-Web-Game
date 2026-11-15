@@ -1398,3 +1398,31 @@ svg.aq-snail .foot, svg.aq-snail .feelers { transition: opacity 0.3s; }
 .ad-coming-card p { margin: 0; }
 .ad-coming-spin { width: 34px; height: 34px; border-radius: 50%; border: 3px solid rgba(232, 241, 255, 0.25); border-top-color: #e8f1ff; animation: ad-spin 0.9s linear infinite; }
 @keyframes ad-spin { to { transform: rotate(360deg); } }
+
+/* The daily bonus celebration: over the Level complete box, with a burst of pearls. */
+.streak-party {
+  position: absolute; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center;
+  padding: 16px; background: radial-gradient(circle at 50% 45%, rgba(255, 190, 80, 0.28), rgba(1, 6, 16, 0.78) 65%);
+  animation: sp-in 0.25s ease-out; overflow: hidden;
+}
+.streak-party.out { opacity: 0; transition: opacity 0.25s; }
+.sp-burst { position: absolute; left: 50%; top: 45%; width: 0; height: 0; pointer-events: none; z-index: 2; }
+.sp-pearl { position: absolute; left: 0; top: 0; }
+.sp-card {
+  position: relative; text-align: center; padding: 22px 26px 20px; border-radius: 28px; max-width: 320px; width: 100%;
+  background: linear-gradient(180deg, rgba(70, 40, 110, 0.95), rgba(20, 14, 50, 0.97));
+  border: 2px solid #ffd166; box-shadow: 0 0 40px rgba(255, 209, 102, 0.55), 0 0 90px rgba(220, 190, 255, 0.35);
+  animation: sp-pop 0.55s cubic-bezier(.2, 1.6, .4, 1) both;
+}
+.sp-fire { font-size: 4rem; line-height: 1; animation: sp-flame 1.2s ease-in-out infinite alternate; }
+.sp-day { margin-top: 6px; font-family: var(--font-display); font-weight: 700; font-size: 2.1rem; color: #ffd166; text-shadow: 0 0 18px rgba(255, 180, 60, 0.9); line-height: 1.1; }
+.sp-sub { margin-top: 4px; color: #f4e9ff; font-size: 0.95rem; }
+.sp-pearls { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 14px; }
+.sp-pearls .pearl.big { width: 42px; height: 42px; }
+.sp-num { font-family: var(--font-display); font-weight: 700; font-size: 2.8rem; color: #f4e9ff; text-shadow: 0 0 16px rgba(220, 190, 255, 0.9); line-height: 1; }
+.sp-what { margin-top: 6px; color: #d9c8f5; font-size: 0.9rem; font-weight: 600; }
+.sp-ok { margin-top: 18px; width: 100%; font-size: 1.1rem; }
+@keyframes sp-in { from { opacity: 0; } }
+@keyframes sp-pop { 0% { transform: scale(0.3); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+@keyframes sp-flame { from { transform: scale(1) rotate(-4deg); } to { transform: scale(1.15) rotate(4deg); } }
+@media (prefers-reduced-motion: reduce) { .streak-party, .sp-card, .sp-fire { animation: none; } }

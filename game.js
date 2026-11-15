@@ -1858,6 +1858,56 @@
     showWinDialogInner();
     showPicture();
     showPearlReward();
+    // The Level complete box first, then (a beat later) the streak celebration over it.
+    if (state.daily && state.daily.day) { const d = state.daily; setTimeout(() => celebrateStreak(d), 450); }
+  }
+
+  /**
+   * Today's daily bonus earned: a big celebration over the Level complete box, with a
+   * burst of pearls, until the player taps to carry on.
+   */
+  function celebrateStreak(d) {
+    const host = $('overlay').parentNode;
+    const old = host.querySelector('.streak-party');
+    if (old) old.remove();
+    const el = document.createElement('div');
+    el.className = 'streak-party';
+    el.setAttribute('role', 'dialog');
+    el.setAttribute('aria-modal', 'true');
+    el.setAttribute('aria-label', `Day ${d.day} streak! Daily bonus ${d.reward} pearls`);
+    const total = d.reward + (d.bonus || 0);
+    el.innerHTML = '<div class="sp-burst" aria-hidden="true"></div><div class="sp-card">' +
+      `<div class="sp-fire" aria-hidden="true">🔥</div>` +
+      `<div class="sp-day">Day ${d.day} streak!</div>` +
+      `<div class="sp-sub">${d.day === 1 ? 'Your streak has started!' : `${d.day} days in a row. Keep it going!`}</div>` +
+      `<div class="sp-pearls"><span class="pearl big" aria-hidden="true"></span><span class="sp-num">+${total}</span></div>` +
+      `<div class="sp-what">Daily bonus +${d.reward}${d.bonus ? ` · Weekly bonus +${d.bonus}!` : ''}</div>` +
+      '<button class="btn primary sp-ok">Awesome!</button></div>';
+    host.appendChild(el);
+    const ok = el.querySelector('.sp-ok');
+    const done = () => { el.classList.add('out'); setTimeout(() => el.remove(), 250); };
+    ok.addEventListener('click', done);
+    ok.focus({ preventScroll: true });
+    // The burst: pearls fly out from the middle, then fall away.
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const burst = el.querySelector('.sp-burst');
+    const n = d.bonus ? 90 : 60;
+    for (let i = 0; i < n; i++) {
+      const p = document.createElement('span');
+      p.className = 'pearl sp-pearl';
+      const size = 8 + Math.random() * 18;
+      p.style.width = p.style.height = `${size}px`;
+      burst.appendChild(p);
+      const a = Math.random() * Math.PI * 2, r = 120 + Math.random() * 260;
+      const x = Math.cos(a) * r, y = Math.sin(a) * r * 0.9 - 60;
+      const t = 1300 + Math.random() * 900;
+      p.animate([
+        { transform: 'translate(-50%, -50%) scale(0.2)', opacity: 1 },
+        { transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px)) scale(1)`, opacity: 1, offset: 0.35 },
+        { transform: `translate(calc(-50% + ${x * 1.2}px), calc(-50% + ${y + 380}px)) scale(0.8)`, opacity: 0 },
+      ], { duration: t, delay: Math.random() * 250, easing: 'cubic-bezier(.15,.7,.4,1)', fill: 'both' });
+    }
+    setTimeout(() => burst.replaceChildren(), 2600);
   }
 
   /** A picture level's finished picture: every eel's squares, where they started, in its colour. */
@@ -1890,8 +1940,13 @@
       const par = levelAt(0, 0).par;
       const detail = moves <= par ? `Solved in ${moves} moves. That’s the best possible!` : `Solved in ${moves} moves. It can be done in ${par}.`;
       const toDaily = () => { goToMenu(); if (window.ArrowDaily) window.ArrowDaily.openPuzzles(); };
+      // Straight on to the same day's next puzzle (Easy → Medium → Hard → Insane); after
+      // the Insane, back to the list.
+      const next = window.ArrowDaily && window.ArrowDaily.nextOf(daily.day, daily.difficulty);
       const buttons = [
-        { label: 'More daily puzzles', primary: true, action: toDaily },
+        next ? { label: `Next: ${next.label}`, primary: true, action: () => window.ArrowDaily.play(next.day, next.d) }
+          : { label: 'More daily puzzles', primary: true, action: toDaily },
+        ...(next ? [{ label: 'Daily puzzles', action: toDaily }] : []),
         { label: 'Play again', action: () => playDaily(daily, { fresh: true }) },
         { label: 'Menu', action: goToMenu },
       ];
