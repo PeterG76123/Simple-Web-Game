@@ -1972,8 +1972,10 @@
   const holdPearls = () => P.hold();
   const syncPearls = () => P.release();
   /** Pearls fly from the Level complete box's big pearl up to the count. */
-  function pourPearls() {
-    P.pour(document.querySelector('#dialogReward:not([hidden]) .pearl.big'), { to: hudChip });
+  // (With no pearls of the level's own to show, e.g. a replayed daily puzzle, the streak
+  // bonus pours from the streak celebration's pearl instead.)
+  function pourPearls(fallback) {
+    P.pour(document.querySelector('#dialogReward:not([hidden]) .pearl.big') || fallback, { to: hudChip });
   }
 
   /**
@@ -1999,7 +2001,7 @@
       '<button class="btn primary sp-ok">Awesome!</button></div>';
     host.appendChild(el);
     const ok = el.querySelector('.sp-ok');
-    const done = () => { el.classList.add('out'); setTimeout(() => el.remove(), 250); celebrating = false; pourPearls(); };
+    const done = () => { celebrating = false; pourPearls(el.querySelector('.sp-pearls .pearl')); el.classList.add('out'); setTimeout(() => el.remove(), 250); };
     celebrating = true;
     ok.addEventListener('click', done);
     ok.focus({ preventScroll: true });
