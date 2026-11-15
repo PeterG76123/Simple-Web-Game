@@ -6,7 +6,7 @@
   <title>Eel Escape</title>
   <meta name="description" content="An underwater puzzle game: guide each tangled glowing eel off the board the way its head points, using see-through jellyfish eels, pearl reflectors and wreck gates." />
   <link rel="stylesheet" href="fonts/fonts.css" />
-  <link rel="stylesheet" href="style.css?v=fb7e5729" />
+  <link rel="stylesheet" href="style.css?v=60230c15" />
 </head>
 <body>
   <!-- The whole game lives in one phone-shaped screen: full screen on a phone,
@@ -64,10 +64,6 @@
        left, and big buttons along the bottom within reach of a thumb. -->
   <section id="game" class="screen" aria-label="Game">
     <header class="hud">
-      <div class="hud-center">
-        <div id="levelLabel" class="level-label">Level 1</div>
-        <div id="moves" class="moves">0 moves</div>
-      </div>
       <div class="hud-buttons">
         <span id="hudPearls" class="pearl-chip static hud-pearls" data-short="1" aria-label="Your pearls"><span class="pearl" aria-hidden="true"></span><span id="hudPearlCount">0</span></span>
         <button id="skipBtn" class="btn ghost icon-btn hud-gear" hidden aria-label="Skip this level (watch an ad)" title="Skip this level"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M5 6 L13 12 L5 18 Z"/><path d="M12 6 L20 12 L12 18"/></svg></button>
@@ -79,6 +75,11 @@
     <!-- The board, with the line count and hint tucked under it, centred in
          the space between the title and the buttons. -->
     <div class="board-area">
+      <!-- The level's name, difficulty and moves, just above the board. -->
+      <div class="hud-center">
+        <div id="levelLabel" class="level-label">Level 1</div>
+        <div id="moves" class="moves">0 moves</div>
+      </div>
       <div id="boardWrap" class="board-wrap">
         <canvas id="board"></canvas>
       </div>
