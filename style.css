@@ -1439,3 +1439,4 @@ svg.aq-snail .foot, svg.aq-snail .feelers { transition: opacity 0.3s; }
   .hud .hud-gear { width: 42px; height: 42px; }
   .hud-pearls { height: 42px; padding: 0 9px; font-size: 0.95rem; gap: 5px; }
 }
+.shop-pearls { display: flex; justify-content: center; margin: 4px 0 10px; }

@@ -112,13 +112,14 @@
   const lockedBox = screen.querySelector('#aqLocked');
 
   const menuPearls = document.getElementById('menuPearls');
+  const P = root.ArrowPearls;
   const showPearls = () => {
-    const n = W.pearls().toLocaleString();
+    const n = (P ? P.shown() : W.pearls()).toLocaleString();
     screen.querySelector('.pearl-count').textContent = n;
     if (menuPearls) menuPearls.textContent = n;
   };
   showPearls();
-  W.onChange(showPearls);
+  if (P) P.onShow(showPearls); else W.onChange(showPearls);
 
   // The pages to swipe through: the tanks owned (in the order bought), then the page for
   // buying another (NEW). `cur` is the page on show: the tank last looked at, else the
@@ -726,7 +727,11 @@
     p.eaten = true;
     // The first feed of the day earns a few pearls.
     const n = W.takeFeedPearls();
-    if (n) toast(`Thanks for feeding your fish! +${n} pearls`);
+    if (n) {
+      toast(`Thanks for feeding your fish! +${n} pearls`);
+      // They pour from the fish up to the pearl count.
+      if (P && !quiet) { const r = tank.getBoundingClientRect(); const [mx, my] = mouthOf(f); P.pour({ x: r.left + mx, y: r.top + my, size: 16 }); }
+    }
     f.ate = (f.ate || 0) + 1;
     // A few bites and it's full for a while (bigger fish eat more).
     if (f.ate >= 3 + Math.round(f.c.w * 10)) f.full = rand(25, 40);
@@ -1037,8 +1042,10 @@
       `<div class="dialog-buttons"><button class="btn ghost" data-act="sell">Sell for ${refund} pearls</button><button class="btn primary" data-act="keep">Keep</button></div>`);
     s.querySelector('[data-act="keep"]').addEventListener('click', closeSheet);
     s.querySelector('[data-act="sell"]').addEventListener('click', () => {
+      const from = s.querySelector('.aq-preview').getBoundingClientRect();
       W.removeFromTank(cur, item.uid);
       W.addPearls(refund);
+      if (P) P.pour({ x: from.left + from.width / 2, y: from.top + from.height / 2, size: 22 });
       closeSheet();
       render();
       toast(`Sold for ${refund} pearls`);

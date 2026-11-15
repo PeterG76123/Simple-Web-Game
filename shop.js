@@ -93,9 +93,13 @@
       }
     }
     W.grant(product);
-    dialog('Purchase successful', `<p class="shop-done">✓ ${NAMES[product]} — thank you!</p>` +
+    const pearlPack = /^pearls/.test(product);
+    dialog('Purchase successful', (pearlPack ? '<div class="shop-pearls"><span class="pearl big" aria-hidden="true"></span></div>' : '') +
+      `<p class="shop-done">✓ ${NAMES[product]} — thank you!</p>` +
       (product === 'removeAds' || product === 'starter' ? '<p class="shop-small">No more ads between levels. You can still watch ads for free hints.</p>' : ''),
     [{ label: 'Great', primary: true, action: () => { close(true); if (then) then(); } }]);
+    // The pearls pour from the big pearl up to the pearl count.
+    if (pearlPack && root.ArrowPearls) root.ArrowPearls.pour(document.querySelector('.shop-pearls .pearl'));
   }
 
   // ---------- The shop ----------

@@ -1962,76 +1962,18 @@
 
   // ---------- The pearl count at the top of the game screen ----------
   // It holds back while a level's pearls are being won, then counts up as they pour in
-  // from the Level complete box.
-  const hudCount = $('hudPearlCount');
-  let shownPearls = 0, held = false, pouring = null, celebrating = false;
-  const walletPearls = () => (window.ArrowWallet ? window.ArrowWallet.pearls() : 0);
-  // (Short, to leave room for the level's name: 12.3k, 125k.)
-  const short = (n) => (n >= 100000 ? `${Math.floor(n / 1000)}k` : n >= 10000 ? `${(Math.floor(n / 100) / 10).toFixed(1)}k` : n.toLocaleString());
-  function setHudPearls(n) { shownPearls = n; hudCount.textContent = short(n); $('hudPearls').setAttribute('aria-label', `${n.toLocaleString()} pearls`); }
-  function holdPearls() { if (!held) { held = true; setHudPearls(shownPearls); } }
-  function syncPearls() {
-    if (pouring) { pouring.stop(); pouring = null; }
-    held = false;
-    setHudPearls(walletPearls());
-  }
-  setHudPearls(walletPearls());
-  if (window.ArrowWallet && window.ArrowWallet.onChange) window.ArrowWallet.onChange(() => { if (!held) setHudPearls(walletPearls()); });
-
-  /** Pearls fly from the Level complete box's big pearl up to the count, which ticks up as they land. */
+  // from the Level complete box (pearl-pour.js).
+  const P = window.ArrowPearls;
+  const hudChip = $('hudPearls');
+  let celebrating = false;
+  function setHudPearls(n) { $('hudPearlCount').textContent = P.short(n); hudChip.setAttribute('aria-label', `${n.toLocaleString()} pearls`); }
+  setHudPearls(P.shown());
+  P.onShow(setHudPearls);
+  const holdPearls = () => P.hold();
+  const syncPearls = () => P.release();
+  /** Pearls fly from the Level complete box's big pearl up to the count. */
   function pourPearls() {
-    if (!held || pouring) return;
-    const to = walletPearls(), from = shownPearls, gain = to - from;
-    const src = document.querySelector('#dialogReward:not([hidden]) .pearl.big');
-    const chip = $('hudPearls');
-    if (gain <= 0 || !src || !chip || !chip.offsetParent || (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)) { syncPearls(); return; }
-    const a = src.getBoundingClientRect(), b = chip.getBoundingClientRect();
-    // On top of everything (the game screen is under the dialog's shade): a copy of the count, and the pearls.
-    const layer = document.createElement('div');
-    layer.className = 'pearl-pour';
-    const ghost = chip.cloneNode(true);
-    ghost.removeAttribute('id');
-    ghost.querySelectorAll('[id]').forEach((e) => e.removeAttribute('id'));
-    Object.assign(ghost.style, { left: `${b.left}px`, top: `${b.top}px`, width: `${b.width}px`, height: `${b.height}px` });
-    layer.appendChild(ghost);
-    document.body.appendChild(layer);
-    const num = ghost.querySelector('span:last-child');
-    const target = ghost.querySelector('.pearl').getBoundingClientRect();
-    const n = Math.max(4, Math.min(24, gain));
-    let landed = 0, timers = [];
-    const sx = a.left + a.width / 2, sy = a.top + a.height / 2, tx = target.left + target.width / 2, ty = target.top + target.height / 2;
-    for (let i = 0; i < n; i++) {
-      const p = document.createElement('span');
-      p.className = 'pearl pour-pearl';
-      layer.appendChild(p);
-      const t = 650 + Math.random() * 200, delay = i * Math.min(70, 1100 / n);
-      // Up and across in a curve, spilling a little to the side first.
-      const midX = sx + (tx - sx) * 0.3 + (Math.random() - 0.5) * 80, midY = Math.min(sy, ty) + (sy - ty) * 0.35 - 30;
-      p.animate([
-        { transform: `translate(${sx}px, ${sy}px) translate(-50%, -50%) scale(1.3)`, opacity: 0 },
-        { transform: `translate(${sx}px, ${sy}px) translate(-50%, -50%) scale(1.3)`, opacity: 1, offset: 0.05 },
-        { transform: `translate(${midX}px, ${midY}px) translate(-50%, -50%) scale(1.1)`, opacity: 1, offset: 0.45 },
-        { transform: `translate(${tx}px, ${ty}px) translate(-50%, -50%) scale(0.7)`, opacity: 1 },
-      ], { duration: t, delay, easing: 'cubic-bezier(.45,.05,.55,.95)', fill: 'both' });
-      timers.push(setTimeout(() => {
-        p.remove();
-        landed++;
-        const v = from + Math.round((gain * landed) / n);
-        num.textContent = short(v);
-        setHudPearls(v);
-        ghost.classList.remove('bump'); void ghost.offsetWidth; ghost.classList.add('bump');
-        if (window.ArrowAudio && landed % 3 === 1) window.ArrowAudio.play('nibble');
-        if (landed === n) timers.push(setTimeout(() => stop(), 450));
-      }, delay + t));
-    }
-    function stop() {
-      timers.forEach(clearTimeout);
-      layer.remove();
-      pouring = null;
-      held = false;
-      setHudPearls(walletPearls());
-    }
-    pouring = { stop };
+    P.pour(document.querySelector('#dialogReward:not([hidden]) .pearl.big'), { to: hudChip });
   }
 
   /**

@@ -190,7 +190,10 @@
   function dropPearls(x, y) {
     const n = 10 + Math.floor(Math.random() * 21);
     if (window.ArrowWallet) window.ArrowWallet.addPearls(n);
-    const shown = Math.min(n, 14);
+    // They pour up into the pearl count on screen (or, with none showing, sink away).
+    const box = layer.getBoundingClientRect();
+    if (window.ArrowPearls) window.ArrowPearls.pour({ x: box.left + x, y: box.top + y, size: 14 });
+    const shown = document.querySelector('.pearl-pour') ? 0 : Math.min(n, 14);
     for (let i = 0; i < shown; i++) {
       const p = document.createElement('div');
       p.className = 'pearl dropped-pearl';
