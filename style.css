@@ -1426,3 +1426,16 @@ svg.aq-snail .foot, svg.aq-snail .feelers { transition: opacity 0.3s; }
 @keyframes sp-pop { 0% { transform: scale(0.3); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
 @keyframes sp-flame { from { transform: scale(1) rotate(-4deg); } to { transform: scale(1.15) rotate(4deg); } }
 @media (prefers-reduced-motion: reduce) { .streak-party, .sp-card, .sp-fire { animation: none; } }
+
+/* The pearl count on the game screen, and the pearls that pour into it on a win. */
+.hud-pearls { height: 48px; padding: 0 12px; box-sizing: border-box; }
+.pearl-pour { position: fixed; inset: 0; z-index: 40; pointer-events: none; }
+.pearl-pour > .pearl-chip { position: fixed; margin: 0; background: rgba(10, 53, 97, 0.96); border-color: rgba(220, 190, 255, 0.6); box-shadow: 0 0 18px rgba(220, 190, 255, 0.55); }
+.pearl-pour > .pearl-chip.bump { animation: pearl-bump 0.25s ease-out; }
+.pour-pearl { position: fixed; left: 0; top: 0; width: 14px; height: 14px; }
+@keyframes pearl-bump { 50% { transform: scale(1.12); } }
+@media (max-width: 400px) {
+  .hud-buttons { gap: 6px; }
+  .hud .hud-gear { width: 42px; height: 42px; }
+  .hud-pearls { height: 42px; padding: 0 9px; font-size: 0.95rem; gap: 5px; }
+}
