@@ -58,7 +58,7 @@ python3 -m http.server 8000
 - `daily.js`: the daily pearl bonus and streak: the panel shown on opening each day, the menu's streak badge, and the offer to save a broken streak
 - `shop.js`: the shop, the out-of-hints offer and the starter bundle (purchases are a stand-in for now)
 - `fonts/`: the game's fonts (Fredoka, Nunito), bundled so nothing is fetched from Google
-- `privacy.html`: the privacy policy the app stores ask for
+- `privacy.html`: the privacy policy the app stores ask for (the master copy; it is published at https://redcurtain.com.au/eel-escape/privacy.html, which Settings links to)
 - `game.js`: dragging, drawing, undo, hints, groups and menus
 
 ## Making levels
@@ -170,5 +170,6 @@ comment. For each new upload:
 - [ ] Add the remaining SKAdNetwork IDs AdMob lists to `Info.plist`.
 - [ ] Set up RevenueCat and the store products, and fill in `store.keys` (see Purchases above).
 - [ ] Create an upload key and add it as GitHub secrets so Actions signs the Play bundle (see `.github/workflows/android.yml`).
-- [ ] Fill in `privacy.html` (release date, contact email) and give its web address to both stores; complete Google Play's Data safety form and Apple's privacy details.
+- [x] Fill in `privacy.html` (release date, contact email); put it on the RedCurtain site.
+- [ ] Give its web address (https://redcurtain.com.au/eel-escape/privacy.html) to both stores; complete Google Play's Data safety form and Apple's privacy details.
 - [ ] Set the age rating for a general audience (not "designed for children").

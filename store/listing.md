@@ -59,7 +59,7 @@ Eel Escape is free to play, with optional ads and in-app purchases (remove ads, 
 
 - Email: info@redcurtain.com.au
 - Website: https://redcurtain.com.au
-- Privacy policy: https://redcurtain.com.au/eel-escape/privacy.html (upload privacy.html there)
+- Privacy policy: https://redcurtain.com.au/eel-escape/privacy.html
 - app-ads.txt: https://redcurtain.com.au/app-ads.txt (the one line from AdMob → Apps → app-ads.txt)
 
 ## Graphics
