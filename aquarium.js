@@ -152,7 +152,7 @@
   let last = 0;
 
   function sizeOf(c) {
-    const tw = tank.clientWidth;
+    const tw = tankW();
     const w = c.w * tw;
     return [w, w * c.ratio];
   }
@@ -247,6 +247,11 @@
   // where every fish and crab is, what it was doing, and the food still in the water.
   // Kept for this visit to the game (in memory), per tank.
   const snapshots = {};
+  const CATCH_UP = 60; // seconds: longer away than this and a tank starts afresh
+  let simSize = null; // the tank's size while catching up (so it isn't measured over and over)
+  let quiet = false; // no sounds while catching up
+  const tankW = () => (simSize ? simSize[0] : tank.clientWidth);
+  const tankH = () => (simSize ? simSize[1] : tank.clientHeight);
   let shownId = null; // the tank whose fish and food are on screen now
   let shownSize = [0, 0]; // its size (px) when drawn, which the positions are measured in
   // Things that belong to the drawing or point at other objects: rebuilt, never copied.
@@ -263,12 +268,14 @@
       fishState[f.item.uid] = o;
     }
     const foodState = food.filter((p) => !p.eaten && p.life > 0).map((p) => ({ x: p.x, y: p.y, vy: p.vy, sway: p.sway, life: p.life, age: p.age, land: p.land, landed: !!p.landed, color: p.el.style.background }));
-    snapshots[shownId] = { fish: fishState, food: foodState, tw: shownSize[0], th: shownSize[1], feedTime };
+    snapshots[shownId] = { fish: fishState, food: foodState, tw: shownSize[0], th: shownSize[1], feedTime, at: performance.now() };
   }
   /** Puts the fish (already made, in their starting spots) and the food back as they were. */
   function restore(id, tw, th) {
     const snap = snapshots[id];
-    if (!snap) { feedTime = 0; return; }
+    // Away for over a minute: the food's long gone and the fish have wandered, so it starts afresh.
+    const away = snap ? (performance.now() - snap.at) / 1000 : 0;
+    if (!snap || away > CATCH_UP) { delete snapshots[id]; feedTime = 0; return; }
     const sx = snap.tw ? tw / snap.tw : 1, sy = snap.th ? th / snap.th : 1;
     for (const f of fish) {
       const o = snap.fish[f.item.uid];
@@ -290,6 +297,22 @@
       food.push({ ...p, x: p.x * sx, y: p.y * sy, land: p.land * sy, el });
     }
     feedTime = snap.feedTime || 0;
+    catchUp(away, tw, th);
+  }
+  /**
+   * Plays on the time the tank was out of sight, all at once (quietly), so the fish
+   * have carried on: eaten some of the food, swum somewhere else.
+   */
+  function catchUp(secs, tw, th) {
+    if (secs < 0.1 || !motionOK) return;
+    simSize = [tw, th];
+    quiet = true;
+    try {
+      for (let t = 0; t < secs; t += 0.05) step(Math.min(0.05, secs - t));
+    } finally {
+      simSize = null;
+      quiet = false;
+    }
   }
 
   function render() {
@@ -301,7 +324,7 @@
     fish = [];
     food = [];
     const pal = palette();
-    const tw = tank.clientWidth, th = tank.clientHeight;
+    const tw = tankW(), th = tankH();
     const sand = th * 0.1;
     const items = tankItems().filter((i) => byId[i.type]);
     // Plants and decorations first (behind the fish).
@@ -470,7 +493,12 @@
   function frame(now) {
     const dt = Math.min(0.05, (now - last) / 1000);
     last = now;
-    const tw = tank.clientWidth, th = tank.clientHeight;
+    step(dt);
+    raf = screen.classList.contains('active') ? requestAnimationFrame(frame) : 0;
+  }
+  /** Moves everything on by dt seconds. */
+  function step(dt) {
+    const tw = tankW(), th = tankH();
     const floor = th * 0.9;
     if (feedTime > 0) feedTime -= dt;
     for (const f of fish) {
@@ -638,7 +666,6 @@
       f.el.firstElementChild.style.transform = `scaleX(${f.dir}) rotate(${f.tilt}deg) scale(${f.puff * gulp})`;
       f.el.classList.toggle('walking', !!m.crawl && Math.abs(f.vx) > 1);
     }
-    raf = screen.classList.contains('active') ? requestAnimationFrame(frame) : 0;
   }
 
   // ---------- Feeding ----------
@@ -650,7 +677,7 @@
       el.className = 'aq-food';
       el.style.background = colors[i % colors.length];
       layer.appendChild(el);
-      const G = ground(tank.clientHeight);
+      const G = ground(tankH());
       food.push({ x: x + rand(-18, 18), y: y + rand(-6, 6), vy: rand(14, 24), sway: rand(0, 6), el, life: 8, age: 0, land: G.top + rand(0.1, 0.9) * (G.bot - G.top) });
     }
     if (!quiet && root.ArrowAudio) root.ArrowAudio.play('sprinkle');
@@ -704,7 +731,7 @@
     // A few bites and it's full for a while (bigger fish eat more).
     if (f.ate >= 3 + Math.round(f.c.w * 10)) f.full = rand(25, 40);
     f.gulp = 0.25;
-    if (root.ArrowAudio && Math.random() < 0.6) root.ArrowAudio.play('nibble');
+    if (root.ArrowAudio && !quiet && Math.random() < 0.6) root.ArrowAudio.play('nibble');
   }
 
   // Tap the water to drop food; drag through it and the fish follow your finger;
@@ -729,8 +756,8 @@
       const p = at(e);
       const dx = p.x - start.x, dy = p.y - start.y;
       const quick = performance.now() - start.t < 400;
-      if (quick && Math.abs(dx) > tank.clientWidth * 0.2 && Math.abs(dx) > Math.abs(dy) * 1.5) switchTank(dx < 0 ? 1 : -1);
-      else if (start.moved < 8 && owned()) dropFood(p.x, Math.min(p.y, tank.clientHeight * 0.85), 5);
+      if (quick && Math.abs(dx) > tankW() * 0.2 && Math.abs(dx) > Math.abs(dy) * 1.5) switchTank(dx < 0 ? 1 : -1);
+      else if (start.moved < 8 && owned()) dropFood(p.x, Math.min(p.y, tankH() * 0.85), 5);
       start = null;
       lure = null;
     };
@@ -746,7 +773,7 @@
     lockedBox.addEventListener('pointerup', (e) => {
       if (!start) return;
       const dx = e.clientX - start.x, dy = e.clientY - start.y;
-      if (performance.now() - start.t < 500 && Math.abs(dx) > tank.clientWidth * 0.18 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      if (performance.now() - start.t < 500 && Math.abs(dx) > tankW() * 0.18 && Math.abs(dx) > Math.abs(dy) * 1.5) {
         swiped = true;
         switchTank(dx < 0 ? 1 : -1);
       }
@@ -834,8 +861,8 @@
     } else if (!f.leader) {
       // About the same size: turn and go somewhere else.
       f.wait = 0;
-      newTarget(f, tank.clientWidth, tank.clientHeight);
-      if (Math.sign(f.tx - f.x) === Math.sign(o.x - f.x)) f.tx = Math.min(tank.clientWidth - f.w / 2, Math.max(f.w / 2, f.x - (f.tx - f.x)));
+      newTarget(f, tankW(), tankH());
+      if (Math.sign(f.tx - f.x) === Math.sign(o.x - f.x)) f.tx = Math.min(tankW() - f.w / 2, Math.max(f.w / 2, f.x - (f.tx - f.x)));
     }
   }
 
@@ -851,7 +878,7 @@
           o.fleeing = true;
           o.scaredT = 2;
           if (cave) o.plan = 'hide';
-          else o.fleeX = o.x < px ? o.w / 2 : tank.clientWidth - o.w / 2;
+          else o.fleeX = o.x < px ? o.w / 2 : tankW() - o.w / 2;
           return;
         }
         if (o.m.crawl) { o.retract = 3; o.el.classList.add('retract'); return; } // snails pull in
@@ -864,7 +891,7 @@
     };
     flee(f, 0);
     for (const o of fish) if (o !== f && o.c === f.c && (f.m.school || f.m.crab)) flee(o, rand(60, 220));
-    if (root.ArrowAudio) root.ArrowAudio.play('flee', { size: Math.max(f.w, f.h) });
+    if (root.ArrowAudio && !quiet) root.ArrowAudio.play('flee', { size: Math.max(f.w, f.h) });
   }
 
   // Tap a fish to startle it; drag one to move it; press and hold to sell it.
@@ -894,14 +921,14 @@
       if (!f.m.crawl) { f.x = start.fx + dx; f.y = start.fy + dy; return; }
       // Crawlers are moved about the ground; a crab pushed up through the cave door goes
       // into the cave, where it can only move sideways (pull it back down to bring it out).
-      const G = ground(tank.clientHeight);
+      const G = ground(tankH());
       const x = start.fx + dx, fy = start.ffy + dy;
       const atDoor = cave && f.m.crab && x > cave.doorL && x < cave.doorR;
       if (!f.inCave && atDoor && fy < G.top - 8) { f.inCave = true; f.plan = null; f.hidden = 0; }
       else if (f.inCave && atDoor && fy > G.top + 8) { f.inCave = false; f.plan = null; f.hidden = 0; }
       f.x = x; f.fy = fy;
       if (f.inCave) { f.fy = G.top; f.x = Math.max(cave.inL, Math.min(cave.inR, f.x)); }
-      else { f.fy = Math.max(G.top, Math.min(G.bot, f.fy)); f.x = Math.max(f.w / 2, Math.min(tank.clientWidth - f.w / 2, f.x)); }
+      else { f.fy = Math.max(G.top, Math.min(G.bot, f.fy)); f.x = Math.max(f.w / 2, Math.min(tankW() - f.w / 2, f.x)); }
       f.y = f.fy - f.h * (f.inCave ? 0.62 : 0.38);
     });
     const end = (e) => {
@@ -917,7 +944,7 @@
         // Let go: off it goes from here (a follower may become a leader for a while).
         f.wait = 0;
         f.fleeing = false;
-        newTarget(f, tank.clientWidth, tank.clientHeight);
+        newTarget(f, tankW(), tankH());
         if (f.m.crawl) {
           f.tx = f.x; f.tfy = f.fy; f.wait = rand(1, 2);
           // Let go inside the cave: hidden if behind the rock, else it goes and hides.
@@ -953,7 +980,7 @@
       if (!start || start.menu) return;
       const dx = e.clientX - start.x, dy = e.clientY - start.y;
       start.moved = Math.max(start.moved, Math.hypot(dx, dy));
-      const tw = tank.clientWidth, th = tank.clientHeight;
+      const tw = tankW(), th = tankH();
       el.style.left = `${Math.max(0, Math.min(tw - w, start.left + dx))}px`;
       if (free) el.style.top = `${Math.max(0, Math.min(th - h, start.top + dy))}px`;
       else {
@@ -967,7 +994,7 @@
       if (!start) return;
       el.classList.remove('dragging');
       clearTimeout(start.hold);
-      const tw = tank.clientWidth, th = tank.clientHeight;
+      const tw = tankW(), th = tankH();
       const G = ground(th);
       const fy = parseFloat(el.style.top) + h * 0.92;
       if (!free) el.style.zIndex = groundZ(fy, G);
@@ -1073,11 +1100,11 @@
   // The Feed button sprinkles a pinch of food across the top of the water.
   screen.querySelector('#aqFeed').addEventListener('click', () => {
     if (!owned()) return;
-    const tw = tank.clientWidth;
+    const tw = tankW();
     feedTime = 5;
     // The octopus shoots up too.
     for (const f of fish) if (f.m.octo && !f.held) { f.jet = 6; f.vy = -rand(150, 190); }
-    for (let i = 0; i < 3; i++) dropFood(rand(tw * 0.15, tw * 0.85), tank.clientHeight * 0.06, 4, i > 0);
+    for (let i = 0; i < 3; i++) dropFood(rand(tw * 0.15, tw * 0.85), tankH() * 0.06, 4, i > 0);
   });
   // The "buy a tank" panel shows the pearls you have, so it changes when they do.
   W.onChange(() => { if (screen.classList.contains('active') && cur === NEW) renderLocked(); });
