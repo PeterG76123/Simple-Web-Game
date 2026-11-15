@@ -66,9 +66,9 @@
       streak: { levels: 3, rewards: [10, 20, 30, 40, 50], weekly: 100, saver: true },
       // Feeding the aquarium fish, once a day.
       feedDaily: 10,
-      // Pearl Rush: watch an ad for this many minutes of play (the clock runs only while a
-      // level is being played) with level and daily puzzle pearls times multiplier; perDay
-      // rushes a day.
+      // Pearl Rush: watch an ad for this many minutes (real time, whatever the player is doing;
+      // the clock stops only while an ad shows) of level and daily puzzle pearls times
+      // multiplier; perDay rushes a day.
       rush: { minutes: 10, perDay: 3, multiplier: 2 },
       // Pearl packs in the shop.
       packs: { pearls500: 1000, pearls3000: 6000 },

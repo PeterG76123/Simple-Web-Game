@@ -37,7 +37,7 @@
     purchases: [],
     // Levels whose best-solve pearl bonus has been paid ("tier-group-index").
     bestPaid: [],
-    // Pearl Rush: seconds of play left, and how many were started today.
+    // Pearl Rush: when it ends (ms; real time, held while ads show), and how many were started today.
     rush: null,
   };
   let w = { ...BLANK };
@@ -52,7 +52,10 @@
   // those keep their ids, and get their type written down.
   for (const [id, t] of Object.entries(w.tanks)) if (!t.type) t.type = id;
   if (!w.tankSeq) w.tankSeq = 0;
-  if (!w.rush) w.rush = { left: 0, used: 0 };
+  if (!w.rush) w.rush = { until: 0, used: 0 };
+  // (An earlier version counted seconds of play left.)
+  if (w.rush.left !== undefined) { w.rush.until = w.rush.left > 0 ? Date.now() + w.rush.left * 1000 : 0; delete w.rush.left; }
+  let adStarted = 0; // while an ad is showing, the rush is held
 
   const listeners = [];
   const save = () => {
@@ -71,7 +74,6 @@
     w.rush.used = 0;
     save();
   };
-  let rushSaved = 0; // (the countdown is saved every few seconds, not every frame)
 
   const Wallet = {
     onChange: (fn) => listeners.push(fn),
@@ -146,21 +148,25 @@
     roundPay: (x) => (x < 20 ? Math.max(1, Math.round(x)) : Math.round(x / 5) * 5),
 
     // ---------- Pearl Rush ----------
-    rushLeft: () => Math.max(0, Math.ceil(w.rush.left)),
-    rushMultiplier: () => (w.rush.left > 0 ? (cfg('pearls.rush.multiplier') || 2) : 1),
+    /** Seconds of the rush left (it runs in real time, whatever the player is doing, except during ads). */
+    rushLeft() {
+      const now = adStarted || Date.now();
+      return Math.max(0, Math.ceil((w.rush.until - now) / 1000));
+    },
+    rushMultiplier: () => (Wallet.rushLeft() > 0 ? (cfg('pearls.rush.multiplier') || 2) : 1),
     rushesLeft() { roll(); return Math.max(0, (cfg('pearls.rush.perDay') || 0) - w.rush.used); },
     startRush() {
       roll();
       w.rush.used++;
-      w.rush.left = (cfg('pearls.rush.minutes') || 10) * 60;
+      w.rush.until = Date.now() + (cfg('pearls.rush.minutes') || 10) * 60 * 1000;
       save();
     },
-    /** The rush clock: called while a level is being played. */
-    rushTick(dt) {
-      if (w.rush.left <= 0) return;
-      w.rush.left = Math.max(0, w.rush.left - dt);
-      rushSaved += dt;
-      if (rushSaved > 5 || w.rush.left === 0) { rushSaved = 0; save(); }
+    /** An ad is showing: the rush clock stops until it's over (adEnded). */
+    adStarted() { if (!adStarted) adStarted = Date.now(); },
+    adEnded() {
+      if (!adStarted) return;
+      if (w.rush.until > adStarted) { w.rush.until += Date.now() - adStarted; save(); }
+      adStarted = 0;
     },
     addPearls(n) { w.pearls += n; save(); },
     spendPearls(n) {

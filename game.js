@@ -1251,13 +1251,9 @@
     if (state && screens.game.classList.contains('active')) {
       update(dt);
       draw();
-      // Pearl Rush: the clock runs only while a level is being played.
+      // Pearl Rush: its countdown under the pearl count (when the second changes).
       const W = window.ArrowWallet;
-      if (W && W.rushLeft() && !state.finished && overlay.hidden && !document.hidden && !document.querySelector('.shop-overlay')) {
-        const before = W.rushLeft();
-        W.rushTick(dt);
-        if (W.rushLeft() !== before) showRush();
-      }
+      if (W && W.rushLeft() !== shownRush) showRush();
     }
     requestAnimationFrame(frame);
   }
@@ -1958,7 +1954,7 @@
 
   /**
    * Watch an ad on the win screen to start a Pearl Rush: this level's pearls double
-   * straight away, and so do the next ones for the rush's minutes of play. (Stands in
+   * straight away, and so do the next ones for the rush's minutes. (Stands in
    * for the between-levels ad.)
    */
   async function doublePearls() {
@@ -1984,10 +1980,12 @@
   rushTag.className = 'rush-tag';
   rushTag.hidden = true;
   $('hudPearls').appendChild(rushTag);
+  let shownRush = -1;
   const mmss = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
   function showRush() {
     const W = window.ArrowWallet;
     const left = W ? W.rushLeft() : 0;
+    shownRush = left;
     rushTag.hidden = !left;
     $('hudPearls').classList.toggle('rush', !!left);
     if (left) rushTag.textContent = `×${W.rushMultiplier()} ${mmss(left)}`;
@@ -1998,12 +1996,12 @@
     const W = window.ArrowWallet, S = window.ArrowShop;
     if (!W || !S || !S.dialog) return;
     const ok = [{ label: 'OK', primary: true, action: () => S.close() }];
-    const what = `Level and daily puzzle pearls are doubled. The clock only runs while you’re playing a level.`;
+    const what = 'Level and daily puzzle pearls are doubled. The clock keeps running whatever you’re doing (it stops only while an ad is showing), so make the most of it!';
     if (W.rushLeft()) {
       S.dialog('Pearl Rush', `<p class="daily-lead">⏱ ${mmss(W.rushLeft())} left</p><p class="shop-small">${what}</p>`, ok);
     } else if (rushOffered()) {
       const n = W.rushesLeft();
-      S.dialog('Pearl Rush', `<p class="daily-lead">Watch a short ad for <strong>2× pearls</strong> for ${rushMinutes()} minutes of play.</p><p class="shop-small">${what} ${n} left today.</p>`, [
+      S.dialog('Pearl Rush', `<p class="daily-lead">Watch a short ad for <strong>2× pearls</strong> for the next ${rushMinutes()} minutes.</p><p class="shop-small">${what} ${n} left today.</p>`, [
         { label: 'Watch an ad', primary: true, action: async () => {
           S.close();
           if (await window.ArrowAds.showRewarded()) { W.startRush(); W.adShown(); showRush(); S.toast(`Pearl Rush! 2× pearls for ${rushMinutes()} minutes`); }

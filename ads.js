@@ -175,10 +175,18 @@
 
   if (native) setTimeout(() => root.ArrowAds && root.ArrowAds.init(), 800);
 
+  /** Runs an ad with the Pearl Rush clock held. */
+  async function held(show) {
+    const W = root.ArrowWallet;
+    if (W && W.adStarted) W.adStarted();
+    try { return await show(); } finally { if (W && W.adEnded) W.adEnded(); }
+  }
+
   root.ArrowAds = {
     native,
-    showInterstitial: () => (AdMob ? nativeInterstitial() : webTestAds() ? webAd({ rewarded: false }) : Promise.resolve()),
-    showRewarded: () => (AdMob ? nativeRewarded() : webTestAds() ? webAd({ rewarded: true }) : Promise.resolve(true)),
+    // (A Pearl Rush's clock stops while an ad shows.)
+    showInterstitial: () => held(() => (AdMob ? nativeInterstitial() : webTestAds() ? webAd({ rewarded: false }) : Promise.resolve())),
+    showRewarded: () => held(() => (AdMob ? nativeRewarded() : webTestAds() ? webAd({ rewarded: true }) : Promise.resolve(true))),
     // Start the consent / tracking prompts early in the app.
     init: () => { if (AdMob) { setUp(); setTimeout(preloadInterstitial, 3000); } },
     // Lets players change their ad consent later (EU/UK), from Settings.
