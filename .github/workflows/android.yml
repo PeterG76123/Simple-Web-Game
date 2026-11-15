@@ -50,6 +50,10 @@ jobs:
       - name: Install
         run: npm ci
       - name: Copy the game into the app
+        env:
+          # For the build line at the bottom of Settings.
+          VERSION_CODE: ${{ github.run_number }}
+          BUILD_EXTRA: ${{ inputs.unlock_all && 'unlocked, test ads' || (inputs.test_ads && 'test ads' || '') }}
         run: |
           node tools/build-www.js
           # A test build with every level open (only when asked for, from the Run workflow button).
