@@ -315,6 +315,7 @@
 
   /** Opens a level, carrying on where you left it unless `fresh` is set. */
   function startLevel(group, index, { fresh = false } = {}) {
+    wake(1000);
     syncPearls(); // (finishes any pearls still pouring from the last level)
     // Remember where the player is, so the menu opens here next time.
     if (tier !== DAILY) {
@@ -1245,12 +1246,31 @@
   // ---------- Update loop ----------
   let lastTime = performance.now();
 
+  // The board is only redrawn while something on it is changing (an eel moving, a
+  // flash, a hint, a reflector turning), and for a moment after any touch, key or
+  // resize; otherwise it's left as it is, to save the phone's battery (and keep it
+  // cool). Once a second it's redrawn anyway, in case.
+  var redrawUntil = 0, lastDraw = 0; // (var: wake() can be called before this line runs)
+  function wake(ms = 500) { redrawUntil = Math.max(redrawUntil || 0, performance.now() + ms); }
+  for (const e of ['pointerdown', 'pointermove', 'pointerup', 'pointercancel', 'wheel', 'keydown', 'touchstart', 'touchmove', 'touchend', 'click']) {
+    document.addEventListener(e, () => wake(), { capture: true, passive: true });
+  }
+  window.addEventListener('resize', () => wake(1000));
+  document.addEventListener('visibilitychange', () => wake());
+  function boardChanging() {
+    if (drag || state.hint || state.thinking) return true;
+    for (const l of state.lines) if (l.mode === 'settle' || l.mode === 'bump' || l.mode === 'exit' || l.flash > 0) return true;
+    if (state.mirrorAnim.some(Boolean) || state.mirrorFlash.some((f) => f > 0)) return true;
+    for (const f of state.gateFlash.values()) if (f > 0) return true;
+    return false;
+  }
+
   function frame(now) {
     const dt = Math.min(0.05, (now - lastTime) / 1000);
     lastTime = now;
     if (state && screens.game.classList.contains('active')) {
       update(dt);
-      draw();
+      if (now < redrawUntil || now - lastDraw > 1000 || boardChanging()) { draw(); lastDraw = now; }
       // Pearl Rush: its countdown under the pearl count (when the second changes).
       const W = window.ArrowWallet;
       if (W && W.rushLeft() !== shownRush) showRush();
