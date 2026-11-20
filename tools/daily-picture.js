@@ -10,6 +10,7 @@
  *   --reuse-insane 1: keep the Insane picture puzzle already in <day>.json.
  *   --grid grid.json: use this 40x40 grid (e.g. hand-edited on the picture calendar)
  *     instead of shrinking the picture: { size, palette: [{ name, hex }], grid: rows }.
+ *   --tricky-target N: aim for N jams in the Insane puzzle (default 25; lower it if that step times out).
  *   --inside-gap N, --keep-outlines 1, --keep-marks 1, --auto N: passed to picture-grid.py.
  *
  * Insane: tools/picture-grid.py shrinks the picture to 40x40 (colours picked
@@ -99,7 +100,8 @@ if (!insane) {
     catch (e) { if (seed >= 5) throw e; }
   }
   const trk = path.join(tmp, 'tricky.json');
-  run('node', [path.join(tools, 'picture-tricky.js'), lvl, trk, '--target', '25', '--steps', '6000']);
+  // --tricky-target N: fewer jams for a picture that's slow to make tricky (default 25).
+  run('node', [path.join(tools, 'picture-tricky.js'), lvl, trk, '--target', String(opt['tricky-target'] || 25), '--steps', '6000']);
   const j = JSON.parse(fs.readFileSync(trk, 'utf8'));
   insane = { day, difficulty: 3, level: j.level, solution: j.solution || solutionOf(j.level), title, picture: true };
 }
