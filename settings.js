@@ -14,8 +14,6 @@
     sfxVol: 80,
     // Swimming creatures start off for players whose device asks for less motion.
     creatures: !reducedMotion,
-    // TEMPORARY (testing only, remove before release): every level open.
-    unlockAll: false,
   };
   let values = { ...DEFAULTS };
   try {
@@ -43,7 +41,7 @@
     const $ = (id) => document.getElementById(id);
     const overlay = $('settingsOverlay');
     if (!overlay) return;
-    const toggles = { setMusic: 'music', setSfx: 'sfx', setCreatures: 'creatures', setUnlockAll: 'unlockAll' };
+    const toggles = { setMusic: 'music', setSfx: 'sfx', setCreatures: 'creatures' };
     const sliders = { setMusicVol: 'musicVol', setSfxVol: 'sfxVol' };
     let opener = null;
 

@@ -158,9 +158,7 @@
   // before it (same difficulty) is done, and once the same group is done on the
   // difficulty below (Medium after Easy, Hard after Medium).
   // (The testUnlockAll setting opens everything, for testing only.)
-  // (TEMPORARY: the "Unlock all levels" setting does the same, for testing; remove before release.)
-  const unlockAll = () => !!(window.ArrowConfig && window.ArrowConfig.get('testUnlockAll') === true) ||
-    !!(window.ArrowSettings && window.ArrowSettings.get('unlockAll'));
+  const unlockAll = () => !!(window.ArrowConfig && window.ArrowConfig.get('testUnlockAll') === true);
   const doneIn = (t, g) => {
     const grp = (TIERS[t] && TIERS[t].groups[g]);
     return grp ? grp.levels.filter((_, i) => progress.completed.includes(`${t}-${g}-${i}`)).length : 0;
@@ -2374,8 +2372,6 @@
     startLevel(0, 0, { fresh });
   }
   window.ArrowGame = Object.assign(window.ArrowGame || {}, { playDaily });
-  // TEMPORARY: the "Unlock all levels" setting redraws the menu straight away.
-  if (window.ArrowSettings) window.ArrowSettings.onChange((name) => { if (name === 'unlockAll' && screens.menu.classList.contains('active')) renderMenu(); });
 
   if (progress.last && progress.last.tier < REAL_TIERS && TIERS[progress.last.tier]) { tier = progress.last.tier; menuGroup = progress.last.group; }
   else { tier = 0; menuGroup = 0; }

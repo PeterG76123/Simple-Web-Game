@@ -15,7 +15,7 @@ Slide the glowing eels free, one by one, then fill your own aquarium with fish.
 
 Untangle the deep. Every eel faces a way out, but they're all in each other's way. Work out the right order, slide them free one by one, and clear the board.
 
-Eel Escape is a calm, clever puzzle game with 450 levels and an aquarium of your own to build as you play.
+Eel Escape is a calm, clever puzzle game with 600 levels, four new daily puzzles every day, and an aquarium of your own to build as you play.
 
 🐍 SIMPLE TO PLAY, HARD TO MASTER
 • Tap an eel to send it swimming out, or slide it part of the way to make room for another.
@@ -29,13 +29,19 @@ Eel Escape is a calm, clever puzzle game with 450 levels and an aquarium of your
 • Whirlpool: turn the reflectors yourself to aim eels at a way out.
 • Sunken Wreck: rest an eel on a plate to open gates of the same colour.
 • Mirror Lagoon: twin eels that always move together.
-Three difficulties, Easy, Medium and Hard, with 25 levels in every region.
+Four difficulties, from Easy to Insane, with 25 levels in every region, each with its own colours.
+
+📅 DAILY PICTURE PUZZLES
+• Four new puzzles every day, Easy to Insane, in the colours of a hidden picture.
+• Solve the Insane puzzle to reveal the day's picture, made entirely of eels.
+• Missed a day? Catch up on the last week's puzzles.
 
 🐠 BUILD YOUR AQUARIUM
-• Earn pearls for every level you finish, and more for solving it in the fewest moves.
-• Solve 3 levels a day for a daily pearl bonus that grows with your streak, with a big bonus every 7th day.
-• Spend them on a goldfish tank, a tropical tank and a marine tank.
-• Fill each one with fish, swaying plants and decorations, from snails and guppies to a reef shark.
+• Earn pearls for every level and daily puzzle you solve: bigger puzzles pay more.
+• Solve 3 levels a day for a daily bonus that grows with your streak, with a big bonus every 7th day.
+• Start a Pearl Rush for double pearls for 10 minutes.
+• Buy as many goldfish, tropical and marine tanks as you like.
+• Fill them with fish, swaying plants and decorations, from snails and guppies to a reef shark.
 • Fish school together, chase their food, and dart away if you tap them. Crabs scuttle into their cave to hide.
 • Arrange everything just how you like it, then drag your finger through the water and watch the fish follow.
 
@@ -46,7 +52,7 @@ Three difficulties, Easy, Medium and Hard, with 25 levels in every region.
 🎧 RELAXING BY DESIGN
 • Calm underwater music and gentle sound effects.
 • Glowing sea creatures drift by in the background (they can be turned off).
-• No timers, no lives, no pressure.
+• No lives and no pressure: play at your own pace.
 
 Eel Escape is free to play, with optional ads and in-app purchases (remove ads, hint packs and pearl packs).
 
@@ -70,9 +76,13 @@ Eel Escape is free to play, with optional ads and in-app purchases (remove ads, 
   1. store/screenshots/1-menu.png
   2. store/screenshots/2-puzzle.png
   3. store/screenshots/3-twins.png
-  4. store/screenshots/4-marine.png
-  5. store/screenshots/5-tropical.png
-  6. store/screenshots/6-fish-shop.png
+  4. store/screenshots/4-daily-picture.png
+  5. store/screenshots/5-daily.png
+  6. store/screenshots/6-marine.png
+  7. store/screenshots/7-tropical.png
+  8. store/screenshots/8-fish-shop.png
+  (Retake them with `node tools/store-screenshots.js store/screenshots`, with
+  `python3 -m http.server 8765` running in the repository.)
 
 The art is made by `node tools/make-art.js`; the app's own icons and splash
 screens come from it with `npx @capacitor/assets generate`.
