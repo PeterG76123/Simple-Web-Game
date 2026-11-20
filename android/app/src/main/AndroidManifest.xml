@@ -38,4 +38,7 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- The game is portrait-only, but don't require a portrait screen, so Chromebooks,
+         PCs and landscape-only devices can still install it. -->
+    <uses-feature android:name="android.hardware.screen.portrait" android:required="false" />
 </manifest>
