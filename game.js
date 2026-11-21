@@ -778,7 +778,10 @@
   // (pressing on an eel always moves the eel instead).
   let pan = null; // { id, x, y, viewX, viewY } while panning
 
-  const boardSize = () => canvas.width / (window.devicePixelRatio || 1);
+  // The board is drawn at up to 2 pixels per screen point: sharp enough, and far
+  // less work than the 3x of many phones.
+  function boardDpr() { return Math.min(2, window.devicePixelRatio || 1); }
+  const boardSize = () => canvas.width / boardDpr();
   // Zoom in until about six squares fill the board (at least 2x).
   const maxZoom = () => Math.max(2, state ? state.n / 6 : 2);
 
@@ -1242,14 +1245,22 @@
   }
 
   // ---------- Update loop ----------
-  let lastTime = performance.now();
+  var lastTime = performance.now(); // (var: see wake() below)
 
   // The board is only redrawn while something on it is changing (an eel moving, a
   // flash, a hint, a reflector turning), and for a moment after any touch, key or
   // resize; otherwise it's left as it is, to save the phone's battery (and keep it
   // cool). Once a second it's redrawn anyway, in case.
-  var redrawUntil = 0, lastDraw = 0; // (var: wake() can be called before this line runs)
-  function wake(ms = 500) { redrawUntil = Math.max(redrawUntil || 0, performance.now() + ms); }
+  // When nothing is changing the loop stops asking for frames altogether, and just
+  // looks again four times a second (a hint arriving, the Pearl Rush countdown).
+  var redrawUntil = 0, lastDraw = 0, looping = false; // (var: wake() can be called before this line runs)
+  function wake(ms = 500) { redrawUntil = Math.max(redrawUntil || 0, performance.now() + ms); loop(); }
+  function loop() {
+    if (looping) return;
+    looping = true;
+    lastTime = performance.now();
+    requestAnimationFrame(frame);
+  }
   for (const e of ['pointerdown', 'pointermove', 'pointerup', 'pointercancel', 'wheel', 'keydown', 'touchstart', 'touchmove', 'touchend', 'click']) {
     document.addEventListener(e, () => wake(), { capture: true, passive: true });
   }
@@ -1264,16 +1275,20 @@
   }
 
   function frame(now) {
-    const dt = Math.min(0.05, (now - lastTime) / 1000);
+    const dt = Math.min(0.05, Math.max(0, now - lastTime) / 1000);
     lastTime = now;
-    if (state && screens.game.classList.contains('active')) {
+    let busy = false;
+    if (state && screens.game.classList.contains('active') && !document.hidden) {
       update(dt);
-      if (now < redrawUntil || now - lastDraw > 1000 || boardChanging()) { draw(); lastDraw = now; }
+      busy = now < redrawUntil || boardChanging();
+      // At most ~60 redraws a second, even on 90/120 Hz screens.
+      if ((busy && now - lastDraw > 14) || now - lastDraw > 1000) { draw(); lastDraw = now; }
       // Pearl Rush: its countdown under the pearl count (when the second changes).
       const W = window.ArrowWallet;
       if (W && W.rushLeft() !== shownRush) showRush();
     }
-    requestAnimationFrame(frame);
+    if (busy) requestAnimationFrame(frame);
+    else { looping = false; setTimeout(loop, 250); }
   }
 
   function update(dt) {
@@ -1376,7 +1391,7 @@
       view.x *= size / old;
       view.y *= size / old;
     }
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = boardDpr();
     canvas.width = Math.round(size * dpr);
     canvas.height = Math.round(size * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -1413,7 +1428,7 @@
   }
 
   function draw() {
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = boardDpr();
     const size = canvas.width / dpr;
     const { cell, margin } = layout(size);
     // Nothing to draw on (the board is hidden, e.g. behind the menu).
@@ -2214,6 +2229,9 @@
   // ---------- Menu ----------
   function showScreen(name) {
     Object.entries(screens).forEach(([k, el]) => el.classList.toggle('active', k === name));
+    // While playing, the ocean behind the board holds still (style.css), to save battery.
+    document.body.classList.toggle('playing', name === 'game');
+    wake();
   }
 
   function goToMenu() {
@@ -2376,5 +2394,5 @@
   if (progress.last && progress.last.tier < REAL_TIERS && TIERS[progress.last.tier]) { tier = progress.last.tier; menuGroup = progress.last.group; }
   else { tier = 0; menuGroup = 0; }
   renderMenu();
-  requestAnimationFrame(frame);
+  loop();
 })();

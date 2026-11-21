@@ -134,6 +134,10 @@ body {
   left: var(--x, 50%);
   opacity: 0.7;
 }
+/* While playing (body.playing, set by game.js), the ocean behind the board holds
+   still and the creatures lose their glow: both were repainted every frame. */
+body.playing .ocean::before, body.playing .ocean span { animation-play-state: paused; }
+body.playing .creature svg { filter: none; }
 @keyframes sway {
   from { transform: rotate(-3deg); }
   to { transform: rotate(3deg); }
@@ -490,9 +494,8 @@ h1 {
   height: 42px;
   border-radius: 50%;
   border: 1px solid var(--glass-edge);
-  background: var(--glass);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  /* A darker fill instead of a live blur, which was redone every frame behind the board. */
+  background: rgba(16, 44, 78, 0.55);
   color: var(--text);
   font-family: var(--font-display);
   font-size: 1.25rem;
@@ -523,9 +526,8 @@ h1 {
   padding: 10px 4px;
   border-radius: 22px;
   border: 1px solid var(--glass-edge);
-  background: var(--glass);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  /* A darker fill instead of a live blur, which was redone every frame behind the board. */
+  background: rgba(16, 44, 78, 0.55);
   color: var(--text);
   font-family: var(--font-display);
   font-weight: 600;
@@ -545,10 +547,10 @@ h1 {
   box-shadow: 0 0 18px rgba(94, 242, 255, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.6);
 }
 .action-btn.hint-btn:hover:not(:disabled) { box-shadow: 0 0 26px rgba(94, 242, 255, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.6); }
-/* Stuck for a while? The Hint button glows and pulses, with a little bubble. */
+/* Stuck for a while? The Hint button glows and pulses a few times, with a little bubble. */
 .action-btn.hint-btn { position: relative; }
-.action-btn.hint-btn.nudge { animation: nudge 1.6s ease-in-out infinite; }
-.action-btn.hint-btn.nudge .action-icon { animation: bulb 1.6s ease-in-out infinite; }
+.action-btn.hint-btn.nudge { animation: nudge 1.6s ease-in-out 4; }
+.action-btn.hint-btn.nudge .action-icon { animation: bulb 1.6s ease-in-out 4; }
 .action-btn.hint-btn.nudge::after {
   content: "Stuck? Try a hint!";
   position: absolute;
@@ -563,7 +565,7 @@ h1 {
   font-size: 0.95rem;
   white-space: nowrap;
   box-shadow: 0 0 18px rgba(94, 242, 255, 0.5);
-  animation: bob 1.6s ease-in-out infinite;
+  animation: bob 1.6s ease-in-out 4;
   pointer-events: none;
 }
 @keyframes nudge {

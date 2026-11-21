@@ -159,7 +159,22 @@
     setLevel(musicBus.gain, Settings.get('music') ? loud(Settings.get('musicVol')) * 0.85 : 0, 1.2);
     setLevel(sfxBus.gain, Settings.get('sfx') ? loud(Settings.get('sfxVol')) : 0, 0.05);
   }
-  Settings.onChange(apply);
+  Settings.onChange(() => {
+    apply();
+    if (ctx && asleep && Settings.get('music') && !document.hidden) { asleep = false; ctx.resume().then(apply, () => {}); }
+    napSoon();
+  });
+
+  // With the music off, sound sleeps a few seconds after the last effect: the
+  // reverbs keep the phone working even in silence. The next effect wakes it.
+  let asleep = false, napTimer = 0;
+  function napSoon() {
+    clearTimeout(napTimer);
+    if (!ctx || Settings.get('music')) return;
+    napTimer = setTimeout(() => {
+      if (ctx.state === 'running' && !Settings.get('music')) { asleep = true; ctx.suspend(); }
+    }, 4000);
+  }
 
   // Start on the first tap or key (browsers block sound before that). iPhones
   // also want a sound started inside the tap itself, so play a silent one.
@@ -169,7 +184,8 @@
     if (document.hidden) return;
     // Safari also has an "interrupted" state (after a call, say), so resume
     // from anything that isn't playing.
-    if (ctx.state !== 'running') ctx.resume().then(apply, () => {});
+    if (ctx.state !== 'running' && !asleep) ctx.resume().then(apply, () => {});
+    napSoon();
     if (!unlocked) {
       unlocked = true;
       const src = ctx.createBufferSource();
@@ -182,11 +198,11 @@
   // Sound pauses while an ad plays (ads.js).
   root.addEventListener('arrow-ad', (e) => {
     if (!ctx) return;
-    if (e.detail && e.detail.playing) ctx.suspend(); else if (!document.hidden) ctx.resume().then(apply, () => {});
+    if (e.detail && e.detail.playing) ctx.suspend(); else if (!document.hidden && !asleep) ctx.resume().then(apply, () => {});
   });
   document.addEventListener('visibilitychange', () => {
     if (!ctx) return;
-    if (document.hidden) ctx.suspend(); else ctx.resume().then(apply, () => {});
+    if (document.hidden) ctx.suspend(); else if (!asleep) ctx.resume().then(apply, () => {});
   });
 
   // ---------- Music ----------
@@ -422,6 +438,12 @@
 
   const lastPlayed = {};
   function play(name, options) {
+    if (ctx && asleep && Settings.get('sfx') && SOUNDS[name] && !document.hidden) {
+      asleep = false;
+      ctx.resume().then(() => { apply(); play(name, options); }, () => {});
+      return;
+    }
+    napSoon();
     if (!ctx || ctx.state !== 'running' || !Settings.get('sfx') || !SOUNDS[name]) return;
     // The same sound twice in a few milliseconds just sounds like a glitch.
     const now = ctx.currentTime;
