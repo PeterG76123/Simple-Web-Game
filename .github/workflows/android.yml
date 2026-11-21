@@ -9,6 +9,9 @@
 # tick "Test build with every level unlocked". Its download is named ...-UNLOCKED.
 # It shows Google's test ads; tick "Use Google's test ads" for test ads in a normal build.
 #
+# Each run also posts a GitHub Release (build-N) with plain .apk/.aab links.
+# With the secret PLAY_SERVICE_ACCOUNT_JSON set, it uploads the bundle to Play's internal testing track.
+#
 # To sign the Play bundle, add these repository secrets (Settings > Secrets and variables > Actions):
 #   ANDROID_KEYSTORE_BASE64    your upload keystore, base64-encoded (base64 -w0 upload.jks)
 #   ANDROID_KEYSTORE_PASSWORD  its password
@@ -35,6 +38,10 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # to post each build as a GitHub Release (plain .apk/.aab links for a phone)
+    env:
+      PLAY_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -95,3 +102,26 @@ jobs:
           path: |
             ${{ runner.temp }}/eel-escape-test.apk
             ${{ runner.temp }}/eel-escape.aab
+      # Plain download links (no zip), handy on a phone: Releases > build-N.
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}${{ inputs.unlock_all && '-unlocked' || '' }}
+          name: Build ${{ github.run_number }}${{ inputs.unlock_all && ' (every level unlocked)' || '' }}
+          prerelease: true
+          body: |
+            eel-escape.aab: upload this to Play Console (Internal testing > Create new release).
+            eel-escape-test.apk: a debug build to install directly (won't install over the Play Store version).
+          files: |
+            ${{ runner.temp }}/eel-escape-test.apk
+            ${{ runner.temp }}/eel-escape.aab
+      # Straight to Play's internal testing track, once the repository secret
+      # PLAY_SERVICE_ACCOUNT_JSON (a Play API service-account key, as JSON) is set.
+      - name: Upload to Play internal testing
+        if: env.PLAY_JSON != '' && !inputs.unlock_all
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.redcurtain.eelescape
+          releaseFiles: ${{ runner.temp }}/eel-escape.aab
+          track: internal
+          status: completed
