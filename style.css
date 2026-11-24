@@ -138,6 +138,9 @@ body {
    still and the creatures lose their glow: both were repainted every frame. */
 body.playing .ocean::before, body.playing .ocean span { animation-play-state: paused; }
 body.playing .creature svg { filter: none; }
+/* Their fins and tails hold still too (they still glide past): animating parts of an
+   SVG redoes the page's layout every frame, by far the biggest cost while playing. */
+body.playing .creature svg, body.playing .creature svg *, body.playing .creature .member { animation-play-state: paused !important; }
 @keyframes sway {
   from { transform: rotate(-3deg); }
   to { transform: rotate(3deg); }
