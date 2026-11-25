@@ -10,7 +10,8 @@
 # It shows Google's test ads; tick "Use Google's test ads" for test ads in a normal build.
 #
 # Each run also posts a GitHub Release (build-N) with plain .apk/.aab links.
-# With the secret PLAY_SERVICE_ACCOUNT_JSON set, it uploads the bundle to Play's internal testing track.
+# With the secret PLAY_SERVICE_ACCOUNT_JSON set, it uploads the bundle to Google Play: the
+# internal testing track by default, or production (choose "Play track" when running it).
 #
 # To sign the Play bundle, add these repository secrets (Settings > Secrets and variables > Actions):
 #   ANDROID_KEYSTORE_BASE64    your upload keystore, base64-encoded (base64 -w0 upload.jks)
@@ -30,6 +31,11 @@ on:
         description: "Use Google's test ads instead of real ones"
         type: boolean
         default: false
+      play_track:
+        description: 'Google Play track to upload to (needs the PLAY_SERVICE_ACCOUNT_JSON secret)'
+        type: choice
+        options: [internal, production, none]
+        default: internal
   # Paused while tweaking on the web version: builds run only by hand (Run workflow).
   # To build on every push again, put back:
   # push:
@@ -116,12 +122,13 @@ jobs:
             ${{ runner.temp }}/eel-escape.aab
       # Straight to Play's internal testing track, once the repository secret
       # PLAY_SERVICE_ACCOUNT_JSON (a Play API service-account key, as JSON) is set.
-      - name: Upload to Play internal testing
-        if: env.PLAY_JSON != '' && !inputs.unlock_all
+      # Never a test build (unlocked levels or test ads) to Play.
+      - name: Upload to Google Play (${{ inputs.play_track || 'internal' }})
+        if: env.PLAY_JSON != '' && !inputs.unlock_all && !inputs.test_ads && inputs.play_track != 'none'
         uses: r0adkll/upload-google-play@v1
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: com.redcurtain.eelescape
           releaseFiles: ${{ runner.temp }}/eel-escape.aab
-          track: internal
+          track: ${{ inputs.play_track || 'internal' }}
           status: completed
