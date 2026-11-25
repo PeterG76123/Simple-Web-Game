@@ -62,6 +62,8 @@
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
 	<!-- AdMob app ID. This is Google's TEST app ID: replace it with your own before release. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>GADApplicationIdentifier</key>
 	<string>ca-app-pub-3940256099942544~1458002511</string>
 	<!-- The question in Apple's "allow tracking?" prompt. -->
