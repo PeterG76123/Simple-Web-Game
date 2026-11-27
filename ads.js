@@ -21,10 +21,12 @@
     android: { interstitial: 'ca-app-pub-3940256099942544/1033173712', rewarded: 'ca-app-pub-3940256099942544/5224354917' },
     ios: { interstitial: 'ca-app-pub-3940256099942544/4411468910', rewarded: 'ca-app-pub-3940256099942544/1712485313' },
   };
-  // RedCurtain's own ad units (AdMob app ID ca-app-pub-4979427657253323~4371111887,
-  // set in android/app/src/main/AndroidManifest.xml).
+  // RedCurtain's own ad units. Android: AdMob app ID ca-app-pub-4979427657253323~4371111887,
+  // set in android/app/src/main/AndroidManifest.xml.
   const UNITS = {
     android: { interstitial: 'ca-app-pub-4979427657253323/9555155807', rewarded: 'ca-app-pub-4979427657253323/7499692316' },
+    // iPhone: AdMob app ID ca-app-pub-4979427657253323~3454539470 (ios/App/App/Info.plist).
+    ios: { interstitial: 'ca-app-pub-4979427657253323/7312672248', rewarded: 'ca-app-pub-4979427657253323/1625231299' },
   };
   const Cap = root.Capacitor;
   const native = !!(Cap && Cap.isNativePlatform && Cap.isNativePlatform());

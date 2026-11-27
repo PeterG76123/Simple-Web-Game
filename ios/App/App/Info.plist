@@ -65,7 +65,7 @@
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>GADApplicationIdentifier</key>
-	<string>ca-app-pub-3940256099942544~1458002511</string>
+	<string>ca-app-pub-4979427657253323~3454539470</string>
 	<!-- The question in Apple's "allow tracking?" prompt. -->
 	<key>NSUserTrackingUsageDescription</key>
 	<string>This lets us show you ads that are more relevant to you. Eel Escape stays free either way.</string>
