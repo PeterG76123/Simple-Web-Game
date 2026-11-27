@@ -54,25 +54,19 @@ jobs:
       - name: Sign and upload to App Store Connect
         if: env.ASC_KEY != '' && inputs.upload
         run: |
-          KEY="$RUNNER_TEMP/AuthKey_$ASC_KEY_ID.p8"
-          printf '%s' "$ASC_KEY" > "$KEY"
-          AUTH=(-allowProvisioningUpdates -authenticationKeyPath "$KEY" -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID")
+          pip3 install --quiet --break-system-packages pyjwt cryptography || pip3 install --quiet pyjwt cryptography
+          # A throwaway App Store certificate and profile for this build (tools/ios-signing.py).
+          python3 tools/ios-signing.py setup "$RUNNER_TEMP/sign"
           xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release \
             -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/App.xcarchive" \
-            DEVELOPMENT_TEAM="$TEAM_ID" CODE_SIGN_STYLE=Automatic CODE_SIGN_IDENTITY="Apple Distribution" \
-            CURRENT_PROJECT_VERSION=${{ github.run_number }} "${AUTH[@]}" archive | tail -n 40
+            CURRENT_PROJECT_VERSION=${{ github.run_number }} archive | tail -n 40
           test "${PIPESTATUS[0]}" -eq 0
-          # Signed for distribution from the start: the default development signing would need
-          # a registered iPhone, which an App Store upload doesn't.
-          cat > "$RUNNER_TEMP/export.plist" <<PLIST
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0"><dict>
-            <key>method</key><string>app-store-connect</string>
-            <key>destination</key><string>upload</string>
-            <key>teamID</key><string>$TEAM_ID</string>
-            <key>signingStyle</key><string>automatic</string>
-          </dict></plist>
-          PLIST
+          KEY="$RUNNER_TEMP/AuthKey_$ASC_KEY_ID.p8"
+          printf '%s' "$ASC_KEY" > "$KEY"
           xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/App.xcarchive" \
-            -exportOptionsPlist "$RUNNER_TEMP/export.plist" -exportPath "$RUNNER_TEMP/export" "${AUTH[@]}"
+            -exportOptionsPlist "$RUNNER_TEMP/sign/export.plist" -exportPath "$RUNNER_TEMP/export" \
+            -authenticationKeyPath "$KEY" -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+      # Uploaded builds stay valid: Apple re-signs them for TestFlight and the App Store.
+      - name: Remove this build's certificate and profile
+        if: always() && env.ASC_KEY != '' && inputs.upload
+        run: python3 tools/ios-signing.py cleanup "$RUNNER_TEMP/sign"
