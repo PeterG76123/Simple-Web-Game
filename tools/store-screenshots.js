@@ -1,4 +1,4 @@
-// Takes the Play Store phone screenshots (1080 x 1920) into the folder given:
+// Takes the store screenshots into the folder given (Play phone 1080 x 1920; SHOT=iphone or SHOT=ipad for the App Store):
 //   python3 -m http.server 8765 &   then   node tools/store-screenshots.js store/screenshots
 // It seeds a player with progress, two stocked tanks and a solved daily picture.
 const { chromium } = require('playwright');
@@ -14,7 +14,9 @@ const tropical = ['angel', 'angel', 'discus', 'betta', 'gourami', 'tetra', 'tetr
   .concat(['driftwood', 'chest', 'ship'].map((t, i) => it(30 + i, t, [0.25, 0.6, 0.82][i])));
 (async () => {
   const b = await chromium.launch();
-  const ctx = await b.newContext({ viewport: { width: 360, height: 640 }, deviceScaleFactor: 3 });
+  // Size: Play phone by default; SHOT=iphone (1320 x 2868) or SHOT=ipad (2064 x 2752) for the App Store.
+  const size = { play: [360, 640, 3], iphone: [440, 956, 3], ipad: [1032, 1376, 2] }[process.env.SHOT || 'play'];
+  const ctx = await b.newContext({ viewport: { width: size[0], height: size[1] }, deviceScaleFactor: size[2] });
   await ctx.route('**/*supabase.co/**', (r) => r.abort());
   await ctx.route('**/game.js*', (r) => r.fulfill({ contentType: 'application/javascript', body: fs.readFileSync('game.js', 'utf8').replace('{ playDaily });', '{ playDaily, __start: (t, g, i) => { tier = t; startLevel(g, i, { fresh: true }); }, __win: () => state.lines.forEach((l) => { l.mode = "gone"; }), __tap: (k) => { const l = state.lines[k]; } });') }));
   await ctx.addInitScript(({ santa, marine, tropical }) => {

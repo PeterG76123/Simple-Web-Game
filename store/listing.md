@@ -132,3 +132,28 @@ Data collected (by the Google Mobile Ads SDK and RevenueCat, not by us):
 - Health: No.
 - News app: No.
 - Advertising ID: Yes, used for advertising and analytics (AdMob). The app declares the AD_ID permission through the AdMob plugin.
+
+---
+
+# Apple App Store (App Store Connect)
+
+- iPhone only for now (TARGETED_DEVICE_FAMILY = 1): the layout is phone-sized, so
+  no iPad screenshots are needed; iPads run it in iPhone mode.
+- iPhone 6.9" screenshots (1320 x 2868), in this order: store/ios/iphone/1-menu.png … 8-fish-shop.png
+  (Retake with `SHOT=iphone node tools/store-screenshots.js store/ios/iphone`.)
+- Name: Eel Escape: Puzzle & Aquarium (30 max). Subtitle (30 max): Slide the eels free, fill a tank
+- Promotional text (170 max): Four new daily picture puzzles every day. Solve the Insane one to reveal the day's picture, made entirely of eels!
+- Description: the Play full description above.
+- Keywords (100 max): puzzle,logic,eel,aquarium,fish,brain,relaxing,daily,unblock,slide,maze,casual,tank
+- Support URL: https://redcurtain.com.au  ·  Marketing URL: https://redcurtain.com.au
+- Privacy policy URL: https://redcurtain.com.au/eel-escape/privacy.html
+- Category: Games, subcategories Puzzle and Casual. Copyright: 2026 RedCurtain
+- Age rating: all "None"; no unrestricted web access; no gambling; contests none → 4+.
+- App Privacy (data used to track you / linked / not linked):
+  - Identifiers > Device ID: used for Third-Party Advertising and Analytics; used to track (AdMob, with the tracking prompt); not linked to identity.
+  - Usage Data > Advertising Data and Product Interaction: Third-Party Advertising, Analytics; not linked.
+  - Location > Coarse Location (from IP): Third-Party Advertising; not linked.
+  - Purchases > Purchase History: App Functionality (RevenueCat); not linked.
+  - Diagnostics > Crash Data, Performance Data: Analytics; not linked.
+- In-app purchase names: pearls_500 gives 1,000 pearls and pearls_3000 gives 6,000 (config.js pearls.packs), so name them "1,000 Pearls" / "6,000 Pearls".
+- In-app purchase review screenshot: store/ios/iap-review.png (the shop open).
