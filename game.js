@@ -48,6 +48,30 @@
 
   // ---------- DOM ----------
   const $ = (id) => document.getElementById(id);
+
+  // If something ever goes wrong while playing, the board carries on, and the
+  // error is kept (shown small at the bottom of Settings) so it can be reported.
+  const ERROR_KEY = 'eel-last-error-v1';
+  function showLastError() {
+    const el = document.getElementById('lastError');
+    if (!el) return;
+    let e = null;
+    try { e = JSON.parse(localStorage.getItem(ERROR_KEY)); } catch (err) { /* none */ }
+    el.hidden = !e;
+    if (e) el.textContent = `Last error (${e.at}): ${e.msg}`;
+  }
+  let errorsNoted = 0;
+  function noteError(err) {
+    if (errorsNoted++ > 20) return; // once it's noted, don't fill the log every frame
+    console.error(err);
+    const msg = String((err && (err.stack || err.message)) || err).replace(/\s+/g, ' ').slice(0, 400);
+    const at = new Date().toLocaleString('en-AU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    try { localStorage.setItem(ERROR_KEY, JSON.stringify({ at, msg })); } catch (e) { /* storage full or blocked */ }
+    showLastError();
+  }
+  window.addEventListener('error', (e) => noteError(e.error || e.message));
+  window.addEventListener('unhandledrejection', (e) => noteError(e.reason));
+  showLastError();
   const screens = { menu: $('menu'), game: $('game') };
   const canvas = $('board');
   const ctx = canvas.getContext('2d');
@@ -1278,6 +1302,7 @@
     const dt = Math.min(0.05, Math.max(0, now - lastTime) / 1000);
     lastTime = now;
     let busy = false;
+    try {
     if (state && screens.game.classList.contains('active') && !document.hidden) {
       update(dt);
       busy = now < redrawUntil || boardChanging();
@@ -1287,6 +1312,7 @@
       const W = window.ArrowWallet;
       if (W && W.rushLeft() !== shownRush) showRush();
     }
+    } catch (e) { noteError(e); }
     if (busy) requestAnimationFrame(frame);
     else { looping = false; setTimeout(loop, 250); }
   }
@@ -1674,6 +1700,7 @@
 
     // Layer 1: see-through parts (faint with a dashed centre), under everything solid.
     for (const l of visible) {
+      try {
       const color = colorOf(l);
       for (const [from, to] of runs(l, false)) {
         const pts = piece(l, from, to);
@@ -1700,6 +1727,7 @@
         ctx.setLineDash([0.001, cell * 0.2]);
         stroke(pts);
       }
+      } catch (e) { noteError(e); ctx.globalAlpha = 1; ctx.setLineDash([]); } // one bad eel mustn't hide the rest
     }
     ctx.setLineDash([]);
     ctx.globalAlpha = 1;
@@ -1769,6 +1797,7 @@
     // Layer 2: solid parts and heads, drawn as glowing eels: a soft glow,
     // the body, then a pale sheen along the top.
     for (const l of visible) {
+      try {
       const color = colorOf(l);
       const bodyWidth = l.mode === 'drag' ? width * 1.15 : width;
       const solidRuns = runs(l, true).map(([from, to]) => [from, piece(l, from, to)]).filter(([, pts]) => pts);
@@ -1809,6 +1838,7 @@
       if (l.mode === 'exit' && motionOK && Math.random() < 0.6) {
         bubbles.push({ x: hx - dx * cell * 0.3, y: hy - dy * cell * 0.3, r: cell * (0.05 + Math.random() * 0.08), vx: (Math.random() - 0.5) * cell * 0.4, vy: -cell * (0.6 + Math.random() * 0.8), life: 1 });
       }
+      } catch (e) { noteError(e); ctx.globalAlpha = 1; ctx.setLineDash([]); } // one bad eel mustn't hide the rest
     }
 
     if (hintOnTop) drawHint(true);
