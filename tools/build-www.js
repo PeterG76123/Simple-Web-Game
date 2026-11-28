@@ -15,7 +15,7 @@ const FILES = [
   'config.js', 'wallet.js', 'pearl-pour.js', 'settings.js', 'audio.js', 'rules.js', 'levels-data.js',
   'art.js', 'intro.js', 'sea-life.js', 'ads.js', 'store.js', 'shop.js', 'aquarium-items.js', 'aquarium.js', 'daily.js', 'game.js',
 ];
-const DIRS = ['fonts'];
+const DIRS = ['fonts', 'music'];
 
 fs.rmSync(out, { recursive: true, force: true });
 fs.mkdirSync(out, { recursive: true });

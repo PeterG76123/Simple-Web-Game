@@ -1,14 +1,14 @@
 /*
- * Sound effects and calm underwater music, all made live with the Web Audio
- * API: no sound files to download, so it works offline in the app too.
+ * Sound effects, made live with the Web Audio API, and calm underwater music,
+ * played from a recording (music/ocean.m4a, made by tools/render-music.js: making
+ * the music live, note by note through two reverbs, kept phones warm).
  *
  *   ArrowAudio.play('exit')   one of the effects in SOUNDS below
  *
- * The music is generative: slow, soft chords through a muffled "underwater"
- * filter, the hush of ocean swell, drops of melody that echo away, and now
- * and then a far-off whale call. Volumes and on/off come from ArrowSettings.
- * Browsers only allow sound after the first tap or key press, so nothing
- * starts until then. Everything pauses while the app is in the background.
+ * Volumes and on/off come from ArrowSettings. Browsers only allow sound after
+ * the first tap or key press, so nothing starts until then. Everything pauses
+ * while the app is in the background or an ad plays, and the effects' sound
+ * engine sleeps a few seconds after the last effect.
  */
 (function (root) {
   'use strict';
@@ -17,9 +17,8 @@
   if (!AC || !Settings) { root.ArrowAudio = { play() {} }; return; }
 
   let ctx = null;
-  let musicBus, sfxBus, musicVerb, sfxVerb, padFilter, echo, swellGain;
+  let sfxBus, sfxVerb;
   const rand = (a, b) => a + Math.random() * (b - a);
-  const pick = (list) => list[Math.floor(Math.random() * list.length)];
   const loud = (v) => Math.pow(v / 100, 1.6); // slider 0-100 to a gain that sounds even
 
   // ---------- Set-up ----------
@@ -69,79 +68,17 @@
     comp.ratio.value = 3;
     master.connect(comp);
     comp.connect(ctx.destination);
-
-    musicBus = ctx.createGain();
     sfxBus = ctx.createGain();
-    musicBus.gain.value = 0;
     sfxBus.gain.value = 0;
-    musicBus.connect(master);
     sfxBus.connect(master);
-
-    musicVerb = ctx.createConvolver();
-    musicVerb.buffer = impulse(4.5, 2.2);
-    musicVerb.connect(musicBus);
+    // A short reverb (a long one is more work for the phone on every effect).
     sfxVerb = ctx.createConvolver();
-    sfxVerb.buffer = impulse(2.2, 2.6);
+    sfxVerb.buffer = impulse(1.2, 2.6);
     sfxVerb.connect(sfxBus);
     whiteNoise = noiseBuffer(1, false);
-
-    // Pads go through a soft low-pass whose brightness slowly breathes.
-    padFilter = ctx.createBiquadFilter();
-    padFilter.type = 'lowpass';
-    padFilter.frequency.value = 750;
-    padFilter.Q.value = 0.6;
-    const lfo = ctx.createOscillator();
-    const lfoDepth = ctx.createGain();
-    lfo.frequency.value = 0.045;
-    lfoDepth.gain.value = 320;
-    lfo.connect(lfoDepth);
-    lfoDepth.connect(padFilter.frequency);
-    lfo.start();
-    padFilter.connect(musicBus);
-    const padSend = ctx.createGain();
-    padSend.gain.value = 0.7;
-    padFilter.connect(padSend);
-    padSend.connect(musicVerb);
-
-    // An echo for the melody drops, getting darker each time round.
-    echo = ctx.createDelay(2);
-    echo.delayTime.value = 0.48;
-    const feedback = ctx.createGain();
-    feedback.gain.value = 0.38;
-    const dark = ctx.createBiquadFilter();
-    dark.type = 'lowpass';
-    dark.frequency.value = 1800;
-    echo.connect(dark);
-    dark.connect(feedback);
-    feedback.connect(echo);
-    dark.connect(musicBus);
-    dark.connect(musicVerb);
-
-    // Ocean swell: deep rumbling noise that rises and falls like waves overhead.
-    const swell = ctx.createBufferSource();
-    swell.buffer = noiseBuffer(6, true);
-    swell.loop = true;
-    const swellFilter = ctx.createBiquadFilter();
-    swellFilter.type = 'lowpass';
-    swellFilter.frequency.value = 320;
-    swellGain = ctx.createGain();
-    swellGain.gain.value = 0.05;
-    const wave = ctx.createOscillator();
-    const waveDepth = ctx.createGain();
-    wave.frequency.value = 0.09;
-    waveDepth.gain.value = 0.035;
-    wave.connect(waveDepth);
-    waveDepth.connect(swellGain.gain);
-    swell.connect(swellFilter);
-    swellFilter.connect(swellGain);
-    swellGain.connect(musicBus);
-    swell.start();
-    wave.start();
-
     apply();
     // Whenever sound starts (or starts again), make sure the volumes are right.
     ctx.onstatechange = () => { if (ctx.state === 'running') apply(); };
-    setInterval(schedule, 250);
   }
 
   function setLevel(param, value, glide) {
@@ -155,24 +92,23 @@
   }
 
   function apply() {
+    updateMusic();
     if (!ctx) return;
-    setLevel(musicBus.gain, Settings.get('music') ? loud(Settings.get('musicVol')) * 0.85 : 0, 1.2);
     setLevel(sfxBus.gain, Settings.get('sfx') ? loud(Settings.get('sfxVol')) : 0, 0.05);
   }
   Settings.onChange(() => {
     apply();
-    if (ctx && asleep && Settings.get('music') && !document.hidden) { asleep = false; ctx.resume().then(apply, () => {}); }
     napSoon();
   });
 
-  // With the music off, sound sleeps a few seconds after the last effect: the
-  // reverbs keep the phone working even in silence. The next effect wakes it.
+  // The effects' sound engine sleeps a few seconds after the last effect (even
+  // silent, it keeps the phone working); the next effect wakes it.
   let asleep = false, napTimer = 0;
   function napSoon() {
     clearTimeout(napTimer);
-    if (!ctx || Settings.get('music')) return;
+    if (!ctx) return;
     napTimer = setTimeout(() => {
-      if (ctx.state === 'running' && !Settings.get('music')) { asleep = true; ctx.suspend(); }
+      if (ctx.state === 'running') { asleep = true; ctx.suspend(); }
     }, 4000);
   }
 
@@ -188,6 +124,7 @@
     napSoon();
     if (!unlocked) {
       unlocked = true;
+      updateMusic(); // inside the tap, so the music is allowed to start
       const src = ctx.createBufferSource();
       src.buffer = ctx.createBuffer(1, 1, ctx.sampleRate);
       src.connect(ctx.destination);
@@ -197,129 +134,66 @@
   ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown'].forEach((type) => document.addEventListener(type, unlock, { capture: true, passive: true }));
   // Sound pauses while an ad plays (ads.js).
   root.addEventListener('arrow-ad', (e) => {
+    adPlaying = !!(e.detail && e.detail.playing);
+    updateMusic();
     if (!ctx) return;
     if (e.detail && e.detail.playing) ctx.suspend(); else if (!document.hidden && !asleep) ctx.resume().then(apply, () => {});
   });
   document.addEventListener('visibilitychange', () => {
+    updateMusic();
     if (!ctx) return;
     if (document.hidden) ctx.suspend(); else if (!asleep) ctx.resume().then(apply, () => {});
   });
 
   // ---------- Music ----------
-  const D3 = 146.83;
-  const hz = (semitones) => D3 * Math.pow(2, semitones / 12);
-  // Soft, open chords in D major, in semitones from D3: Dmaj9, Bm7, Gmaj7,
-  // Aadd9, Dmaj9, Em9, Gmaj7, Aadd9.
-  const CHORDS = [
-    [0, 7, 11, 16], [-3, 4, 7, 12], [-7, 0, 4, 9], [-5, 2, 9, 11],
-    [0, 7, 11, 16], [2, 9, 12, 16], [-7, 0, 4, 9], [-5, 2, 9, 11],
-  ];
-  const CHORD_SECONDS = 9;
-  // Melody notes that sound good over everything: D major pentatonic, high up.
-  const DROPS = [12, 14, 16, 19, 21, 24, 26, 28, 31, 33];
-  let chordIndex = 0;
-  let nextChordAt = 0;
-  let nextDropAt = 0;
-  let nextWhaleAt = 0;
-
-  function padNote(freq, start, length, gain) {
-    const g = ctx.createGain();
-    g.gain.setValueAtTime(0, start);
-    g.gain.linearRampToValueAtTime(gain, start + 3.5);
-    g.gain.setValueAtTime(gain, start + length - 0.5);
-    g.gain.linearRampToValueAtTime(0, start + length + 3.5);
-    g.connect(padFilter);
-    [['sine', -7], ['triangle', 7]].forEach(([type, cents]) => {
-      const o = ctx.createOscillator();
-      o.type = type;
-      o.frequency.value = freq;
-      o.detune.value = cents;
-      o.connect(g);
-      o.start(start);
-      o.stop(start + length + 3.6);
-    });
+  // A recorded loop. Android sets its volume directly; iPhones ignore an audio
+  // element's volume, so there it goes through a tiny Web Audio gain instead.
+  let adPlaying = false;
+  let music = null, musicGain = null, musicCtx = null, fade = 0;
+  const volumeWorks = (() => { try { const a = new Audio(); a.volume = 0.5; return a.volume === 0.5; } catch (e) { return false; } })();
+  function musicTarget() { return Settings.get('music') ? loud(Settings.get('musicVol')) : 0; }
+  function setMusicVolume(v) {
+    if (musicGain) musicGain.gain.value = v;
+    else if (music) music.volume = Math.max(0, Math.min(1, v));
   }
-
-  function drop(freq, t, vol) {
-    const o = ctx.createOscillator();
-    o.type = 'sine';
-    o.frequency.setValueAtTime(freq * 0.97, t);
-    o.frequency.exponentialRampToValueAtTime(freq, t + 0.05);
-    const g = ctx.createGain();
-    g.gain.setValueAtTime(0, t);
-    g.gain.linearRampToValueAtTime(vol, t + 0.015);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + 2.6);
-    o.connect(g);
-    const p = panner(rand(-0.6, 0.6));
-    const out = p ? (g.connect(p), p) : g;
-    out.connect(musicBus);
-    out.connect(echo);
-    out.connect(musicVerb);
-    o.start(t);
-    o.stop(t + 2.7);
-  }
-
-  function whaleCall(t) {
-    // A slow, far-away moan: a sine that rises and sinks, heavily reverbed.
-    const o = ctx.createOscillator();
-    o.type = 'sine';
-    const base = rand(190, 260);
-    o.frequency.setValueAtTime(base, t);
-    o.frequency.linearRampToValueAtTime(base * 1.35, t + 1.4);
-    o.frequency.linearRampToValueAtTime(base * 0.8, t + 3.6);
-    const vib = ctx.createOscillator();
-    const vibDepth = ctx.createGain();
-    vib.frequency.value = 5;
-    vibDepth.gain.value = 3;
-    vib.connect(vibDepth);
-    vibDepth.connect(o.frequency);
-    const g = ctx.createGain();
-    g.gain.setValueAtTime(0, t);
-    g.gain.linearRampToValueAtTime(0.05, t + 1);
-    g.gain.linearRampToValueAtTime(0.035, t + 2.6);
-    g.gain.linearRampToValueAtTime(0, t + 3.8);
-    const f = ctx.createBiquadFilter();
-    f.type = 'lowpass';
-    f.frequency.value = 600;
-    o.connect(f);
-    f.connect(g);
-    const wet = ctx.createGain();
-    wet.gain.value = 2.5;
-    g.connect(wet);
-    wet.connect(musicVerb);
-    g.connect(musicBus);
-    o.start(t);
-    vib.start(t);
-    o.stop(t + 4);
-    vib.stop(t + 4);
-  }
-
-  function schedule() {
-    if (!ctx || ctx.state !== 'running' || !Settings.get('music')) return;
-    const now = ctx.currentTime;
-    if (nextChordAt < now) nextChordAt = now + 0.1;
-    if (nextChordAt < now + 1) {
-      const chord = CHORDS[chordIndex++ % CHORDS.length];
-      chord.forEach((s) => padNote(hz(s), nextChordAt, CHORD_SECONDS, 0.045));
-      padNote(hz(chord[0] - 12), nextChordAt, CHORD_SECONDS, 0.07); // a soft bass note
-      nextChordAt += CHORD_SECONDS;
+  function updateMusic() {
+    const target = musicTarget();
+    const wanted = unlocked && target > 0 && !document.hidden && !adPlaying;
+    if (!wanted) {
+      clearInterval(fade);
+      fade = 0;
+      if (music && !music.paused) music.pause();
+      if (musicCtx && musicCtx.state === 'running') musicCtx.suspend();
+      return;
     }
-    if (nextDropAt < now) {
-      if (nextDropAt > 0) {
-        // A little phrase of one to three notes, like drops falling into water.
-        const count = pick([1, 1, 2, 2, 3]);
-        let i = Math.floor(rand(0, DROPS.length));
-        for (let k = 0; k < count; k++) {
-          drop(hz(DROPS[i]), now + 0.05 + k * rand(0.28, 0.5), 0.06);
-          i = Math.max(0, Math.min(DROPS.length - 1, i + pick([-2, -1, 1, 2])));
-        }
+    if (!music) {
+      music = new Audio('music/ocean.m4a');
+      music.loop = true;
+      music.preload = 'auto';
+      if (!volumeWorks && AC) {
+        try {
+          musicCtx = new AC();
+          musicGain = musicCtx.createGain();
+          musicCtx.createMediaElementSource(music).connect(musicGain);
+          musicGain.connect(musicCtx.destination);
+        } catch (e) { musicCtx = null; musicGain = null; }
       }
-      nextDropAt = now + rand(2.5, 6.5);
+      setMusicVolume(0);
     }
-    if (nextWhaleAt === 0) nextWhaleAt = now + rand(25, 45);
-    if (nextWhaleAt < now) {
-      whaleCall(now + 0.1);
-      nextWhaleAt = now + rand(50, 100);
+    if (musicCtx && musicCtx.state !== 'running') musicCtx.resume().catch(() => {});
+    if (music.paused) {
+      // Fade in from silence over a second or so.
+      setMusicVolume(0);
+      music.play().catch(() => {});
+      clearInterval(fade);
+      let step = 0;
+      fade = setInterval(() => {
+        step++;
+        setMusicVolume(musicTarget() * Math.min(1, step / 24));
+        if (step >= 24) { clearInterval(fade); fade = 0; }
+      }, 50);
+    } else if (!fade) {
+      setMusicVolume(target); // (while fading in, the fade follows the slider itself)
     }
   }
 
