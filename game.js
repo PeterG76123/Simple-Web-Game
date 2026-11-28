@@ -74,7 +74,13 @@
   showLastError();
   const screens = { menu: $('menu'), game: $('game') };
   const canvas = $('board');
-  const ctx = canvas.getContext('2d');
+  const boardCtx = canvas.getContext('2d');
+  // Everything is drawn through ctx; while the still layer is being drawn it
+  // points at that layer instead (see draw()).
+  let ctx = boardCtx;
+  const layer = document.createElement('canvas');
+  const layerCtx = layer.getContext('2d');
+  let layerKey = '', layerState = null;
   const boardWrap = $('boardWrap');
   const overlay = $('overlay');
 
@@ -1453,7 +1459,63 @@
     return out;
   }
 
+  // Which gates are open and which plates covered (also chimes when a gate opens or shuts).
+  function gateState() {
+    if (!state.gates.length) return { any: null, covered: new Set(), openNow: '', coveredKey: '' };
+    const any = anyMap(state.n, state.lines, restOffsets());
+    const covered = new Set(state.plates.filter(([x, y]) => any[y * state.n + x] > 0).map(([, , c]) => c));
+    let openNow = '';
+    for (const [gx, gy, c] of state.gates) openNow += covered.has(c) || any[gy * state.n + gx] > 0 ? '1' : '0';
+    return { any, covered, openNow, coveredKey: [...covered].sort().join(',') };
+  }
+
+  /**
+   * Draws the board. Everything that isn't moving (the dots, plates, gates,
+   * reflectors and every eel at rest) is drawn once into a layer and reused;
+   * each frame only the moving or flashing eels, the hint and the bubbles are
+   * drawn over it. On a big board that's one eel a frame instead of all of them.
+   */
   function draw() {
+    const size = canvas.width / boardDpr();
+    if (layout(size).cell <= 0) return;
+    const gates = gateState();
+    if (state.gatesOpen !== undefined && gates.openNow !== state.gatesOpen) {
+      let opened = 0;
+      let closed = 0;
+      for (let i = 0; i < gates.openNow.length; i++) {
+        if (gates.openNow[i] === '1' && state.gatesOpen[i] === '0') opened++;
+        if (gates.openNow[i] === '0' && state.gatesOpen[i] === '1') closed++;
+      }
+      if (opened) sfx('gateOpen');
+      else if (closed) sfx('gateClose');
+    }
+    state.gatesOpen = gates.openNow;
+    const hintOnTop = state.picture || state.n >= 20;
+    const moving = (l) => l.mode !== 'idle' || l.flash > 0;
+    // A hint glowing under the eels, or reflectors and gates flashing: draw it all (briefly).
+    const still = !(state.hint && !hintOnTop) && !state.mirrorAnim.some(Boolean) && !state.mirrorFlash.some((f) => f > 0)
+      && ![...state.gateFlash.values()].some((f) => f > 0);
+    if (!still) {
+      layerKey = '';
+      drawScene({ background: true, lines: () => true, overlays: true });
+      return;
+    }
+    const key = [canvas.width, view.scale, view.x, view.y, gates.openNow, gates.coveredKey, colors.dot, colors.lines[0],
+      state.mirrors.map((m) => `${m[2]},${m[3]}`).join(';'), state.lines.map((l) => (moving(l) ? '*' : l.rest)).join(',')].join('|');
+    if (key !== layerKey || layerState !== state) {
+      if (layer.width !== canvas.width || layer.height !== canvas.height) { layer.width = canvas.width; layer.height = canvas.height; }
+      ctx = layerCtx;
+      try { drawScene({ background: true, lines: (l) => !moving(l), overlays: false }); } finally { ctx = boardCtx; }
+      layerKey = key;
+      layerState = state;
+    }
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(layer, 0, 0);
+    drawScene({ background: false, lines: moving, overlays: true });
+  }
+
+  function drawScene({ background: withBackground, lines: which, overlays }) {
     const dpr = boardDpr();
     const size = canvas.width / dpr;
     const { cell, margin } = layout(size);
@@ -1461,10 +1523,11 @@
     if (cell <= 0) return;
     const center = (v) => margin + (v + 0.5) * cell;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, size, size);
+    if (withBackground) ctx.clearRect(0, 0, size, size);
     // Zoom and pan: everything below is drawn in board coordinates.
     ctx.setTransform(dpr * view.scale, 0, 0, dpr * view.scale, dpr * view.x, dpr * view.y);
 
+    if (withBackground) {
     // Grid points: tiny glints of plankton in the water.
     ctx.fillStyle = colors.dot;
     for (let y = 0; y < state.n; y++) {
@@ -1478,8 +1541,7 @@
     // Plates and gates sit under the lines. A gate is open while a plate of
     // its colour is covered or a line is inside it.
     if (state.gates.length) {
-      const any = anyMap(state.n, state.lines, restOffsets());
-      const covered = new Set(state.plates.filter(([x, y]) => any[y * state.n + x] > 0).map(([, , c]) => c));
+      const { any, covered } = gateState();
       const box = (x, y, inset) => [margin + x * cell + cell * inset, margin + y * cell + cell * inset, cell * (1 - 2 * inset)];
       const roundRect = (x, y, w, r) => {
         ctx.beginPath();
@@ -1513,12 +1575,9 @@
         }
         ctx.globalAlpha = 1;
       }
-      // Which gates are open, to chime when one opens or closes.
-      let openNow = '';
       for (const [gx, gy, c] of state.gates) {
         const cellIndex = gy * state.n + gx;
         const open = covered.has(c) || any[cellIndex] > 0;
-        openNow += open ? '1' : '0';
         const flash = state.gateFlash.get(cellIndex) || 0;
         const color = flash > 0 ? mix(colors.gates[c], colors.danger, Math.min(1, flash * 1.3)) : colors.gates[c];
         const [bx, by, w] = box(gx, gy, 0.06);
@@ -1556,17 +1615,6 @@
           }
         }
       }
-      if (state.gatesOpen !== undefined && openNow !== state.gatesOpen) {
-        let opened = 0;
-        let closed = 0;
-        for (let i = 0; i < openNow.length; i++) {
-          if (openNow[i] === '1' && state.gatesOpen[i] === '0') opened++;
-          if (openNow[i] === '0' && state.gatesOpen[i] === '1') closed++;
-        }
-        if (opened) sfx('gateOpen');
-        else if (closed) sfx('gateClose');
-      }
-      state.gatesOpen = openNow;
     }
 
     // Reflectors: reef rock filling half the cell, with its pearly slanted side
@@ -1603,7 +1651,9 @@
       ctx.restore();
     });
 
-    const visible = state.lines.filter((l) => l.mode !== 'gone');
+    }
+
+    const visible = state.lines.filter((l) => l.mode !== 'gone' && which(l));
     // Moving lines are drawn on top.
     visible.sort((a, b) => (a.mode === 'idle' ? 0 : 1) - (b.mode === 'idle' ? 0 : 1));
 
@@ -1696,7 +1746,7 @@
     };
     // On top for pictures and big packed boards, where a glow underneath is hidden.
     const hintOnTop = state.picture || state.n >= 20;
-    if (!hintOnTop) drawHint(false);
+    if (overlays && !hintOnTop) drawHint(false);
 
     // Layer 1: see-through parts (faint with a dashed centre), under everything solid.
     for (const l of visible) {
@@ -1841,8 +1891,10 @@
       } catch (e) { noteError(e); ctx.globalAlpha = 1; ctx.setLineDash([]); } // one bad eel mustn't hide the rest
     }
 
-    if (hintOnTop) drawHint(true);
-    drawBubbles(cell);
+    if (overlays) {
+      if (hintOnTop) drawHint(true);
+      drawBubbles(cell);
+    }
   }
 
   // ---------- Bubbles ----------
