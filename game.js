@@ -1312,8 +1312,10 @@
     if (state && screens.game.classList.contains('active') && !document.hidden) {
       update(dt);
       busy = now < redrawUntil || boardChanging();
-      // At most ~60 redraws a second, even on 90/120 Hz screens.
-      if ((busy && now - lastDraw > 14) || now - lastDraw > 1000) { draw(); lastDraw = now; }
+      // At most ~60 redraws a second, even on 90/120 Hz screens, and ~30 while
+      // the only thing moving is a hint's pulsing glow.
+      const gap = !drag && !state.thinking && now >= redrawUntil && !state.lines.some((l) => l.mode !== 'idle' || l.flash > 0) ? 30 : 14;
+      if ((busy && now - lastDraw > gap) || now - lastDraw > 1000) { draw(); lastDraw = now; }
       // Pearl Rush: its countdown under the pearl count (when the second changes).
       const W = window.ArrowWallet;
       if (W && W.rushLeft() !== shownRush) showRush();
